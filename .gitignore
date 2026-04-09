@@ -1,0 +1,42 @@
+# Backend
+backend/node_modules/
+backend/dist/
+backend/.env
+backend/.env.local
+backend/.env.*.local
+
+# Backend - Logs
+backend/logs/
+backend/*.log
+backend/npm-debug.log*
+
+# Backend - Cache
+backend/.cache
+backend/.parcel-cache
+
+# Backend - IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Backend - OS files
+.DS_Store
+Thumbs.db
+
+# Frontend (when you add it)
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# Frontend - Cache
+frontend/.cache
+
+# General
+*.tmp
+*.temp
+.env
+.env.*
+!.env.example
