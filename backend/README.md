@@ -490,8 +490,3 @@ Please follow the [Conventional Commits](https://www.conventionalcommits.org/) s
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
----
-
-<div align="center">
-  Built with ❤️ using <a href="https://nestjs.com/">NestJS</a>
-</div>
