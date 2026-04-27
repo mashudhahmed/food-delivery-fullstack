@@ -15,32 +15,6 @@
 
 </div>
 
----
-
-## 📋 Table of Contents
-
-- [Features](#-features)
-- [Architecture](#-architecture)
-- [Tech Stack](#-tech-stack)
-- [Getting Started](#-getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Environment Setup](#environment-setup)
-  - [Running the App](#running-the-app)
-- [API Reference](#-api-reference)
-  - [Authentication](#authentication-auth)
-  - [Restaurants](#restaurants-restaurants)
-  - [Menu](#menu-restaurantsrestaurantidmenu)
-  - [Orders](#orders-orders)
-  - [Reviews](#reviews-reviews)
-- [Roles & Permissions](#-roles--permissions)
-- [Database Schema](#-database-schema)
-- [Email Notifications](#-email-notifications)
-- [Environment Variables](#-environment-variables)
-- [Known Issues & Improvements](#-known-issues--improvements)
-- [Contributing](#-contributing)
-
----
 
 ## ✨ Features
 
