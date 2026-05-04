@@ -11,6 +11,8 @@ import { DeliveryModule } from './delivery/delivery.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { MailModule } from './mail/mail.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -45,7 +47,9 @@ import { UploadsModule } from './uploads/uploads.module';
     DeliveryModule,
     ReviewsModule,
     MailModule,
-    UploadsModule
+    UploadsModule,
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
