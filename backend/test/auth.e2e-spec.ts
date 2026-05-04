@@ -29,6 +29,8 @@ describe('Auth (e2e)', () => {
         phone: '1234567890'
       });
 
+      
+
     expect(response.status).toBe(201);
   });
 });
