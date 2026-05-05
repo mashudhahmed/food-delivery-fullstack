@@ -6,9 +6,11 @@ import toast from 'react-hot-toast';
 
 interface Props {
   item: MenuItem;
+  restaurantName: string;
+  restaurantId: string;
 }
 
-export default function MenuItemCard({ item }: Props) {
+export default function MenuItemCard({ item, restaurantName, restaurantId }: Props) {
   const addItem = useCartStore((state) => state.addItem);
 
   const handleAddToCart = () => {
@@ -16,7 +18,7 @@ export default function MenuItemCard({ item }: Props) {
       toast.error('This item is currently unavailable');
       return;
     }
-    addItem(item, 1);
+    addItem(item, restaurantName, restaurantId, 1);
     toast.success(`Added ${item.name} to cart`);
   };
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { api } from '@/app/lib/api';
-import { Restaurant, MenuItem } from '@/app/types';
+import { Restaurant,MenuItem } from '@/app/types';
 import MenuItemCard from '@/components/MenuItemCard';
 import toast from 'react-hot-toast';
 
@@ -97,7 +97,12 @@ export default function RestaurantDetailPage() {
               <h3 className="text-xl font-semibold mb-4 text-orange-600">{category}</h3>
               <div className="space-y-3">
                 {items.map((item) => (
-                  <MenuItemCard key={item.id} item={item} />
+                  <MenuItemCard 
+                    key={item.id} 
+                    item={item} 
+                    restaurantName={restaurant.name}
+                    restaurantId={restaurant.id}
+                  />
                 ))}
               </div>
             </div>
