@@ -1,12 +1,13 @@
 import { NestFactory } from '@nestjs/core';
-import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { join } from 'path';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create(AppModule);
+  
+  // ✅ FIX 1: Add global prefix for all API routes
+  app.setGlobalPrefix('api');
   
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
@@ -16,13 +17,7 @@ async function bootstrap() {
   
   app.enableCors();
   
-
-    // Serve static files from uploads directory
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
-    prefix: '/uploads/',
-  });
-
-  // Swagger configuration
+  // ✅ FIX 2: Change Swagger path to avoid conflict with API routes
   const config = new DocumentBuilder()
     .setTitle('QuickBite Food Delivery API')
     .setDescription('RESTful API for food ordering, restaurant management, and delivery tracking')
@@ -36,11 +31,13 @@ async function bootstrap() {
     .build();
     
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup('api-docs', app, document);  // Changed from 'api' to 'api-docs'
   
-  const port = process.env.PORT || 3000;
+  // ✅ FIX 3: Change default port to avoid conflict with Next.js (3001)
+  const port = process.env.PORT || 3001;  // Changed from 3000 to 3001
   await app.listen(port);
-  console.log(`Application running on: http://localhost:${port}`);
-  console.log(`Swagger UI available at: http://localhost:${port}/api`);
+  console.log(`✅ Application running on: http://localhost:${port}`);
+  console.log(`📚 Swagger UI available at: http://localhost:${port}/api-docs`);
+  console.log(`🔗 API endpoints available at: http://localhost:${port}/api`);
 }
 bootstrap();

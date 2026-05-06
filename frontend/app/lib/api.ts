@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+console.log('🔗 API_URL:', API_URL); // temporary debug - remove later
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -54,10 +56,16 @@ export const auth = {
     window.location.href = '/login';
   },
   getCurrentUser: () => {
-    const userStr = localStorage.getItem('user');
-    return userStr ? JSON.parse(userStr) : null;
+    if (typeof window !== 'undefined') {
+      const userStr = localStorage.getItem('user');
+      return userStr ? JSON.parse(userStr) : null;
+    }
+    return null;
   },
   isAuthenticated: () => {
-    return !!localStorage.getItem('token');
+    if (typeof window !== 'undefined') {
+      return !!localStorage.getItem('token');
+    }
+    return false;
   },
 };
