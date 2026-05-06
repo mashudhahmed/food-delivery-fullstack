@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCartStore } from '../stores/cartStore';
 import { useRouter } from 'next/navigation';
-import { auth } from '../lib/auth';
+import { auth } from'../lib/auth';
 
 export default function CartPage() {
   const router = useRouter();

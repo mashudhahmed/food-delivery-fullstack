@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 interface Props {
   item: MenuItem;
   restaurantName: string;
-  restaurantId: string;
+  restaurantId: string;  // Keep this for validation if needed, but don't pass to cart
 }
 
 export default function MenuItemCard({ item, restaurantName, restaurantId }: Props) {
@@ -18,7 +18,8 @@ export default function MenuItemCard({ item, restaurantName, restaurantId }: Pro
       toast.error('This item is currently unavailable');
       return;
     }
-    addItem(item, restaurantName, restaurantId, 1);
+    // FIX: Remove restaurantId - only pass item, restaurantName, quantity
+    addItem(item, restaurantName, 1);
     toast.success(`Added ${item.name} to cart`);
   };
 

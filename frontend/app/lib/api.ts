@@ -30,3 +30,34 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Auth functions
+export const auth = {
+  login: async (data: { email: string; password: string }) => {
+    const response = await api.post('/auth/login', data);
+    return response.data;
+  },
+  register: async (data: {
+    fullName: string;
+    email: string;
+    password: string;
+    phone: string;
+    address?: string;
+    role?: string;
+  }) => {
+    const response = await api.post('/auth/register', data);
+    return response.data;
+  },
+  logout: () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+  },
+  getCurrentUser: () => {
+    const userStr = localStorage.getItem('user');
+    return userStr ? JSON.parse(userStr) : null;
+  },
+  isAuthenticated: () => {
+    return !!localStorage.getItem('token');
+  },
+};
