@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Restaurant } from '@/app/types';
+import { Star, Clock, Heart } from 'lucide-react';
 
 interface Props {
   restaurant: Restaurant;
@@ -10,28 +11,60 @@ interface Props {
 export default function RestaurantCard({ restaurant }: Props) {
   return (
     <Link href={`/restaurants/${restaurant.id}`}>
-      <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
-        <div className="h-48 bg-linear-to-r from-orange-400 to-orange-600 flex items-center justify-center">
-          <span className="text-6xl">🍔</span>
-        </div>
-        <div className="p-4">
-          <div className="flex justify-between items-start mb-2">
-            <h3 className="text-xl font-semibold text-gray-800">{restaurant.name}</h3>
-            <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded">
-              <span className="text-yellow-500">⭐</span>
-              <span className="text-sm font-medium">{restaurant.rating?.toFixed(1) || 'New'}</span>
+      <div className="group bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden">
+        {/* Image Section */}
+        <div className="relative h-40 overflow-hidden bg-linear-to-br from-orange-400 to-red-500">
+          {restaurant.imageUrl ? (
+            <img
+              src={restaurant.imageUrl}
+              alt={restaurant.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <span className="text-5xl">🍔</span>
+            </div>
+          )}
+          
+          {/* Favorite Button */}
+          <button className="absolute top-2 right-2 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition">
+            <Heart className="w-4 h-4 text-gray-500 hover:text-red-500" />
+          </button>
+          
+          {/* Delivery Time Badge */}
+          <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur-sm px-2 py-1 rounded-md">
+            <div className="flex items-center gap-1">
+              <Clock className="w-3 h-3 text-white" />
+              <span className="text-xs text-white font-medium">20-30 min</span>
             </div>
           </div>
-          <p className="text-gray-600 text-sm mb-2 line-clamp-2">{restaurant.description}</p>
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <span>{restaurant.cuisineType}</span>
-            <span>•</span>
-            <span className={restaurant.isOpen ? 'text-green-600' : 'text-red-600'}>
-              {restaurant.isOpen ? 'Open Now' : 'Closed'}
-            </span>
+        </div>
+
+        {/* Content Section */}
+        <div className="p-3">
+          <div className="flex justify-between items-start mb-1">
+            <h3 className="font-bold text-gray-800 group-hover:text-orange-500 transition-colors text-base">
+              {restaurant.name}
+            </h3>
+            <div className="flex items-center gap-1 bg-green-50 px-1.5 py-0.5 rounded">
+              <Star className="w-3 h-3 text-green-600 fill-green-600" />
+              <span className="text-xs font-semibold text-green-600">
+                {restaurant.rating?.toFixed(1) || '4.5'}
+              </span>
+            </div>
           </div>
-          <div className="mt-3 text-sm text-gray-500">
-            📍 {restaurant.address}
+          
+          <p className="text-gray-500 text-xs mb-2 line-clamp-1">
+            {restaurant.cuisineType} • {restaurant.isOpen ? 'Open' : 'Closed'}
+          </p>
+          
+          <p className="text-xs text-gray-400 line-clamp-1">
+            {restaurant.address}
+          </p>
+          
+          <div className="mt-2 flex items-center gap-1">
+            <span className="text-orange-500 font-bold text-sm">৳200</span>
+            <span className="text-gray-400 text-xs">for one</span>
           </div>
         </div>
       </div>

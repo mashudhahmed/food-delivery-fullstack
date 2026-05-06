@@ -8,6 +8,7 @@ export interface User {
 }
 
 export interface Restaurant {
+  createdAt: string | number | Date;
   id: string;
   name: string;
   description: string;
