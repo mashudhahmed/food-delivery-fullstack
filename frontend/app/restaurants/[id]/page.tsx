@@ -3,15 +3,23 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { api } from '@/app/lib/api';
-import { Restaurant,MenuItem } from '@/app/types';
+import { Restaurant, MenuItem } from '@/app/types';
 import MenuItemCard from '@/components/MenuItemCard';
 import toast from 'react-hot-toast';
+import { Star, MapPin, Phone, Clock } from 'lucide-react';
 
 export default function RestaurantDetailPage() {
   const { id } = useParams();
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Safe rating conversion function
+  const getRatingValue = (rating: any) => {
+    if (typeof rating === 'number') return rating;
+    if (typeof rating === 'string') return parseFloat(rating);
+    return 0;
+  };
 
   useEffect(() => {
     fetchRestaurantDetails();
@@ -49,6 +57,8 @@ export default function RestaurantDetailPage() {
     );
   }
 
+  const ratingNumber = getRatingValue(restaurant.rating);
+
   // Group menu items by category
   const groupedItems = menuItems.reduce((acc, item) => {
     if (!acc[item.category]) acc[item.category] = [];
@@ -68,8 +78,10 @@ export default function RestaurantDetailPage() {
             <div>
               <h1 className="text-3xl font-bold text-gray-800">{restaurant.name}</h1>
               <div className="flex items-center gap-2 mt-2">
-                <span className="text-yellow-500">⭐</span>
-                <span>{restaurant.rating?.toFixed(1) || 'New'}</span>
+                <div className="flex items-center gap-1">
+                  <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
+                  <span className="font-semibold text-gray-700">{ratingNumber.toFixed(1)}</span>
+                </div>
                 <span className="text-gray-400">•</span>
                 <span className={restaurant.isOpen ? 'text-green-600' : 'text-red-600'}>
                   {restaurant.isOpen ? 'Open Now' : 'Closed'}
@@ -82,7 +94,10 @@ export default function RestaurantDetailPage() {
             </div>
           </div>
           <p className="text-gray-600 mb-4">{restaurant.description}</p>
-          <div className="text-sm text-gray-500">📍 {restaurant.address}</div>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <MapPin className="w-4 h-4" />
+            <span>{restaurant.address}</span>
+          </div>
         </div>
       </div>
 

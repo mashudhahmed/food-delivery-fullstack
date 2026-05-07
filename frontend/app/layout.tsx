@@ -2,13 +2,12 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'react-hot-toast';
-import HomeNavbar from '@/components/HomeNavbar';
-import MainNavbar from '@/components/MainNavbar';
+import NavbarSelector from '@/components/NavbarSelector';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'foodpanda - Food Delivery',
+  title: 'QuickBite',
   description: 'Order food from your favorite restaurants',
 };
 
@@ -20,8 +19,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <HomeNavbar />
-        <MainNavbar />
+        <NavbarSelector />
         <main>{children}</main>
         <Toaster position="top-right" />
       </body>
