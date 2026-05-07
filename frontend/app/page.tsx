@@ -120,12 +120,12 @@ export default function HomePage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex gap-6">
-          {/* Left Sidebar - Fixed Position with Proper Navbar Offset */}
-<aside className="hidden lg:block w-60 shrink-0">
-  <div className="sticky top-32 max-h-[calc(100vh-140px)] overflow-y-auto">
-    <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-      {/* Filter Header */}
-      <div className="p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
+        {/* Left Sidebar - Fixed Position with Internal Scroll */}
+<aside className="hidden lg:block w-64 shrink-0">
+  <div className="fixed w-64 top-38 bottom-4">
+    <div className="bg-white rounded-xl shadow-md border border-gray-200 h-full flex flex-col overflow-hidden">
+      {/* Filter Header - Sticky at top */}
+      <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-white z-10 shrink-0">
         <div className="flex items-center gap-2">
           <SlidersHorizontal className="w-5 h-5 text-gray-600" />
           <h2 className="font-semibold text-gray-800">Filters</h2>
@@ -142,7 +142,8 @@ export default function HomePage() {
         )}
       </div>
 
-      <div className="p-5 space-y-6">
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-y-scroll overflow-x-hidden p-5 space-y-6">
         {/* Sort By */}
         <div>
           <h3 className="font-semibold text-gray-800 mb-3">Sort by</h3>
@@ -222,7 +223,7 @@ export default function HomePage() {
             />
           </div>
 
-          {/* Filtered Cuisines List - No Scroll */}
+          {/* Filtered Cuisines List */}
           <div className="space-y-2">
             {filteredCuisines.slice(0, showAllCuisines ? undefined : 6).map((cuisine) => (
               <label key={cuisine} className="flex items-center gap-3 cursor-pointer py-1 hover:bg-gray-50 rounded px-1 transition">
@@ -296,7 +297,6 @@ export default function HomePage() {
     </div>
   </div>
 </aside>
-
           {/* Mobile Filter Button */}
           <button
             onClick={() => setIsFilterOpen(!isFilterOpen)}
@@ -346,7 +346,7 @@ export default function HomePage() {
                   <div>
                     <h3 className="font-semibold text-gray-800 mb-3">Price</h3>
                     <div className="flex gap-2">
-                      {['$', '$$', '$$$', '$$$$'].map((price) => (
+                      {['$', '$$', '$$$'].map((price) => (
                         <button
                           key={price}
                           onClick={() => setFilters({ ...filters, price: filters.price === price ? '' : price })}
