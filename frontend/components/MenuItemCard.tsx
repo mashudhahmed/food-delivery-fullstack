@@ -4,7 +4,7 @@ import { useCartStore } from '@/app/stores/cartStore';
 import { MenuItem } from '@/app/types';
 import toast from 'react-hot-toast';
 import { Plus, Minus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface Props {
   item: MenuItem;
@@ -13,23 +13,32 @@ interface Props {
 }
 
 export default function MenuItemCard({ item, restaurantName, restaurantId }: Props) {
-  const addItem = useCartStore((state) => state.addItem);
+  const { items, addItem, removeItem, updateQuantity } = useCartStore();
   const [quantity, setQuantity] = useState(0);
+
+  // Sync quantity with cart store
+  useEffect(() => {
+    const cartItem = items.find(i => i.id === item.id);
+    setQuantity(cartItem?.quantity || 0);
+  }, [items, item.id]);
 
   const handleAddToCart = () => {
     if (!item.isAvailable) {
       toast.error('This item is currently unavailable');
       return;
     }
-    setQuantity(prev => prev + 1);
     addItem(item, restaurantName, 1);
     toast.success(`Added ${item.name} to cart`);
   };
 
   const handleRemoveFromCart = () => {
     if (quantity > 0) {
-      setQuantity(prev => prev - 1);
-      toast.success(`Removed ${item.name} from cart`);
+      if (quantity === 1) {
+        removeItem(item.id);
+      } else {
+        updateQuantity(item.id, quantity - 1);
+      }
+      toast.success(`Removed 1 ${item.name} from cart`);
     }
   };
 

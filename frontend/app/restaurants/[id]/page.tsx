@@ -1,22 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/app/lib/api';
 import { Restaurant, MenuItem } from '@/app/types';
 import MenuItemCard from '@/components/MenuItemCard';
 import toast from 'react-hot-toast';
-import { Star, MapPin, Phone, Clock, ChevronRight, Search, Info, ShoppingBag, Truck } from 'lucide-react';
+import { Star, MapPin, Phone, Clock, ChevronRight, Search, Info, ShoppingBag, Truck, Minus, Plus, Trash2 } from 'lucide-react';
 import { useCartStore } from '@/app/stores/cartStore';
 
 export default function RestaurantDetailPage() {
   const { id } = useParams();
+  const router = useRouter();
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const { items, getTotalPrice } = useCartStore();
+  const { items, addItem, removeItem, updateQuantity, getTotalPrice } = useCartStore();
 
   // Safe rating conversion function
   const getRatingValue = (rating: any) => {
@@ -45,6 +46,22 @@ export default function RestaurantDetailPage() {
     }
   };
 
+  const handleUpdateQuantity = (itemId: string, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      removeItem(itemId);
+    } else {
+      updateQuantity(itemId, newQuantity);
+    }
+  };
+
+  const handleCheckout = () => {
+    if (items.length === 0) {
+      toast.error('Your cart is empty');
+      return;
+    }
+    router.push('/checkout');
+  };
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -63,8 +80,9 @@ export default function RestaurantDetailPage() {
 
   const ratingNumber = getRatingValue(restaurant.rating);
   const subtotal = getTotalPrice();
-  const deliveryFee = 50;
-  const total = subtotal + deliveryFee;
+  const platformFee = 20;
+  const deliveryFee = items.length > 0 ? 50 : 0;
+  const total = subtotal + platformFee + deliveryFee;
 
   // Group menu items by category
   const groupedItems = menuItems.reduce((acc, item) => {
@@ -227,65 +245,102 @@ export default function RestaurantDetailPage() {
             )}
           </div>
 
-          {/* Sticky Payment Card - Only visible when there are items */}
+          {/* Sticky Payment Card - Fixed Size with Internal Scroll */}
           {items.length > 0 && (
-            <div className="lg:w-80 shrink-0">
+            <div className="lg:w-96 shrink-0">
               <div className="sticky top-24">
-                <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-                  {/* Free Delivery Banner */}
-                  <div className="bg-green-50 p-3 text-center border-b border-gray-100">
-                    <p className="text-green-700 text-sm font-medium flex items-center justify-center gap-2">
-                      <Truck className="w-4 h-4" />
-                      Free delivery on your first order
-                    </p>
-                  </div>
-
-                  {/* Cart Items Summary */}
-                  <div className="p-4 max-h-80 overflow-y-auto">
-                    <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                      <ShoppingBag className="w-4 h-4 text-orange-500" />
-                      Your Order
+                {/* Fixed size card - 500px height */}
+                <div className="bg-white rounded-xl shadow-lg border border-gray-200 h-125 flex flex-col overflow-hidden">
+                  {/* Header - Fixed */}
+                  <div className="p-4 border-b border-gray-100 shrink-0">
+                    <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                      <ShoppingBag className="w-5 h-5 text-orange-500" />
+                      Your items
                     </h3>
-                    
-                    <div className="space-y-3">
-                      {items.map((item) => (
-                        <div key={item.id} className="flex justify-between text-sm">
-                          <div>
-                            <span className="font-medium text-gray-800">{item.quantity}x</span>
-                            <span className="text-gray-600 ml-1">{item.name}</span>
-                          </div>
-                          <span className="text-gray-800">৳{(item.price * item.quantity).toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
                   </div>
 
-                  {/* Price Summary */}
-                  <div className="border-t border-gray-100 p-4 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Subtotal</span>
-                      <span className="text-gray-800">৳{subtotal.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Delivery fee</span>
-                      <span className="text-gray-800">৳{deliveryFee.toFixed(2)}</span>
-                    </div>
-                    <div className="border-t border-gray-100 pt-2 mt-2">
-                      <div className="flex justify-between font-bold">
-                        <span className="text-gray-900">Total (incl. fees and tax)</span>
-                        <span className="text-orange-600">৳{total.toFixed(2)}</span>
+                  {/* Cart Items - Scrollable (takes remaining space) */}
+                  <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+                    {items.map((item) => (
+                      <div key={item.id} className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-800">{item.name}</h4>
+                            <p className="text-orange-600 font-bold text-sm mt-1">
+                              ৳{item.price}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                              className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="w-8 text-center text-sm font-medium">
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                              className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => removeItem(item.id)}
+                              className="ml-1 text-red-500 hover:text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Price Section - Fixed at bottom */}
+                  <div className="shrink-0">
+                    <div className="p-4 border-t border-gray-100 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Subtotal</span>
+                        <span className="text-gray-800">৳{subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Platform Fee</span>
+                        <span className="text-gray-800">৳{platformFee.toFixed(2)}</span>
+                      </div>
+
+                      {/* Cutlery Option */}
+                      <div className="pt-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="text-sm text-gray-600">Cutlery</span>
+                            <p className="text-xs text-gray-400">No cutlery provided. Thanks for reducing waste!</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Total */}
+                      <div className="border-t border-gray-100 pt-3 mt-2">
+                        <div className="flex justify-between font-bold">
+                          <span className="text-gray-900">Total (incl. fees and tax)</span>
+                          <span className="text-orange-600">৳{total.toFixed(2)}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Checkout Button */}
-                  <div className="p-4 border-t border-gray-100">
-                    <button className="w-full bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition">
-                      Review payment and address
-                    </button>
-                    <button className="w-full mt-2 text-sm text-gray-500 hover:text-orange-500 transition">
-                      See summary
-                    </button>
+                    {/* Action Buttons */}
+                    <div className="p-4 border-t border-gray-100 space-y-2">
+                      <button
+                        onClick={handleCheckout}
+                        className="w-full bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition"
+                      >
+                        Review payment and address
+                      </button>
+                      <button className="w-full text-sm text-gray-500 hover:text-orange-500 transition text-center">
+                        See summary
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
