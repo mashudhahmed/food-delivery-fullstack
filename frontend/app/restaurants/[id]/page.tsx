@@ -6,8 +6,8 @@ import { api } from '@/app/lib/api';
 import { Restaurant, MenuItem } from '@/app/types';
 import MenuItemCard from '@/components/MenuItemCard';
 import toast from 'react-hot-toast';
-import { Star, MapPin, Phone, Clock, ChevronRight, Search, Info } from 'lucide-react';
-import Image from 'next/image';
+import { Star, MapPin, Phone, Clock, ChevronRight, Search, Info, ShoppingBag, Truck } from 'lucide-react';
+import { useCartStore } from '@/app/stores/cartStore';
 
 export default function RestaurantDetailPage() {
   const { id } = useParams();
@@ -16,6 +16,7 @@ export default function RestaurantDetailPage() {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const { items, getTotalPrice } = useCartStore();
 
   // Safe rating conversion function
   const getRatingValue = (rating: any) => {
@@ -61,6 +62,9 @@ export default function RestaurantDetailPage() {
   }
 
   const ratingNumber = getRatingValue(restaurant.rating);
+  const subtotal = getTotalPrice();
+  const deliveryFee = 50;
+  const total = subtotal + deliveryFee;
 
   // Group menu items by category
   const groupedItems = menuItems.reduce((acc, item) => {
@@ -99,7 +103,7 @@ export default function RestaurantDetailPage() {
         </div>
 
         {/* Restaurant Header with Image on Left */}
-        <div className="flex flex-col md:flex-row gap-6 mb-6">
+        <div className="flex flex-col md:flex-row gap-6 mb-8">
           {/* Restaurant Image */}
           <div className="md:w-48 h-48 rounded-xl overflow-hidden bg-linear-to-r from-orange-400 to-orange-600 shrink-0">
             {restaurant.imageUrl ? (
@@ -162,8 +166,13 @@ export default function RestaurantDetailPage() {
           </div>
         </div>
 
-        {/* Search Bar and Categories - Same Row (No Gap) */}
-        <div className="flex flex-col md:flex-row md:items-center gap-4">
+        {/* Menu Section Header */}
+        <div className="mb-4">
+          <h2 className="text-2xl font-bold text-gray-800">Menu</h2>
+        </div>
+
+        {/* Search Bar + Categories - Same Row */}
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
           {/* Search Bar - Left side */}
           <div className="relative max-w-md w-full md:w-auto">
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -176,7 +185,7 @@ export default function RestaurantDetailPage() {
             />
           </div>
 
-          {/* Category Tabs - No padding */}
+          {/* Category Tabs - Right side (scrollable) */}
           <div className="overflow-x-auto">
             <div className="flex gap-2 min-w-max">
               {categories.map((category) => (
@@ -196,23 +205,93 @@ export default function RestaurantDetailPage() {
           </div>
         </div>
 
-        {/* Menu Items List */}
-        {filteredItems.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            No menu items found
+        {/* Menu Items Section with Payment Card Sidebar */}
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Menu Items - 2 Column Grid */}
+          <div className="flex-1">
+            {filteredItems.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                No menu items found
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredItems.map((item) => (
+                  <MenuItemCard 
+                    key={item.id} 
+                    item={item} 
+                    restaurantName={restaurant.name}
+                    restaurantId={restaurant.id}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="space-y-3 mt-4">
-            {filteredItems.map((item) => (
-              <MenuItemCard 
-                key={item.id} 
-                item={item} 
-                restaurantName={restaurant.name}
-                restaurantId={restaurant.id}
-              />
-            ))}
-          </div>
-        )}
+
+          {/* Sticky Payment Card - Only visible when there are items */}
+          {items.length > 0 && (
+            <div className="lg:w-80 shrink-0">
+              <div className="sticky top-24">
+                <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                  {/* Free Delivery Banner */}
+                  <div className="bg-green-50 p-3 text-center border-b border-gray-100">
+                    <p className="text-green-700 text-sm font-medium flex items-center justify-center gap-2">
+                      <Truck className="w-4 h-4" />
+                      Free delivery on your first order
+                    </p>
+                  </div>
+
+                  {/* Cart Items Summary */}
+                  <div className="p-4 max-h-80 overflow-y-auto">
+                    <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                      <ShoppingBag className="w-4 h-4 text-orange-500" />
+                      Your Order
+                    </h3>
+                    
+                    <div className="space-y-3">
+                      {items.map((item) => (
+                        <div key={item.id} className="flex justify-between text-sm">
+                          <div>
+                            <span className="font-medium text-gray-800">{item.quantity}x</span>
+                            <span className="text-gray-600 ml-1">{item.name}</span>
+                          </div>
+                          <span className="text-gray-800">৳{(item.price * item.quantity).toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Price Summary */}
+                  <div className="border-t border-gray-100 p-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Subtotal</span>
+                      <span className="text-gray-800">৳{subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Delivery fee</span>
+                      <span className="text-gray-800">৳{deliveryFee.toFixed(2)}</span>
+                    </div>
+                    <div className="border-t border-gray-100 pt-2 mt-2">
+                      <div className="flex justify-between font-bold">
+                        <span className="text-gray-900">Total (incl. fees and tax)</span>
+                        <span className="text-orange-600">৳{total.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Checkout Button */}
+                  <div className="p-4 border-t border-gray-100">
+                    <button className="w-full bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition">
+                      Review payment and address
+                    </button>
+                    <button className="w-full mt-2 text-sm text-gray-500 hover:text-orange-500 transition">
+                      See summary
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
