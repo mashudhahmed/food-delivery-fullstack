@@ -52,6 +52,29 @@ export default function LocationModal({ isOpen, onClose }: LocationModalProps) {
   
   const { addAddress, setSelectedAddress: setStoreAddress } = useAddressStore();
 
+  // Handle ESC key press to close modal
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isOpen, onClose]);
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen) {
       setStep('search');
@@ -92,7 +115,6 @@ export default function LocationModal({ isOpen, onClose }: LocationModalProps) {
         setSelectedLat(latitude);
         setSelectedLng(longitude);
         
-        // Reverse geocode to get address
         const response = await fetch(
           `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
         );
@@ -147,17 +169,31 @@ export default function LocationModal({ isOpen, onClose }: LocationModalProps) {
     onClose();
   };
 
+  // Handle click outside to close
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-      <div className="bg-white rounded-2xl w-full max-w-md mx-4 overflow-hidden">
+    <div 
+      className="fixed inset-0 bg-black/50 z-100 flex items-center justify-center"
+      onClick={handleBackdropClick}
+    >
+      <div className="bg-white rounded-2xl w-full max-w-md mx-4 overflow-hidden shadow-xl">
         {/* Header */}
         <div className="p-4 border-b border-gray-100 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-800">
             {step === 'search' ? 'Your delivery address' : 'Select on map'}
           </h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full transition">
+          <button 
+            onClick={onClose} 
+            className="p-1 hover:bg-gray-100 rounded-full transition"
+            aria-label="Close"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -250,10 +286,10 @@ export default function LocationModal({ isOpen, onClose }: LocationModalProps) {
                   style={{ height: '100%', width: '100%' }}
                   scrollWheelZoom={true}
                 >
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  />
+                 <TileLayer
+  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
+/>
                   <Marker
                     position={[selectedLat, selectedLng]}
                     draggable={true}
@@ -264,7 +300,6 @@ export default function LocationModal({ isOpen, onClose }: LocationModalProps) {
                         setSelectedLat(position.lat);
                         setSelectedLng(position.lng);
                         
-                        // Reverse geocode to get address
                         const response = await fetch(
                           `https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.lat}&lon=${position.lng}`
                         );
