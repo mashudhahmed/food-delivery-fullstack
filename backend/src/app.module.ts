@@ -13,6 +13,7 @@ import { MailModule } from './mail/mail.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { AppService } from './app.service';
     ReviewsModule,
     MailModule,
     UploadsModule,
+    AdminModule
   ],
   controllers: [AppController],
   providers: [AppService],

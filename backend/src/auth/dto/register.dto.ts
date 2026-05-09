@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsEnum, IsOptional } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsEnum, IsOptional, IsPhoneNumber } from 'class-validator';
 import { UserRole } from '../../users/entities/user.entity';
 
 export class RegisterDto {
@@ -13,7 +13,7 @@ export class RegisterDto {
   @MinLength(6)
   password!: string;
 
-  @IsString()
+  @IsPhoneNumber()
   phone!: string;
 
   @IsOptional()
@@ -23,4 +23,34 @@ export class RegisterDto {
   @IsEnum(UserRole)
   @IsOptional()
   role?: UserRole;
+
+  // For restaurant owners
+  @IsOptional()
+  @IsString()
+  businessName?: string;
+
+  @IsOptional()
+  @IsString()
+  businessAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  taxId?: string;
+
+  // For delivery agents
+  @IsOptional()
+  @IsString()
+  nidNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  vehicleType?: string;
+
+  @IsOptional()
+  @IsString()
+  vehicleNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  drivingLicense?: string;
 }

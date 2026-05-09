@@ -11,6 +11,13 @@ export enum UserRole {
   ADMIN = 'admin',
 }
 
+export enum UserStatus {
+  PENDING = 'pending',      // Waiting for admin approval
+  APPROVED = 'approved',    // Approved
+  REJECTED = 'rejected',    // Rejected
+  SUSPENDED = 'suspended',  // Temporarily suspended
+}
+
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -35,9 +42,48 @@ export class User {
   })
   role: UserRole;
 
+  @Column({
+    type: 'enum',
+    enum: UserStatus,
+    default: UserStatus.APPROVED,
+  })
+  status: UserStatus;
+
+  // For restaurant owners
+  @Column({ nullable: true })
+  businessName: string;
+
+  @Column({ nullable: true })
+  businessAddress: string;
+
+  @Column({ nullable: true })
+  taxId: string;
+
+  // For delivery agents
+  @Column({ nullable: true })
+  nidNumber: string;
+
+  @Column({ nullable: true })
+  vehicleType: string;
+
+  @Column({ nullable: true })
+  vehicleNumber: string;
+
+  @Column({ nullable: true })
+  drivingLicense: string;
+
   @Exclude()
   @Column()
   passwordHash: string;
+
+  @Column({ nullable: true })
+  approvedAt: Date;
+
+  @Column({ nullable: true })
+  approvedBy: string;
+
+  @Column({ nullable: true })
+  rejectionReason: string;
 
   @CreateDateColumn()
   createdAt: Date;

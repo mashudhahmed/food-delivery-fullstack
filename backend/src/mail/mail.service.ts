@@ -4,9 +4,16 @@ import * as nodemailer from 'nodemailer';
 import { Transporter } from 'nodemailer';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { Review } from '../reviews/entities/review.entity';
+import { UserRole } from '../users/entities/user.entity';
 
 @Injectable()
 export class MailService {
+  sendApprovalEmail(email: string, fullName: string, role: UserRole, notes: string) {
+      throw new Error('Method not implemented.');
+  }
+  sendRejectionEmail(email: string, fullName: string, reason: string) {
+      throw new Error('Method not implemented.');
+  }
   private transporter: Transporter;
 
   constructor(private configService: ConfigService) {

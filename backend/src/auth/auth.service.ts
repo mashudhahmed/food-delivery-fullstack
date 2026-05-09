@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { User, UserRole } from '../users/entities/user.entity';
+import { User, UserRole, UserStatus } from '../users/entities/user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
@@ -26,20 +26,31 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
+    // Determine status based on role
+    let status = UserStatus.APPROVED;
+    if (registerDto.role === UserRole.OWNER || registerDto.role === UserRole.AGENT) {
+      status = UserStatus.PENDING;
+    }
+
     const user = this.userRepository.create({
       ...registerDto,
       passwordHash: hashedPassword,
       role: registerDto.role || UserRole.CUSTOMER,
+      status,
     });
 
     await this.userRepository.save(user);
 
-    const token = this.generateToken(user);
+    // Only generate token for auto-approved users
+    const token = status === UserStatus.APPROVED ? this.generateToken(user) : null;
 
     return {
-      message: 'User registered successfully',
+      message: status === UserStatus.PENDING 
+        ? 'Your application has been submitted. Please wait for admin approval.'
+        : 'User registered successfully',
       user: this.excludePassword(user),
       token,
+      requiresApproval: status === UserStatus.PENDING,
     };
   }
 
@@ -50,6 +61,19 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Check if user is approved (for owners/agents)
+    if (user.role !== UserRole.CUSTOMER && user.status !== UserStatus.APPROVED) {
+      if (user.status === UserStatus.PENDING) {
+        throw new UnauthorizedException('Your account is pending admin approval. Please wait.');
+      }
+      if (user.status === UserStatus.REJECTED) {
+        throw new UnauthorizedException('Your application has been rejected. Contact support.');
+      }
+      if (user.status === UserStatus.SUSPENDED) {
+        throw new UnauthorizedException('Your account has been suspended. Contact support.');
+      }
     }
 
     const isPasswordValid = await bcrypt.compare(loginDto.password, user.passwordHash);
@@ -76,7 +100,7 @@ export class AuthService {
   }
 
   private generateToken(user: User) {
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = { sub: user.id, email: user.email, role: user.role, status: user.status };
     return this.jwtService.sign(payload);
   }
 

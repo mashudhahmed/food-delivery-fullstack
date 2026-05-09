@@ -1,0 +1,59 @@
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from '../app.module';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User, UserRole, UserStatus } from '../users/entities/user.entity';
+import * as bcrypt from 'bcryptjs';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+async function bootstrap() {
+  const app = await NestFactory.createApplicationContext(AppModule);
+  const userRepository = app.get<Repository<User>>(getRepositoryToken(User));
+
+  // Read from environment variables
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  const adminName = process.env.ADMIN_NAME || 'Super Admin';
+
+  // Validate environment variables exist
+  if (!adminEmail || !adminPassword) {
+    console.error('❌ Missing required environment variables:');
+    console.error('   ADMIN_EMAIL and ADMIN_PASSWORD must be set in .env file');
+    process.exit(1);
+  }
+
+  // Check if admin already exists
+  const existingAdmin = await userRepository.findOne({ 
+    where: { email: adminEmail } 
+  });
+  
+  if (existingAdmin) {
+    console.log('✅ Admin already exists');
+    await app.close();
+    return;
+  }
+
+  const hashedPassword = await bcrypt.hash(adminPassword, 10);
+
+  const admin = userRepository.create({
+    fullName: adminName,
+    email: adminEmail,
+    phone: '+880000000000',
+    address: 'System Administrator',
+    passwordHash: hashedPassword,
+    role: UserRole.ADMIN,
+    status: UserStatus.APPROVED,
+  });
+
+  await userRepository.save(admin);
+
+  console.log('\n✅ Admin created successfully!');
+  console.log('📧 Email:', adminEmail);
+  console.log('⚠️  Please change your password after first login.\n');
+
+  await app.close();
+}
+
+bootstrap();

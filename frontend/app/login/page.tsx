@@ -23,7 +23,24 @@ export default function LoginPage() {
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
       toast.success('Login successful!');
-      router.push('/');
+      
+      // Role-based redirection
+      const userRole = response.user.role;
+      
+      switch (userRole) {
+        case 'admin':
+          router.push('/admin/dashboard');
+          break;
+        case 'owner':
+          router.push('/owner/dashboard');
+          break;
+        case 'agent':
+          router.push('/agent/dashboard');
+          break;
+        default:
+          router.push('/');
+          break;
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Login failed');
     } finally {
