@@ -24,8 +24,10 @@ import {
 } from 'lucide-react';
 import { auth } from '@/app/lib/api';
 import { useCartStore } from '@/app/stores/cartStore';
+import { useAddressStore } from '@/app/stores/addressStore';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
+import LocationModal from './LocationModal';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -39,6 +41,9 @@ export default function Navbar() {
   
   const cartItems = useCartStore((state) => state.items);
   const cartItemsCount = cartItems.reduce((total, item) => total + item.quantity, 0);
+  
+  // Address store
+  const { selectedAddress, setIsLocationModalOpen, isLocationModalOpen } = useAddressStore();
 
   // Check page types
   const isAuthPage = pathname === '/login' || pathname === '/register';
@@ -116,6 +121,12 @@ export default function Navbar() {
   if (isHomePage) {
     return (
       <>
+        {/* Location Modal */}
+        <LocationModal 
+          isOpen={isLocationModalOpen} 
+          onClose={() => setIsLocationModalOpen(false)} 
+        />
+
         {/* Main Header */}
         <div className="bg-white shadow-sm sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4">
@@ -129,12 +140,19 @@ export default function Navbar() {
               </Link>
 
               {/* Address Selector */}
-              <div className="hidden lg:flex items-center gap-2 bg-gray-100 px-4 py-2.5 rounded-full cursor-pointer hover:bg-gray-200 transition border border-gray-200">
+              <button
+                onClick={() => setIsLocationModalOpen(true)}
+                className="hidden lg:flex items-center gap-2 bg-gray-100 px-4 py-2.5 rounded-full hover:bg-gray-200 transition border border-gray-200"
+              >
                 <MapPin className="w-4 h-4 text-orange-500" />
-                <span className="text-sm font-medium text-gray-700">New address</span>
-                <span className="text-sm text-gray-500">Select your address</span>
+                <span className="text-sm font-medium text-gray-700">
+                  {selectedAddress ? selectedAddress.area || selectedAddress.name : 'New address'}
+                </span>
+                <span className="text-sm text-gray-500">
+                  {selectedAddress ? selectedAddress.city : 'Select your address'}
+                </span>
                 <ChevronDown className="w-4 h-4 text-gray-400" />
-              </div>
+              </button>
 
               {/* Right Actions */}
               <div className="flex items-center gap-3">
@@ -279,6 +297,26 @@ export default function Navbar() {
         {isMobileMenuOpen && (
           <div className="md:hidden fixed inset-0 top-34 bg-white z-40 overflow-auto border-t">
             <div className="p-4 space-y-4">
+              {/* Mobile Address Selector */}
+              <button
+                onClick={() => {
+                  setIsLocationModalOpen(true);
+                  setIsMobileMenuOpen(false);
+                }}
+                className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 w-full"
+              >
+                <MapPin className="w-5 h-5 text-orange-500" />
+                <div className="text-left">
+                  <p className="text-sm font-medium text-gray-800">
+                    {selectedAddress ? selectedAddress.area || selectedAddress.name : 'Select address'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {selectedAddress ? selectedAddress.city : 'Choose delivery location'}
+                  </p>
+                </div>
+                <ChevronDown className="w-4 h-4 text-gray-400 ml-auto" />
+              </button>
+
               {roleBasedLinks.map((link) => (
                 <Link
                   key={link.href}
@@ -308,13 +346,150 @@ export default function Navbar() {
   // ========== RESTAURANT DETAIL PAGE NAVBAR ==========
   if (isRestaurantPage) {
     return (
-      <div className="bg-white shadow-sm sticky top-0 z-50">
+      <>
+        <LocationModal 
+          isOpen={isLocationModalOpen} 
+          onClose={() => setIsLocationModalOpen(false)} 
+        />
+        <div className="bg-white shadow-sm sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="flex items-center justify-between h-16">
+              <Link href="/" className="flex items-center gap-2">
+                <Image src="/logo.png" alt="QuickBite" width={32} height={32} className="w-8 h-8 object-contain" />
+                <span className="text-xl font-bold text-orange-500 hidden sm:block">QuickBite</span>
+              </Link>
+
+              <div className="flex items-center gap-3">
+                {/* Cart Icon */}
+                {isAuthenticated && user?.role === 'customer' && (
+                  <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition">
+                    <ShoppingBag className="w-5 h-5 text-gray-600" />
+                    {cartItemsCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {cartItemsCount}
+                      </span>
+                    )}
+                  </Link>
+                )}
+
+                {/* User Menu */}
+                {isAuthenticated ? (
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsProfileOpen(!isProfileOpen)}
+                      className="flex items-center gap-2 text-sm font-medium hover:text-orange-500 transition"
+                    >
+                      <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                        <User className="w-4 h-4 text-orange-600" />
+                      </div>
+                      <span className="hidden sm:inline">{user?.fullName?.split(' ')[0]}</span>
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+
+                    {isProfileOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} />
+                        <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border py-2 z-50">
+                          {roleBasedLinks.map((link) => (
+                            <Link
+                              key={link.href}
+                              href={link.href}
+                              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              onClick={() => setIsProfileOpen(false)}
+                            >
+                              <link.icon className="w-4 h-4" />
+                              {link.label}
+                            </Link>
+                          ))}
+                          <hr className="my-1" />
+                          <button
+                            onClick={handleLogout}
+                            className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            Logout
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-orange-500">
+                      Log in
+                    </Link>
+                    <Link
+                      href="/register"
+                      className="bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-orange-600 transition"
+                    >
+                      Sign up
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // ========== DASHBOARD NAVBAR (Minimal) ==========
+  if (isDashboardPage) {
+    return (
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            <Link href="/" className="flex items-center gap-2">
+              <Image src="/logo.png" alt="QuickBite" width={32} height={32} className="w-8 h-8 object-contain" />
+              <span className="text-xl font-bold text-orange-500">QuickBite</span>
+            </Link>
+
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-600 capitalize">
+                {user?.role === 'admin' ? 'Admin Panel' : user?.role === 'owner' ? 'Owner Panel' : 'Agent Panel'}
+              </span>
+              
+              <button onClick={handleLogout} className="text-sm text-red-500 hover:text-red-600">
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ========== DEFAULT NAVBAR (Other Pages) ==========
+  return (
+    <>
+      <LocationModal 
+        isOpen={isLocationModalOpen} 
+        onClose={() => setIsLocationModalOpen(false)} 
+      />
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <Link href="/" className="flex items-center gap-2">
               <Image src="/logo.png" alt="QuickBite" width={32} height={32} className="w-8 h-8 object-contain" />
               <span className="text-xl font-bold text-orange-500 hidden sm:block">QuickBite</span>
             </Link>
+
+            <div className="hidden md:flex items-center gap-6">
+              {roleBasedLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`text-sm font-medium transition ${
+                    pathname === link.href
+                      ? 'text-orange-500 border-b-2 border-orange-500 pb-1'
+                      : 'text-gray-700 hover:text-orange-500'
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
 
             <div className="flex items-center gap-3">
               {/* Cart Icon */}
@@ -347,6 +522,10 @@ export default function Navbar() {
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} />
                       <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border py-2 z-50">
+                        <div className="px-4 py-2 border-b">
+                          <p className="text-sm font-medium text-gray-800">{user?.fullName}</p>
+                          <p className="text-xs text-gray-500">{user?.email}</p>
+                        </div>
                         {roleBasedLinks.map((link) => (
                           <Link
                             key={link.href}
@@ -387,135 +566,6 @@ export default function Navbar() {
           </div>
         </div>
       </div>
-    );
-  }
-
-  // ========== DASHBOARD NAVBAR (Minimal) ==========
-  if (isDashboardPage) {
-    return (
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/" className="flex items-center gap-2">
-              <Image src="/logo.png" alt="QuickBite" width={32} height={32} className="w-8 h-8 object-contain" />
-              <span className="text-xl font-bold text-orange-500">QuickBite</span>
-            </Link>
-
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600 capitalize">
-                {user?.role === 'admin' ? 'Admin Panel' : user?.role === 'owner' ? 'Owner Panel' : 'Agent Panel'}
-              </span>
-              
-              <button onClick={handleLogout} className="text-sm text-red-500 hover:text-red-600">
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ========== DEFAULT NAVBAR (Other Pages) ==========
-  return (
-    <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="QuickBite" width={32} height={32} className="w-8 h-8 object-contain" />
-            <span className="text-xl font-bold text-orange-500 hidden sm:block">QuickBite</span>
-          </Link>
-
-          <div className="hidden md:flex items-center gap-6">
-            {roleBasedLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`text-sm font-medium transition ${
-                  pathname === link.href
-                    ? 'text-orange-500 border-b-2 border-orange-500 pb-1'
-                    : 'text-gray-700 hover:text-orange-500'
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Cart Icon */}
-            {isAuthenticated && user?.role === 'customer' && (
-              <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition">
-                <ShoppingBag className="w-5 h-5 text-gray-600" />
-                {cartItemsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {cartItemsCount}
-                  </span>
-                )}
-              </Link>
-            )}
-
-            {/* User Menu */}
-            {isAuthenticated ? (
-              <div className="relative">
-                <button
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
-                  className="flex items-center gap-2 text-sm font-medium hover:text-orange-500 transition"
-                >
-                  <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                    <User className="w-4 h-4 text-orange-600" />
-                  </div>
-                  <span className="hidden sm:inline">{user?.fullName?.split(' ')[0]}</span>
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-
-                {isProfileOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} />
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border py-2 z-50">
-                      <div className="px-4 py-2 border-b">
-                        <p className="text-sm font-medium text-gray-800">{user?.fullName}</p>
-                        <p className="text-xs text-gray-500">{user?.email}</p>
-                      </div>
-                      {roleBasedLinks.map((link) => (
-                        <Link
-                          key={link.href}
-                          href={link.href}
-                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                          onClick={() => setIsProfileOpen(false)}
-                        >
-                          <link.icon className="w-4 h-4" />
-                          {link.label}
-                        </Link>
-                      ))}
-                      <hr className="my-1" />
-                      <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        Logout
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-orange-500">
-                  Log in
-                </Link>
-                <Link
-                  href="/register"
-                  className="bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-orange-600 transition"
-                >
-                  Sign up
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+    </>
   );
 }

@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+/* frontend/app/globals.css */
+@import 'leaflet/dist/leaflet.css';
 
 :root {
   --font-sans: 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
@@ -33,4 +35,15 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-sans);
   font-weight: 600;
   letter-spacing: -0.02em;
+}
+
+
+
+/* Fix Leaflet marker icons */
+.leaflet-marker-icon {
+  filter: hue-rotate(10deg) brightness(1.1);
+}
+
+.leaflet-container {
+  z-index: 10;
 }

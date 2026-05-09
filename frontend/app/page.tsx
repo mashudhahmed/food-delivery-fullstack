@@ -6,7 +6,8 @@ import { api } from './lib/api';
 import { Restaurant } from './types';
 import RestaurantCard from '@/components/RestaurantCard';
 import toast from 'react-hot-toast';
-import { Filter, X, Star, Clock, SlidersHorizontal, ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { Filter, X, Star, Clock, SlidersHorizontal, ChevronDown, ChevronUp, Search, MapPin } from 'lucide-react';
+import { useAddressStore } from '@/app/stores/addressStore';
 
 export default function HomePage() {
   const searchParams = useSearchParams();
@@ -23,6 +24,9 @@ export default function HomePage() {
     minRating: '',
     price: '',
   });
+
+  // Address store for location
+  const { selectedAddress, setIsLocationModalOpen } = useAddressStore();
 
   // Get search query from URL
   const query = useSearchParams();
@@ -118,6 +122,30 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Location Banner - Shows selected address */}
+      {selectedAddress && (
+        <div className="bg-orange-50 border-b border-orange-100 px-4 py-2">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <MapPin className="w-4 h-4 text-orange-500" />
+              <span>Delivering to:</span>
+              <span className="font-medium text-gray-800">
+                {selectedAddress.area || selectedAddress.street || selectedAddress.city}
+              </span>
+              <button
+                onClick={() => setIsLocationModalOpen(true)}
+                className="text-orange-500 hover:underline text-sm ml-2"
+              >
+                Change
+              </button>
+            </div>
+            <div className="text-xs text-green-600">
+              Free delivery on first order
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Main flex container with items-start for sticky to work properly */}
         <div className="flex gap-6 items-start">
@@ -444,7 +472,9 @@ export default function HomePage() {
             {/* Results Info */}
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">Restaurants</h1>
+                <h1 className="text-2xl font-bold text-gray-800">
+                  {selectedAddress ? `Restaurants near ${selectedAddress.area || selectedAddress.city}` : 'Restaurants'}
+                </h1>
                 <p className="text-sm text-gray-500 mt-1">
                   {filteredRestaurants.length} restaurants found
                 </p>
@@ -469,7 +499,7 @@ export default function HomePage() {
               <div className="text-center py-16 bg-white rounded-xl shadow-sm">
                 <div className="text-6xl mb-4">🔍</div>
                 <h2 className="text-xl font-semibold text-gray-800 mb-2">No restaurants found</h2>
-                <p className="text-gray-500">Try adjusting your filters</p>
+                <p className="text-gray-500">Try adjusting your filters or change your location</p>
                 <button onClick={clearFilters} className="mt-4 text-orange-500 hover:underline">
                   Clear all filters
                 </button>
