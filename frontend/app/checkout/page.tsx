@@ -1,29 +1,38 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '../stores/cartStore';
 import { api } from '../lib/api';
-import { auth } from '../lib/auth';
+import { auth } from '../lib/api';
 import toast from 'react-hot-toast';
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, getTotalPrice, clearCart } = useCartStore();
-  const [loading, setLoading] = useState(false);
-  const [deliveryAddress, setDeliveryAddress] = useState('');
-
   const user = auth.getCurrentUser();
+  const [loading, setLoading] = useState(false);
+  const [deliveryAddress, setDeliveryAddress] = useState(user?.address || '');
   const restaurantId = items[0]?.restaurantId;
+  const subtotal = getTotalPrice();
+  const deliveryFee = 50;
+  const total = subtotal + deliveryFee;
+
+  // Redirect if cart is empty
+  useEffect(() => {
+    if (items.length === 0) {
+      router.push('/cart');
+    }
+  }, [items, router]);
 
   const handlePlaceOrder = async () => {
-    if (!deliveryAddress) {
+    if (!deliveryAddress.trim()) {
       toast.error('Please enter delivery address');
       return;
     }
 
     if (items.length === 0) {
-      toast.error('Cart is empty');
+      toast.error('Your cart is empty');
       return;
     }
 
@@ -51,8 +60,7 @@ export default function CheckoutPage() {
   };
 
   if (items.length === 0) {
-    router.push('/cart');
-    return null;
+    return null; // Will redirect via useEffect
   }
 
   return (
@@ -62,6 +70,7 @@ export default function CheckoutPage() {
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Order Details */}
         <div className="flex-1">
+          {/* Delivery Address */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">Delivery Address</h2>
             <textarea
@@ -70,15 +79,15 @@ export default function CheckoutPage() {
               placeholder="Enter your full delivery address"
               value={deliveryAddress}
               onChange={(e) => setDeliveryAddress(e.target.value)}
-              defaultValue={user?.address || ''}
             />
           </div>
 
+          {/* Order Items */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-semibold mb-4">Order Items</h2>
             <div className="space-y-3">
               {items.map((item) => (
-                <div key={item.id} className="flex justify-between">
+                <div key={item.id} className="flex justify-between py-2 border-b">
                   <div>
                     <span className="font-medium">{item.quantity}x</span> {item.name}
                   </div>
@@ -96,25 +105,25 @@ export default function CheckoutPage() {
             <div className="space-y-2 mb-4">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span>৳{getTotalPrice().toFixed(2)}</span>
+                <span>৳{subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Delivery Fee</span>
-                <span>৳50.00</span>
+                <span>৳{deliveryFee.toFixed(2)}</span>
               </div>
               <div className="border-t pt-2 mt-2">
                 <div className="flex justify-between font-bold">
                   <span>Total</span>
-                  <span>৳{(getTotalPrice() + 50).toFixed(2)}</span>
+                  <span>৳{total.toFixed(2)}</span>
                 </div>
               </div>
             </div>
             <button
               onClick={handlePlaceOrder}
               disabled={loading}
-              className="w-full bg-orange-600 text-white py-3 rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50"
+              className="w-full bg-orange-500 text-white py-3 rounded-md hover:bg-orange-600 transition-colors disabled:opacity-50"
             >
-              {loading ? 'Placing Order...' : `Place Order ৳${(getTotalPrice() + 50).toFixed(2)}`}
+              {loading ? 'Placing Order...' : `Place Order ৳${total.toFixed(2)}`}
             </button>
           </div>
         </div>

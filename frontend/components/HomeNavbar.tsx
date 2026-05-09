@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { MapPin, ChevronDown, User, Search, X, Globe, ShoppingBag } from 'lucide-react';
 import { auth } from '@/app/lib/api';
+import { useCartStore } from '@/app/stores/cartStore';
 import Image from 'next/image';
 
 export default function HomeNavbar() {
@@ -12,6 +13,10 @@ export default function HomeNavbar() {
   const [user, setUser] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [deliveryType, setDeliveryType] = useState('delivery');
+  
+  // Subscribe to cart store for real-time updates
+  const cartItems = useCartStore((state) => state.items);
+  const cartItemsCount = cartItems.reduce((total, item) => total + item.quantity, 0);
 
   useEffect(() => {
     setUser(auth.getCurrentUser());
@@ -54,10 +59,15 @@ export default function HomeNavbar() {
 
             {/* Right Actions */}
             <div className="flex items-center gap-4">
-              {/* Cart Icon - Non-clickable for unauthenticated users */}
+              {/* Cart Icon - With Badge for logged in users */}
               {user ? (
                 <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition cursor-pointer">
                   <ShoppingBag className="w-5 h-5 text-gray-600" />
+                  {cartItemsCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                      {cartItemsCount}
+                    </span>
+                  )}
                 </Link>
               ) : (
                 <div className="relative p-2 rounded-full cursor-not-allowed opacity-50">

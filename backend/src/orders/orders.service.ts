@@ -22,12 +22,13 @@ export class OrdersService {
   ) {}
 
   async createOrder(customerId: string, createOrderDto: CreateOrderDto) {
+    // 1. Validate restaurant is open
     const restaurant = await this.restaurantsService.findOne(createOrderDto.restaurantId);
-
     if (!restaurant.isOpen) {
       throw new BadRequestException('Restaurant is currently closed');
     }
 
+    // 2. Calculate total and validate items
     let totalAmount = 0;
     const orderItems = [];
 
@@ -52,6 +53,7 @@ export class OrdersService {
       });
     }
 
+    // 3. Create and save order
     const order = this.orderRepository.create({
       customerId,
       restaurantId: createOrderDto.restaurantId,
@@ -62,6 +64,7 @@ export class OrdersService {
 
     const savedOrder = await this.orderRepository.save(order);
 
+    // 4. Save order items
     for (const item of orderItems) {
       const orderItem = this.orderItemRepository.create({
         ...item,
@@ -70,18 +73,26 @@ export class OrdersService {
       await this.orderItemRepository.save(orderItem);
     }
 
-   const customer = await this.orderRepository.findOne({
-  where: { id: savedOrder.id },
-  relations: ['customer', 'restaurant', 'items', 'items.menuItem'],
-});
+    // 5. Fetch complete order with ALL relations
+    const completeOrder = await this.orderRepository.findOne({
+      where: { id: savedOrder.id },
+      relations: ['customer', 'restaurant', 'items', 'items.menuItem'],
+    });
 
-if (!customer) {
-  throw new NotFoundException('Order not found after creation');
-}
+    if (!completeOrder) {
+      throw new NotFoundException('Order not found after creation');
+    }
 
-    await this.mailService.sendOrderConfirmation(customer);
+    // 6. Send email confirmation (don't let email failure break the order)
+    try {
+      await this.mailService.sendOrderConfirmation(completeOrder);
+    } catch (emailError) {
+      console.error('Email sending failed:', emailError.message);
+      // Don't throw - order is still created successfully
+    }
 
-    return this.getOrderWithDetails(savedOrder.id);
+    // 7. Return the complete order
+    return completeOrder;
   }
 
   async getCustomerOrders(customerId: string) {
