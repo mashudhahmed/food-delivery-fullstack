@@ -8,12 +8,6 @@ import { UserRole } from '../users/entities/user.entity';
 
 @Injectable()
 export class MailService {
-  sendApprovalEmail(email: string, fullName: string, role: UserRole, notes: string) {
-      throw new Error('Method not implemented.');
-  }
-  sendRejectionEmail(email: string, fullName: string, reason: string) {
-      throw new Error('Method not implemented.');
-  }
   private transporter: Transporter;
 
   constructor(private configService: ConfigService) {
@@ -25,6 +19,57 @@ export class MailService {
         user: this.configService.get<string>('MAIL_USER'),
         pass: this.configService.get<string>('MAIL_PASSWORD'),
       },
+    });
+  }
+
+  async sendPasswordResetEmail(email: string, token: string) {
+    // IMPORTANT: Use FRONTEND_URL for reset links (not backend API)
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #ea580c; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .button { display: inline-block; padding: 12px 24px; background: #ea580c; color: white; text-decoration: none; border-radius: 5px; }
+          .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h2>QuickBite</h2>
+          </div>
+          <div class="content">
+            <h3>Reset Your Password</h3>
+            <p>You requested to reset your password for your QuickBite account.</p>
+            <p>Click the button below to reset your password:</p>
+            <p style="text-align: center;">
+              <a href="${resetUrl}" class="button">Reset Password</a>
+            </p>
+            <p>Or copy this link: <a href="${resetUrl}">${resetUrl}</a></p>
+            <p>This link expires in 1 hour.</p>
+            <p>If you didn't request this, please ignore this email.</p>
+          </div>
+          <div class="footer">
+            <p>© 2026 QuickBite. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    await this.transporter.sendMail({
+      from: this.configService.get<string>('MAIL_FROM'),
+      to: email,
+      subject: 'Reset Your QuickBite Password',
+      html: htmlContent,
+      text: `Reset your password: ${resetUrl}`,
     });
   }
 
@@ -129,6 +174,90 @@ export class MailService {
       to: restaurantOwnerEmail,
       subject: `New Review for ${review.restaurant.name}`,
       text: emailContent,
+    });
+  }
+
+  async sendApprovalEmail(email: string, fullName: string, role: UserRole, notes?: string) {
+    const roleText = role === UserRole.OWNER ? 'Restaurant Owner' : 'Delivery Agent';
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #ea580c; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h2>QuickBite</h2>
+          </div>
+          <div class="content">
+            <h3>Congratulations, ${fullName}!</h3>
+            <p>Your application to become a ${roleText} has been <strong>APPROVED</strong>.</p>
+            ${notes ? `<p><strong>Notes from admin:</strong> ${notes}</p>` : ''}
+            <p>You can now log in to your account and start using the platform.</p>
+            <p>Welcome to QuickBite!</p>
+          </div>
+          <div class="footer">
+            <p>© 2026 QuickBite. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    await this.transporter.sendMail({
+      from: this.configService.get<string>('MAIL_FROM'),
+      to: email,
+      subject: `QuickBite - ${roleText} Application Approved`,
+      html: htmlContent,
+      text: `Your application has been approved. You can now log in.`,
+    });
+  }
+
+  async sendRejectionEmail(email: string, fullName: string, reason?: string) {
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #dc2626; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h2>QuickBite</h2>
+          </div>
+          <div class="content">
+            <h3>Dear ${fullName},</h3>
+            <p>We regret to inform you that your application has been <strong>REJECTED</strong>.</p>
+            ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
+            <p>If you have any questions, please contact our support team.</p>
+          </div>
+          <div class="footer">
+            <p>© 2026 QuickBite. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    await this.transporter.sendMail({
+      from: this.configService.get<string>('MAIL_FROM'),
+      to: email,
+      subject: 'QuickBite - Application Update',
+      html: htmlContent,
+      text: `Your application has been rejected. ${reason || ''}`,
     });
   }
 }
