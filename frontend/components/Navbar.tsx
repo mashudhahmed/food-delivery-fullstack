@@ -201,6 +201,15 @@ export default function Navbar() {
                               {link.label}
                             </Link>
                           ))}
+                          {/* Settings Link */}
+                          <Link
+                            href="/settings"
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            onClick={() => setIsProfileOpen(false)}
+                          >
+                            <Settings className="w-4 h-4" />
+                            Settings
+                          </Link>
                           <hr className="my-1" />
                           <button
                             onClick={handleLogout}
@@ -328,6 +337,15 @@ export default function Navbar() {
                   <span className="text-gray-700">{link.label}</span>
                 </Link>
               ))}
+              {/* Settings Link in Mobile Menu */}
+              <Link
+                href="/settings"
+                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <Settings className="w-5 h-5 text-gray-500" />
+                <span className="text-gray-700">Settings</span>
+              </Link>
               <hr />
               <button
                 onClick={handleLogout}
@@ -401,6 +419,15 @@ export default function Navbar() {
                               {link.label}
                             </Link>
                           ))}
+                          {/* Settings Link */}
+                          <Link
+                            href="/settings"
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            onClick={() => setIsProfileOpen(false)}
+                          >
+                            <Settings className="w-4 h-4" />
+                            Settings
+                          </Link>
                           <hr className="my-1" />
                           <button
                             onClick={handleLogout}
@@ -446,6 +473,12 @@ export default function Navbar() {
             </Link>
 
             <div className="flex items-center gap-4">
+              <Link
+                href="/settings"
+                className="text-sm text-gray-600 hover:text-orange-500 transition"
+              >
+                Settings
+              </Link>
               <span className="text-sm text-gray-600 capitalize">
                 {user?.role === 'admin' ? 'Admin Panel' : user?.role === 'owner' ? 'Owner Panel' : 'Agent Panel'}
               </span>
@@ -537,6 +570,15 @@ export default function Navbar() {
                             {link.label}
                           </Link>
                         ))}
+                        {/* Settings Link */}
+                        <Link
+                          href="/settings"
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                          onClick={() => setIsProfileOpen(false)}
+                        >
+                          <Settings className="w-4 h-4" />
+                          Settings
+                        </Link>
                         <hr className="my-1" />
                         <button
                           onClick={handleLogout}
