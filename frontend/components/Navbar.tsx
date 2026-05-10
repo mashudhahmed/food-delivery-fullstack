@@ -28,6 +28,8 @@ import { useAddressStore } from '@/app/stores/addressStore';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import LocationModal from './LocationModal';
+import LogoutModal from './LogoutModal';
+import AuthModal from './AuthModal';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -38,6 +40,9 @@ export default function Navbar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [deliveryType, setDeliveryType] = useState('delivery');
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>('login');
   
   const cartItems = useCartStore((state) => state.items);
   const cartItemsCount = cartItems.reduce((total, item) => total + item.quantity, 0);
@@ -59,13 +64,18 @@ export default function Navbar() {
     }
   }, [pathname]);
 
-  const handleLogout = () => {
+  const handleLogoutClick = () => {
+    setIsLogoutModalOpen(true);
+    setIsProfileOpen(false);
+  };
+
+  const handleConfirmLogout = () => {
+    setIsLogoutModalOpen(false);
     auth.logout();
     setUser(null);
     setIsAuthenticated(false);
-    setIsProfileOpen(false);
     toast.success('Logged out successfully');
-    router.push('/login');
+    router.push('/');
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -74,6 +84,16 @@ export default function Navbar() {
       router.push(`/?search=${encodeURIComponent(searchTerm)}`);
       setIsMobileMenuOpen(false);
     }
+  };
+
+  const openLoginModal = () => {
+    setAuthModalMode('login');
+    setIsAuthModalOpen(true);
+  };
+
+  const openSignupModal = () => {
+    setAuthModalMode('signup');
+    setIsAuthModalOpen(true);
   };
 
   // Don't show navbar on auth pages
@@ -117,14 +137,24 @@ export default function Navbar() {
 
   const roleBasedLinks = getRoleBasedLinks();
 
-  // ========== HOME PAGE NAVBAR (Foodpanda Style) ==========
+  // ========== HOME PAGE NAVBAR ==========
   if (isHomePage) {
     return (
       <>
-        {/* Location Modal */}
+        {/* Modals */}
         <LocationModal 
           isOpen={isLocationModalOpen} 
           onClose={() => setIsLocationModalOpen(false)} 
+        />
+        <LogoutModal
+          isOpen={isLogoutModalOpen}
+          onClose={() => setIsLogoutModalOpen(false)}
+          onConfirm={handleConfirmLogout}
+        />
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          initialMode={authModalMode}
         />
 
         {/* Main Header */}
@@ -156,9 +186,12 @@ export default function Navbar() {
 
               {/* Right Actions */}
               <div className="flex items-center gap-3">
-                {/* Cart Icon */}
-                {isAuthenticated && user?.role === 'customer' && (
-                  <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition">
+                {/* Cart Icon - Industry Standard Behavior */}
+                {isAuthenticated ? (
+                  <Link 
+                    href="/cart" 
+                    className="relative p-2 hover:bg-gray-100 rounded-full transition cursor-pointer"
+                  >
                     <ShoppingBag className="w-5 h-5 text-gray-600" />
                     {cartItemsCount > 0 && (
                       <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
@@ -166,6 +199,14 @@ export default function Navbar() {
                       </span>
                     )}
                   </Link>
+                ) : (
+                  <button
+                    onClick={openLoginModal}
+                    className="relative p-2 rounded-full opacity-60 cursor-pointer hover:opacity-100 transition"
+                    title="Log in to view cart"
+                  >
+                    <ShoppingBag className="w-5 h-5 text-gray-400" />
+                  </button>
                 )}
 
                 {/* Auth / User Menu */}
@@ -201,7 +242,6 @@ export default function Navbar() {
                               {link.label}
                             </Link>
                           ))}
-                          {/* Settings Link */}
                           <Link
                             href="/settings"
                             className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -212,7 +252,7 @@ export default function Navbar() {
                           </Link>
                           <hr className="my-1" />
                           <button
-                            onClick={handleLogout}
+                            onClick={handleLogoutClick}
                             className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
                           >
                             <LogOut className="w-4 h-4" />
@@ -224,15 +264,18 @@ export default function Navbar() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-orange-500">
+                    <button
+                      onClick={openLoginModal}
+                      className="text-sm font-medium text-gray-600 hover:text-orange-500"
+                    >
                       Log in
-                    </Link>
-                    <Link
-                      href="/register"
+                    </button>
+                    <button
+                      onClick={openSignupModal}
                       className="bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-orange-600 transition"
                     >
                       Sign up
-                    </Link>
+                    </button>
                   </div>
                 )}
 
@@ -252,7 +295,6 @@ export default function Navbar() {
 
             {/* Delivery/Pickup Toggle + Search Bar */}
             <div className="flex flex-col sm:flex-row items-center gap-4 py-3 border-t">
-              {/* Delivery/Pickup Toggle */}
               <div className="flex gap-1 bg-gray-100 rounded-full p-1 shrink-0">
                 <button
                   onClick={() => setDeliveryType('delivery')}
@@ -276,7 +318,6 @@ export default function Navbar() {
                 </button>
               </div>
 
-              {/* Search Bar */}
               <div className="flex-1 w-full">
                 <form onSubmit={handleSearch} className="relative">
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -306,7 +347,6 @@ export default function Navbar() {
         {isMobileMenuOpen && (
           <div className="md:hidden fixed inset-0 top-34 bg-white z-40 overflow-auto border-t">
             <div className="p-4 space-y-4">
-              {/* Mobile Address Selector */}
               <button
                 onClick={() => {
                   setIsLocationModalOpen(true);
@@ -337,7 +377,6 @@ export default function Navbar() {
                   <span className="text-gray-700">{link.label}</span>
                 </Link>
               ))}
-              {/* Settings Link in Mobile Menu */}
               <Link
                 href="/settings"
                 className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50"
@@ -348,7 +387,7 @@ export default function Navbar() {
               </Link>
               <hr />
               <button
-                onClick={handleLogout}
+                onClick={handleLogoutClick}
                 className="flex items-center gap-3 w-full p-3 rounded-lg text-red-600 hover:bg-red-50"
               >
                 <LogOut className="w-5 h-5" />
@@ -369,6 +408,17 @@ export default function Navbar() {
           isOpen={isLocationModalOpen} 
           onClose={() => setIsLocationModalOpen(false)} 
         />
+        <LogoutModal
+          isOpen={isLogoutModalOpen}
+          onClose={() => setIsLogoutModalOpen(false)}
+          onConfirm={handleConfirmLogout}
+        />
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          initialMode={authModalMode}
+        />
+
         <div className="bg-white shadow-sm sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex items-center justify-between h-16">
@@ -379,8 +429,11 @@ export default function Navbar() {
 
               <div className="flex items-center gap-3">
                 {/* Cart Icon */}
-                {isAuthenticated && user?.role === 'customer' && (
-                  <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition">
+                {isAuthenticated ? (
+                  <Link 
+                    href="/cart" 
+                    className="relative p-2 hover:bg-gray-100 rounded-full transition cursor-pointer"
+                  >
                     <ShoppingBag className="w-5 h-5 text-gray-600" />
                     {cartItemsCount > 0 && (
                       <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
@@ -388,9 +441,17 @@ export default function Navbar() {
                       </span>
                     )}
                   </Link>
+                ) : (
+                  <button
+                    onClick={openLoginModal}
+                    className="relative p-2 rounded-full opacity-60 cursor-pointer hover:opacity-100 transition"
+                    title="Log in to view cart"
+                  >
+                    <ShoppingBag className="w-5 h-5 text-gray-400" />
+                  </button>
                 )}
 
-                {/* User Menu */}
+                {/* Auth Section */}
                 {isAuthenticated ? (
                   <div className="relative">
                     <button
@@ -419,7 +480,6 @@ export default function Navbar() {
                               {link.label}
                             </Link>
                           ))}
-                          {/* Settings Link */}
                           <Link
                             href="/settings"
                             className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -430,7 +490,7 @@ export default function Navbar() {
                           </Link>
                           <hr className="my-1" />
                           <button
-                            onClick={handleLogout}
+                            onClick={handleLogoutClick}
                             className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
                           >
                             <LogOut className="w-4 h-4" />
@@ -442,15 +502,18 @@ export default function Navbar() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-orange-500">
+                    <button
+                      onClick={openLoginModal}
+                      className="text-sm font-medium text-gray-600 hover:text-orange-500"
+                    >
                       Log in
-                    </Link>
-                    <Link
-                      href="/register"
+                    </button>
+                    <button
+                      onClick={openSignupModal}
                       className="bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-orange-600 transition"
                     >
                       Sign up
-                    </Link>
+                    </button>
                   </div>
                 )}
               </div>
@@ -464,32 +527,40 @@ export default function Navbar() {
   // ========== DASHBOARD NAVBAR (Minimal) ==========
   if (isDashboardPage) {
     return (
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/" className="flex items-center gap-2">
-              <Image src="/logo.png" alt="QuickBite" width={32} height={32} className="w-8 h-8 object-contain" />
-              <span className="text-xl font-bold text-orange-500">QuickBite</span>
-            </Link>
+      <>
+        <LogoutModal
+          isOpen={isLogoutModalOpen}
+          onClose={() => setIsLogoutModalOpen(false)}
+          onConfirm={handleConfirmLogout}
+        />
 
-            <div className="flex items-center gap-4">
-              <Link
-                href="/settings"
-                className="text-sm text-gray-600 hover:text-orange-500 transition"
-              >
-                Settings
+        <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="flex items-center justify-between h-16">
+              <Link href="/" className="flex items-center gap-2">
+                <Image src="/logo.png" alt="QuickBite" width={32} height={32} className="w-8 h-8 object-contain" />
+                <span className="text-xl font-bold text-orange-500">QuickBite</span>
               </Link>
-              <span className="text-sm text-gray-600 capitalize">
-                {user?.role === 'admin' ? 'Admin Panel' : user?.role === 'owner' ? 'Owner Panel' : 'Agent Panel'}
-              </span>
-              
-              <button onClick={handleLogout} className="text-sm text-red-500 hover:text-red-600">
-                Logout
-              </button>
+
+              <div className="flex items-center gap-4">
+                <Link
+                  href="/settings"
+                  className="text-sm text-gray-600 hover:text-orange-500 transition"
+                >
+                  Settings
+                </Link>
+                <span className="text-sm text-gray-600 capitalize">
+                  {user?.role === 'admin' ? 'Admin Panel' : user?.role === 'owner' ? 'Owner Panel' : 'Agent Panel'}
+                </span>
+                
+                <button onClick={handleLogoutClick} className="text-sm text-red-500 hover:text-red-600">
+                  Logout
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -500,6 +571,17 @@ export default function Navbar() {
         isOpen={isLocationModalOpen} 
         onClose={() => setIsLocationModalOpen(false)} 
       />
+      <LogoutModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={handleConfirmLogout}
+      />
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        initialMode={authModalMode}
+      />
+
       <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
@@ -526,8 +608,11 @@ export default function Navbar() {
 
             <div className="flex items-center gap-3">
               {/* Cart Icon */}
-              {isAuthenticated && user?.role === 'customer' && (
-                <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition">
+              {isAuthenticated ? (
+                <Link 
+                  href="/cart" 
+                  className="relative p-2 hover:bg-gray-100 rounded-full transition cursor-pointer"
+                >
                   <ShoppingBag className="w-5 h-5 text-gray-600" />
                   {cartItemsCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
@@ -535,9 +620,17 @@ export default function Navbar() {
                     </span>
                   )}
                 </Link>
+              ) : (
+                <button
+                  onClick={openLoginModal}
+                  className="relative p-2 rounded-full opacity-60 cursor-pointer hover:opacity-100 transition"
+                  title="Log in to view cart"
+                >
+                  <ShoppingBag className="w-5 h-5 text-gray-400" />
+                </button>
               )}
 
-              {/* User Menu */}
+              {/* Auth Section */}
               {isAuthenticated ? (
                 <div className="relative">
                   <button
@@ -570,7 +663,6 @@ export default function Navbar() {
                             {link.label}
                           </Link>
                         ))}
-                        {/* Settings Link */}
                         <Link
                           href="/settings"
                           className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -581,7 +673,7 @@ export default function Navbar() {
                         </Link>
                         <hr className="my-1" />
                         <button
-                          onClick={handleLogout}
+                          onClick={handleLogoutClick}
                           className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
                         >
                           <LogOut className="w-4 h-4" />
@@ -593,15 +685,18 @@ export default function Navbar() {
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-orange-500">
+                  <button
+                    onClick={openLoginModal}
+                    className="text-sm font-medium text-gray-600 hover:text-orange-500"
+                  >
                     Log in
-                  </Link>
-                  <Link
-                    href="/register"
+                  </button>
+                  <button
+                    onClick={openSignupModal}
                     className="bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-orange-600 transition"
                   >
                     Sign up
-                  </Link>
+                  </button>
                 </div>
               )}
             </div>
