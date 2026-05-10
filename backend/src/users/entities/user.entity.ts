@@ -91,6 +91,12 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  @Column({ nullable: true })
+resetPasswordToken: string;
+
+@Column({ nullable: true })
+resetPasswordExpires: Date;
+
   @OneToMany(() => Restaurant, (restaurant) => restaurant.owner)
   restaurants: Restaurant[];
 
