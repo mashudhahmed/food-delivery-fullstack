@@ -122,29 +122,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Location Banner - Shows selected address */}
-      {selectedAddress && (
-        <div className="bg-orange-50 border-b border-orange-100 px-4 py-2">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <MapPin className="w-4 h-4 text-orange-500" />
-              <span>Delivering to:</span>
-              <span className="font-medium text-gray-800">
-                {selectedAddress.area || selectedAddress.street || selectedAddress.city}
-              </span>
-              <button
-                onClick={() => setIsLocationModalOpen(true)}
-                className="text-orange-500 hover:underline text-sm ml-2"
-              >
-                Change
-              </button>
-            </div>
-            <div className="text-xs text-green-600">
-              Free delivery on first order
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Main flex container with items-start for sticky to work properly */}
@@ -473,7 +450,7 @@ export default function HomePage() {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">
-                  {selectedAddress ? `Restaurants near ${selectedAddress.area || selectedAddress.city}` : 'Restaurants'}
+                  All Restaurants
                 </h1>
                 <p className="text-sm text-gray-500 mt-1">
                   {filteredRestaurants.length} restaurants found

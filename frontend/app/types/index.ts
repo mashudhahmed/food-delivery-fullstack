@@ -37,6 +37,8 @@ export interface CartItem extends MenuItem {
 }
 
 export interface Order {
+  updatedAt: string | number | Date;
+  deliveryInstructions: import("react/jsx-runtime").JSX.Element;
   id: string;
   customerId: string;
   restaurantId: string;

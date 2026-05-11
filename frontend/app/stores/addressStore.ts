@@ -10,6 +10,7 @@ export interface Address {
   landmark?: string;
   lat?: number;
   lng?: number;
+  fullAddress?: string; // Store complete address string from map
 }
 
 interface AddressStore {
