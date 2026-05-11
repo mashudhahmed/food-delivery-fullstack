@@ -154,13 +154,14 @@ export default function LocationModal({ isOpen, onClose }: LocationModalProps) {
 
     const address = {
       id: Date.now().toString(),
-      name: 'My Location',
-      street: selectedAddress.split(',')[0],
-      city: selectedAddress.split(',').slice(-2, -1)[0] || 'Dhaka',
-      area: selectedAddress.split(',')[0],
+      name: selectedAddress.split(',')[0] || 'Selected Location',
+      street: selectedAddress.split(',')[0]?.trim() || '',
+      city: selectedAddress.split(',').slice(-2, -1)[0]?.trim() || 'Dhaka',
+      area: selectedAddress.split(',')[0]?.trim() || '',
       landmark: '',
       lat: selectedLat,
       lng: selectedLng,
+      fullAddress: selectedAddress, // Store complete address from map
     };
     
     addAddress(address);
@@ -286,10 +287,10 @@ export default function LocationModal({ isOpen, onClose }: LocationModalProps) {
                   style={{ height: '100%', width: '100%' }}
                   scrollWheelZoom={true}
                 >
-                 <TileLayer
-  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
-/>
+                  <TileLayer
+                    url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
+                  />
                   <Marker
                     position={[selectedLat, selectedLng]}
                     draggable={true}
