@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Mail, Lock, User, Phone, Eye, EyeOff, Apple, ArrowLeft } from 'lucide-react';
+import { X, Mail, Lock, User, Phone, Eye, EyeOff, Apple, ArrowLeft, Briefcase, Truck, AlertCircle } from 'lucide-react';
 import { auth } from '@/app/lib/api';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
-import { FaFacebook } from 'react-icons/fa';
+import { FaFacebook, FaMapPin } from 'react-icons/fa';
 import { api } from '@/app/lib/api';
 
 interface AuthModalProps {
@@ -19,8 +19,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot' | 'reset'>('login');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [resetToken, setResetToken] = useState('');
-  const [resetEmail, setResetEmail] = useState('');
+  const [selectedRole, setSelectedRole] = useState('customer');
   
   // Login form state
   const [loginData, setLoginData] = useState({
@@ -36,6 +35,13 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     phone: '',
     address: '',
     role: 'customer',
+    businessName: '',
+    businessAddress: '',
+    taxId: '',
+    nidNumber: '',
+    vehicleType: '',
+    vehicleNumber: '',
+    drivingLicense: '',
   });
 
   // Forgot password state
@@ -61,6 +67,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
   useEffect(() => {
     if (isOpen) {
       setMode(initialMode === 'login' ? 'login' : 'signup');
+      setSelectedRole('customer');
       setForgotEmail('');
       setResetData({ token: '', newPassword: '', confirmPassword: '' });
     }
@@ -85,6 +92,9 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
       const response = await auth.login(loginData);
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
+      
+      window.dispatchEvent(new Event('auth-change'));
+      
       toast.success('Login successful!');
       onClose();
       
@@ -109,6 +119,9 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
       const response = await auth.register(signupData);
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
+      
+      window.dispatchEvent(new Event('auth-change'));
+      
       toast.success('Registration successful!');
       onClose();
       
@@ -294,7 +307,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
               </form>
             )}
 
-            {/* Signup Form */}
+            {/* Signup Form with Role Selection */}
             {mode === 'signup' && (
               <form onSubmit={handleSignup} className="space-y-3">
                 <div className="relative">
@@ -348,12 +361,176 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                     onChange={(e) => setSignupData({ ...signupData, phone: e.target.value })}
                   />
                 </div>
+                <div className="relative">
+                  <FaMapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Address (optional)"
+                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500"
+                    value={signupData.address}
+                    onChange={(e) => setSignupData({ ...signupData, address: e.target.value })}
+                  />
+                </div>
+
+                {/* Role Selection */}
+                <div className="space-y-2 pt-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    I want to:
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-orange-50 transition">
+                      <input
+                        type="radio"
+                        name="role"
+                        value="customer"
+                        checked={selectedRole === 'customer'}
+                        onChange={() => {
+                          setSelectedRole('customer');
+                          setSignupData({ ...signupData, role: 'customer' });
+                        }}
+                        className="w-4 h-4 text-orange-500"
+                      />
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-800">Order Food</p>
+                        <p className="text-xs text-gray-500">Browse and order from restaurants</p>
+                      </div>
+                      <span className="text-2xl">🍔</span>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-orange-50 transition">
+                      <input
+                        type="radio"
+                        name="role"
+                        value="owner"
+                        checked={selectedRole === 'owner'}
+                        onChange={() => {
+                          setSelectedRole('owner');
+                          setSignupData({ ...signupData, role: 'owner' });
+                        }}
+                        className="w-4 h-4 text-orange-500"
+                      />
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-800">Partner with us</p>
+                        <p className="text-xs text-gray-500">List your restaurant and reach more customers</p>
+                      </div>
+                      <span className="text-2xl">🏪</span>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-orange-50 transition">
+                      <input
+                        type="radio"
+                        name="role"
+                        value="agent"
+                        checked={selectedRole === 'agent'}
+                        onChange={() => {
+                          setSelectedRole('agent');
+                          setSignupData({ ...signupData, role: 'agent' });
+                        }}
+                        className="w-4 h-4 text-orange-500"
+                      />
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-800">Become a Delivery Partner</p>
+                        <p className="text-xs text-gray-500">Earn money by delivering food</p>
+                      </div>
+                      <span className="text-2xl">🛵</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Restaurant Owner Fields */}
+                {selectedRole === 'owner' && (
+                  <div className="space-y-3 border-t pt-3">
+                    <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                      <Briefcase className="w-4 h-4 text-orange-500" />
+                      Restaurant Information
+                    </h3>
+                    <input
+                      type="text"
+                      required
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                      placeholder="Restaurant/Business Name"
+                      value={signupData.businessName}
+                      onChange={(e) => setSignupData({ ...signupData, businessName: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      required
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                      placeholder="Restaurant Address"
+                      value={signupData.businessAddress}
+                      onChange={(e) => setSignupData({ ...signupData, businessAddress: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                      placeholder="Tax ID (optional)"
+                      value={signupData.taxId}
+                      onChange={(e) => setSignupData({ ...signupData, taxId: e.target.value })}
+                    />
+                    <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
+                      <AlertCircle className="w-4 h-4" />
+                      <span>Your application will be reviewed within 2-3 business days</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Delivery Agent Fields */}
+                {selectedRole === 'agent' && (
+                  <div className="space-y-3 border-t pt-3">
+                    <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-orange-500" />
+                      Delivery Partner Information
+                    </h3>
+                    <input
+                      type="text"
+                      required
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                      placeholder="NID Number"
+                      value={signupData.nidNumber}
+                      onChange={(e) => setSignupData({ ...signupData, nidNumber: e.target.value })}
+                    />
+                    <select
+                      required
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                      value={signupData.vehicleType}
+                      onChange={(e) => setSignupData({ ...signupData, vehicleType: e.target.value })}
+                    >
+                      <option value="">Select Vehicle Type</option>
+                      <option value="bike">Motorcycle</option>
+                      <option value="scooter">Scooter</option>
+                      <option value="car">Car</option>
+                    </select>
+                    <input
+                      type="text"
+                      required
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                      placeholder="Vehicle Number Plate"
+                      value={signupData.vehicleNumber}
+                      onChange={(e) => setSignupData({ ...signupData, vehicleNumber: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      required
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                      placeholder="Driving License Number"
+                      value={signupData.drivingLicense}
+                      onChange={(e) => setSignupData({ ...signupData, drivingLicense: e.target.value })}
+                    />
+                    <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
+                      <AlertCircle className="w-4 h-4" />
+                      <span>Your application will be verified within 3-5 business days</span>
+                    </div>
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   disabled={loading}
                   className="w-full bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition disabled:opacity-50"
                 >
-                  {loading ? 'Creating account...' : 'Sign up'}
+                  {loading ? 'Creating account...' : 
+                    (selectedRole === 'customer' ? 'Sign up' : 
+                     selectedRole === 'owner' ? 'Apply as Restaurant' : 'Apply as Delivery Partner')}
                 </button>
               </form>
             )}
