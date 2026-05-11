@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Restaurant } from '@/app/types';
-import { Star, Clock, Heart } from 'lucide-react';
+import { Star, Heart } from 'lucide-react';
 
 interface Props {
   restaurant: Restaurant;
@@ -46,14 +46,6 @@ export default function RestaurantCard({ restaurant }: Props) {
           >
             <Heart className="w-4 h-4 text-gray-500 hover:text-red-500 transition-colors" />
           </button>
-          
-          {/* Delivery Time Badge */}
-          <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur-sm px-2 py-1 rounded-md">
-            <div className="flex items-center gap-1">
-              <Clock className="w-3 h-3 text-white" />
-              <span className="text-xs text-white font-medium">20-30 min</span>
-            </div>
-          </div>
         </div>
 
         {/* Content Section */}
@@ -77,11 +69,6 @@ export default function RestaurantCard({ restaurant }: Props) {
           <p className="text-xs text-gray-400 line-clamp-1">
             {restaurant.address}
           </p>
-          
-          <div className="mt-2 flex items-center gap-1">
-            <span className="text-orange-500 font-bold text-sm">৳200</span>
-            <span className="text-gray-400 text-xs">for one</span>
-          </div>
         </div>
       </div>
     </Link>
