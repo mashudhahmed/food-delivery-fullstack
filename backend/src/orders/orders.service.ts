@@ -22,77 +22,94 @@ export class OrdersService {
   ) {}
 
   async createOrder(customerId: string, createOrderDto: CreateOrderDto) {
-    // 1. Validate restaurant is open
-    const restaurant = await this.restaurantsService.findOne(createOrderDto.restaurantId);
-    if (!restaurant.isOpen) {
-      throw new BadRequestException('Restaurant is currently closed');
-    }
-
-    // 2. Calculate total and validate items
-    let totalAmount = 0;
-    const orderItems = [];
-
-    for (const item of createOrderDto.items) {
-      const menuItem = await this.menuService.getMenuItem(item.menuItemId);
-
-      if (!menuItem.isAvailable) {
-        throw new BadRequestException(`Menu item ${menuItem.name} is not available`);
-      }
-
-      if (menuItem.restaurantId !== createOrderDto.restaurantId) {
-        throw new BadRequestException(`Menu item ${menuItem.name} does not belong to this restaurant`);
-      }
-
-      const itemTotal = menuItem.price * item.quantity;
-      totalAmount += itemTotal;
-
-      orderItems.push({
-        menuItemId: item.menuItemId,
-        quantity: item.quantity,
-        unitPrice: menuItem.price,
-      });
-    }
-
-    // 3. Create and save order
-    const order = this.orderRepository.create({
-      customerId,
-      restaurantId: createOrderDto.restaurantId,
-      deliveryAddress: createOrderDto.deliveryAddress,
-      totalAmount,
-      status: OrderStatus.PENDING,
-    });
-
-    const savedOrder = await this.orderRepository.save(order);
-
-    // 4. Save order items
-    for (const item of orderItems) {
-      const orderItem = this.orderItemRepository.create({
-        ...item,
-        orderId: savedOrder.id,
-      });
-      await this.orderItemRepository.save(orderItem);
-    }
-
-    // 5. Fetch complete order with ALL relations
-    const completeOrder = await this.orderRepository.findOne({
-      where: { id: savedOrder.id },
-      relations: ['customer', 'restaurant', 'items', 'items.menuItem'],
-    });
-
-    if (!completeOrder) {
-      throw new NotFoundException('Order not found after creation');
-    }
-
-    // 6. Send email confirmation (don't let email failure break the order)
     try {
-      await this.mailService.sendOrderConfirmation(completeOrder);
-    } catch (emailError) {
-      console.error('Email sending failed:', emailError.message);
-      // Don't throw - order is still created successfully
-    }
+      // 1. Validate restaurant is open
+      const restaurant = await this.restaurantsService.findOne(createOrderDto.restaurantId);
+      if (!restaurant.isOpen) {
+        throw new BadRequestException('Restaurant is currently closed');
+      }
 
-    // 7. Return the complete order
-    return completeOrder;
+      // 2. Calculate subtotal from items
+      let subtotal = 0;
+      const orderItems = [];
+
+      for (const item of createOrderDto.items) {
+        const menuItem = await this.menuService.getMenuItem(item.menuItemId);
+
+        if (!menuItem.isAvailable) {
+          throw new BadRequestException(`Menu item ${menuItem.name} is not available`);
+        }
+
+        if (menuItem.restaurantId !== createOrderDto.restaurantId) {
+          throw new BadRequestException(`Menu item ${menuItem.name} does not belong to this restaurant`);
+        }
+
+        const itemTotal = menuItem.price * item.quantity;
+        subtotal += itemTotal;
+
+        orderItems.push({
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+          unitPrice: menuItem.price,
+        });
+      }
+
+      // 3. Calculate fees
+      const deliveryFee = 50;
+      const platformFee = 20;
+      const totalAmount = subtotal + deliveryFee + platformFee;
+
+      // 4. Create and save order with all price fields
+      const order = this.orderRepository.create({
+        customerId,
+        restaurantId: createOrderDto.restaurantId,
+        deliveryAddress: createOrderDto.deliveryAddress,
+        subtotal,
+        deliveryFee,
+        platformFee,
+        totalAmount,
+        status: OrderStatus.PENDING,
+        deliveryInstructions: createOrderDto.deliveryInstructions || null,
+        customerName: createOrderDto.customerInfo?.fullName || null,
+        customerEmail: createOrderDto.customerInfo?.email || null,
+        customerPhone: createOrderDto.customerInfo?.phone || null,
+        paymentMethod: createOrderDto.paymentMethod || null,
+      });
+
+      const savedOrder = await this.orderRepository.save(order);
+
+      // 5. Save order items
+      for (const item of orderItems) {
+        const orderItem = this.orderItemRepository.create({
+          ...item,
+          orderId: savedOrder.id,
+        });
+        await this.orderItemRepository.save(orderItem);
+      }
+
+      // 6. Fetch complete order with ALL relations
+      const completeOrder = await this.orderRepository.findOne({
+        where: { id: savedOrder.id },
+        relations: ['customer', 'restaurant', 'items', 'items.menuItem'],
+      });
+
+      if (!completeOrder) {
+        throw new NotFoundException('Order not found after creation');
+      }
+
+      // 7. Send email confirmation (don't let email failure break the order)
+      try {
+        await this.mailService.sendOrderConfirmation(completeOrder);
+      } catch (emailError) {
+        console.error('Email sending failed:', emailError.message);
+      }
+
+      // 8. Return the complete order
+      return completeOrder;
+    } catch (error) {
+      console.error('Order creation error:', error);
+      throw error;
+    }
   }
 
   async getCustomerOrders(customerId: string) {

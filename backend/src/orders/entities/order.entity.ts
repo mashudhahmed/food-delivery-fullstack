@@ -43,11 +43,37 @@ export class Order {
   })
   status: OrderStatus;
 
+  // Price breakdown fields
+  @Column('decimal', { precision: 10, scale: 2, default: 0 })
+  subtotal: number;
+
+  @Column('decimal', { precision: 10, scale: 2, default: 50 })
+  deliveryFee: number;
+
+  @Column('decimal', { precision: 10, scale: 2, default: 20 })
+  platformFee: number;
+
   @Column('decimal', { precision: 10, scale: 2 })
   totalAmount: number;
 
   @Column()
   deliveryAddress: string;
+
+  // New fields for customer info
+  @Column({ nullable: true })
+  deliveryInstructions: string;
+
+  @Column({ nullable: true })
+  customerName: string;
+
+  @Column({ nullable: true })
+  customerEmail: string;
+
+  @Column({ nullable: true })
+  customerPhone: string;
+
+  @Column({ nullable: true })
+  paymentMethod: string;
 
   @OneToMany(() => OrderItem, (orderItem) => orderItem.order, { cascade: true })
   items: OrderItem[];
