@@ -32,24 +32,35 @@ export default function CheckoutPage() {
   const platformFee = 20;
   const total = subtotal + deliveryFee + platformFee;
 
-  // Sync address from address bar - SHOW FULL ADDRESS
+  // Sync address from address bar - SHOW FULL ADDRESS (Foodpanda style)
   useEffect(() => {
     if (selectedAddress) {
-      // Use full address if available, otherwise construct from parts
       let fullAddress = '';
       
+      // Priority 1: Use fullAddress from map selection
       if (selectedAddress.fullAddress) {
-        // If we have a full address from map selection, use it
         fullAddress = selectedAddress.fullAddress;
-      } else if (selectedAddress.street && selectedAddress.city) {
-        // Construct from street and city
+      }
+      // Priority 2: Build from street and city
+      else if (selectedAddress.street && selectedAddress.city) {
         fullAddress = `${selectedAddress.street}, ${selectedAddress.city}`;
-      } else if (selectedAddress.area && selectedAddress.city) {
-        // Construct from area and city
+      }
+      // Priority 3: Build from area and city
+      else if (selectedAddress.area && selectedAddress.city) {
         fullAddress = `${selectedAddress.area}, ${selectedAddress.city}`;
-      } else {
-        // Fallback
+      }
+      // Priority 4: Build from name and city
+      else if (selectedAddress.name && selectedAddress.city) {
+        fullAddress = `${selectedAddress.name}, ${selectedAddress.city}`;
+      }
+      // Priority 5: Fallback
+      else {
         fullAddress = `${selectedAddress.area || selectedAddress.street || selectedAddress.name}, ${selectedAddress.city || 'Dhaka'}`;
+      }
+      
+      // Add country for completeness (Foodpanda style)
+      if (!fullAddress.toLowerCase().includes('bangladesh')) {
+        fullAddress = `${fullAddress}, Bangladesh`;
       }
       
       setDeliveryAddress(fullAddress);
@@ -216,7 +227,7 @@ export default function CheckoutPage() {
                           key={addr.id}
                           onClick={() => {
                             setSelectedAddress(addr);
-                            // Set full address from saved address
+                            // Show full address when selected
                             const fullAddr = addr.fullAddress || `${addr.street || addr.area}, ${addr.city}`;
                             setDeliveryAddress(fullAddr);
                           }}
@@ -228,9 +239,15 @@ export default function CheckoutPage() {
                         >
                           <div className="flex items-start gap-2">
                             <Home className="w-4 h-4 text-gray-400 mt-0.5" />
-                            <div>
-                              <p className="text-sm font-medium text-gray-800">{addr.area || addr.street}</p>
-                              <p className="text-xs text-gray-500">{addr.city}</p>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-gray-800 line-clamp-1">
+                                {addr.fullAddress 
+                                  ? addr.fullAddress.split(',')[0] 
+                                  : addr.area || addr.street}
+                              </p>
+                              <p className="text-xs text-gray-500 line-clamp-1">
+                                {addr.fullAddress || `${addr.street || addr.area}, ${addr.city}`}
+                              </p>
                             </div>
                           </div>
                         </button>
