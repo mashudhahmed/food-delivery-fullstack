@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from './lib/api';
+import { auth } from './lib/api';
 import { Restaurant } from './types';
 import RestaurantCard from '@/components/RestaurantCard';
 import toast from 'react-hot-toast';
@@ -10,6 +11,7 @@ import { Filter, X, Star, Clock, SlidersHorizontal, ChevronDown, ChevronUp, Sear
 import { useAddressStore } from '@/app/stores/addressStore';
 
 export default function HomePage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>([]);
@@ -18,6 +20,7 @@ export default function HomePage() {
   const [sortBy, setSortBy] = useState('relevance');
   const [cuisineSearchTerm, setCuisineSearchTerm] = useState('');
   const [showAllCuisines, setShowAllCuisines] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [filters, setFilters] = useState({
     cuisineType: '',
     isOpen: '',
@@ -40,13 +43,53 @@ export default function HomePage() {
     cuisine.toLowerCase().includes(cuisineSearchTerm.toLowerCase())
   );
 
+  // CHECK AUTH AND REDIRECT NON-CUSTOMERS
   useEffect(() => {
-    fetchRestaurants();
-  }, []);
+    const checkAuthAndRedirect = () => {
+      const token = localStorage.getItem('token');
+      const user = auth.getCurrentUser();
+      
+      if (token && user) {
+        // Redirect non-customers to their dashboards
+        switch (user.role) {
+          case 'admin':
+            router.push('/admin/dashboard');
+            return;
+          case 'owner':
+            router.push('/owner/dashboard');
+            return;
+          case 'agent':
+            router.push('/agent/dashboard');
+            return;
+          case 'customer':
+            // Customer can stay on home page
+            setIsCheckingAuth(false);
+            break;
+          default:
+            // Unknown role, treat as customer
+            setIsCheckingAuth(false);
+            break;
+        }
+      } else {
+        // Not logged in, show home page
+        setIsCheckingAuth(false);
+      }
+    };
+
+    checkAuthAndRedirect();
+  }, [router]);
 
   useEffect(() => {
-    applyFiltersAndSort();
-  }, [restaurants, searchQuery, filters, sortBy]);
+    if (!isCheckingAuth) {
+      fetchRestaurants();
+    }
+  }, [isCheckingAuth]);
+
+  useEffect(() => {
+    if (!isCheckingAuth) {
+      applyFiltersAndSort();
+    }
+  }, [restaurants, searchQuery, filters, sortBy, isCheckingAuth]);
 
   const fetchRestaurants = async () => {
     try {
@@ -119,6 +162,15 @@ export default function HomePage() {
   };
 
   const activeFilterCount = [filters.cuisineType, filters.isOpen, filters.minRating, filters.price].filter(Boolean).length;
+
+  // Show loading while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
