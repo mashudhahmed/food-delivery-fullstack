@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsEnum, IsOptional, IsPhoneNumber } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsEnum, IsOptional, Matches } from 'class-validator';
 import { UserRole } from '../../users/entities/user.entity';
 
 export class RegisterDto {
@@ -13,7 +13,9 @@ export class RegisterDto {
   @MinLength(6)
   password!: string;
 
-  @IsPhoneNumber()
+  @Matches(/^(\+8801|01)[3-9]\d{8}$/, {
+    message: 'Please enter a valid Bangladeshi phone number (e.g., 01XXXXXXXXX or +8801XXXXXXXXX)'
+  })
   phone!: string;
 
   @IsOptional()
