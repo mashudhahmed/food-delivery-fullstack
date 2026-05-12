@@ -108,4 +108,8 @@ resetPasswordExpires: Date;
 
   @OneToMany(() => Review, (review) => review.customer)
   reviews: Review[];
+
+  // Add this line inside the User entity class
+@Column({ nullable: true })
+lastLogin: Date;
 }

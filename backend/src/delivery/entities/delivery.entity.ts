@@ -1,6 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne } from 'typeorm';
 import { Order } from '../../orders/entities/order.entity';
-import { User } from '../../users/entities/user.entity';
+import { DeliveryAgent } from './delivery-agent.entity';
 
 export enum DeliveryStatus {
   PENDING = 'pending',
@@ -20,8 +20,8 @@ export class Delivery {
   @Column()
   orderId: string;
 
-  @ManyToOne(() => User)
-  agent: User;
+  @ManyToOne(() => DeliveryAgent)
+  agent: DeliveryAgent;
 
   @Column()
   agentId: string;

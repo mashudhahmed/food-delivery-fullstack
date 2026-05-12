@@ -1,8 +1,8 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Restaurant } from '../../restaurants/entities/restaurant.entity';
 import { OrderItem } from './order-item.entity';
-import { Review } from '../../reviews/entities/review.entity';
+import { DeliveryAgent } from '../../delivery/entities/delivery-agent.entity';
 
 export enum OrderStatus {
   PENDING = 'pending',
@@ -83,4 +83,14 @@ export class Order {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  // Add these lines inside the Order entity class if missing
+@Column({ nullable: true })
+deliveryAgentId: string;
+
+@ManyToOne(() => DeliveryAgent, { nullable: true })
+@JoinColumn({ name: 'deliveryAgentId' })
+deliveryAgent: DeliveryAgent;
+
+  
 }
