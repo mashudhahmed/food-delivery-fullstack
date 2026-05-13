@@ -1,296 +1,213 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { auth } from '@/app/lib/api';
 import { api } from '@/app/lib/api';
-import { Users, Store, Package, CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
+import { 
+  DollarSign, 
+  Users, 
+  ShoppingBag, 
+  CheckCircle,
+  TrendingUp,
+  TrendingDown,
+  Star,
+  Store,
+  Truck
+} from 'lucide-react';
 import toast from 'react-hot-toast';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-interface Application {
-  id: string;
-  fullName: string;
-  email: string;
-  phone: string;
-  role: string;
-  businessName?: string;
-  businessAddress?: string;
-  nidNumber?: string;
-  vehicleType?: string;
-  createdAt: string;
+interface DashboardStats {
+  totalUsers: number;
+  totalRestaurants: number;
+  totalOrders: number;
+  totalRevenue: number;
+  pendingOwners: number;
+  pendingAgents: number;
+  activeAgents: number;
+  avgRating: number;
+  revenueGrowth: number;
+  orderGrowth: number;
+  userGrowth: number;
+  completionRate: number;
 }
 
-export default function AdminDashboard() {
-  const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [pendingApplications, setPendingApplications] = useState<Application[]>([]);
-  const [stats, setStats] = useState({
+const StatCard = ({ title, value, icon: Icon, trend, color }: any) => (
+  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-200">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm text-gray-500 font-medium">{title}</p>
+        <p className="text-2xl font-bold text-gray-900 mt-2">{typeof value === 'number' ? value.toLocaleString() : value}</p>
+        {trend !== undefined && (
+          <div className="flex items-center gap-1 mt-2">
+            {trend >= 0 ? (
+              <TrendingUp className="w-3 h-3 text-green-500" />
+            ) : (
+              <TrendingDown className="w-3 h-3 text-red-500" />
+            )}
+            <span className={`text-xs font-medium ${trend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {Math.abs(trend)}% from last month
+            </span>
+          </div>
+        )}
+      </div>
+      <div className={`w-12 h-12 ${color} rounded-xl flex items-center justify-center`}>
+        <Icon className="w-6 h-6 text-white" />
+      </div>
+    </div>
+  </div>
+);
+
+export default function DashboardPage() {
+  const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
-    restaurants: 0,
-    orders: 0,
+    totalRestaurants: 0,
+    totalOrders: 0,
+    totalRevenue: 0,
     pendingOwners: 0,
     pendingAgents: 0,
+    activeAgents: 0,
+    avgRating: 0,
+    revenueGrowth: 0,
+    orderGrowth: 0,
+    userGrowth: 0,
+    completionRate: 0,
   });
+  const [revenueData, setRevenueData] = useState([]);
+  const [userData, setUserData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
 
   useEffect(() => {
-    const currentUser = auth.getCurrentUser();
-    if (!currentUser || currentUser.role !== 'admin') {
-      router.push('/');
-      return;
-    }
-    setUser(currentUser);
-    fetchData();
+    fetchStats();
+    fetchChartData();
   }, []);
 
-  const fetchData = async () => {
+  const fetchStats = async () => {
     try {
-      const [pendingRes, statsRes] = await Promise.all([
-        api.get('/admin/pending-approvals'),
-        api.get('/admin/users/count'),
-      ]);
-      setPendingApplications(pendingRes.data);
-      setStats({
-        totalUsers: statsRes.data.totalUsers,
-        restaurants: statsRes.data.owners,
-        orders: 0,
-        pendingOwners: pendingRes.data.filter((a: Application) => a.role === 'owner').length,
-        pendingAgents: pendingRes.data.filter((a: Application) => a.role === 'agent').length,
-      });
+      const response = await api.get('/admin/dashboard/stats');
+      setStats(response.data);
     } catch (error) {
-      console.error('Failed to fetch data:', error);
+      toast.error('Failed to load stats');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleApprove = async (userId: string, role: string) => {
+  const fetchChartData = async () => {
     try {
-      await api.patch(`/admin/approve/${userId}`, { role });
-      toast.success('Application approved successfully');
-      fetchData();
-      setSelectedApp(null);
+      const [revenue, users] = await Promise.all([
+        api.get('/admin/charts/revenue'),
+        api.get('/admin/charts/users'),
+      ]);
+      setRevenueData(revenue.data);
+      setUserData(users.data);
     } catch (error) {
-      toast.error('Failed to approve application');
-    }
-  };
-
-  const handleReject = async (userId: string) => {
-    const reason = prompt('Please provide a reason for rejection:');
-    if (!reason) return;
-    
-    try {
-      await api.patch(`/admin/reject/${userId}`, { reason });
-      toast.success('Application rejected');
-      fetchData();
-      setSelectedApp(null);
-    } catch (error) {
-      toast.error('Failed to reject application');
+      console.error('Failed to fetch chart data:', error);
     }
   };
 
   if (loading) {
-    return <div className="text-center py-12">Loading dashboard...</div>;
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Admin Dashboard</h1>
-        <p className="text-gray-600">Welcome back, {user?.fullName}</p>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard Overview</h1>
+      
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <StatCard
+          title="Total Revenue"
+          value={stats.totalRevenue}
+          icon={DollarSign}
+          trend={stats.revenueGrowth}
+          color="bg-gradient-to-r from-green-500 to-green-600"
+        />
+        <StatCard
+          title="Total Orders"
+          value={stats.totalOrders}
+          icon={ShoppingBag}
+          trend={stats.orderGrowth}
+          color="bg-gradient-to-r from-blue-500 to-blue-600"
+        />
+        <StatCard
+          title="Total Users"
+          value={stats.totalUsers}
+          icon={Users}
+          trend={stats.userGrowth}
+          color="bg-gradient-to-r from-purple-500 to-purple-600"
+        />
+        <StatCard
+          title="Completion Rate"
+          value={`${stats.completionRate}%`}
+          icon={CheckCircle}
+          color="bg-gradient-to-r from-orange-500 to-orange-600"
+        />
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 text-sm">Total Users</p>
-              <p className="text-2xl font-bold">{stats.totalUsers}</p>
-            </div>
-            <Users className="w-10 h-10 text-orange-500" />
-          </div>
+      {/* Secondary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8">
+        <div className="bg-white rounded-lg p-4 border border-gray-100">
+          <p className="text-xs text-gray-500">Restaurants</p>
+          <p className="text-xl font-bold">{stats.totalRestaurants}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 text-sm">Restaurants</p>
-              <p className="text-2xl font-bold">{stats.restaurants}</p>
-            </div>
-            <Store className="w-10 h-10 text-green-500" />
-          </div>
+        <div className="bg-white rounded-lg p-4 border border-gray-100">
+          <p className="text-xs text-gray-500">Active Agents</p>
+          <p className="text-xl font-bold">{stats.activeAgents}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 text-sm">Pending Owners</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.pendingOwners}</p>
-            </div>
-            <Clock className="w-10 h-10 text-yellow-500" />
-          </div>
+        <div className="bg-white rounded-lg p-4 border border-gray-100">
+          <p className="text-xs text-gray-500">Pending Owners</p>
+          <p className="text-xl font-bold text-yellow-600">{stats.pendingOwners}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 text-sm">Pending Agents</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.pendingAgents}</p>
-            </div>
-            <Clock className="w-10 h-10 text-blue-500" />
-          </div>
+        <div className="bg-white rounded-lg p-4 border border-gray-100">
+          <p className="text-xs text-gray-500">Pending Agents</p>
+          <p className="text-xl font-bold text-yellow-600">{stats.pendingAgents}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 text-sm">Total Orders</p>
-              <p className="text-2xl font-bold">{stats.orders}</p>
-            </div>
-            <Package className="w-10 h-10 text-purple-500" />
+        <div className="bg-white rounded-lg p-4 border border-gray-100">
+          <p className="text-xs text-gray-500">Avg Rating</p>
+          <div className="flex items-center gap-1">
+            <p className="text-xl font-bold">{stats.avgRating}</p>
+            <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
           </div>
         </div>
       </div>
 
-      {/* Pending Applications Section */}
-      <div className="bg-white rounded-xl shadow-md overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-xl font-bold">Pending Applications</h2>
-          <p className="text-sm text-gray-500">Review and approve restaurant owner or delivery agent applications</p>
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 className="font-semibold text-gray-800 mb-4">Revenue Overview</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={revenueData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="revenue" stroke="#f97316" strokeWidth={2} />
+              <Line type="monotone" dataKey="orders" stroke="#3b82f6" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
 
-        {pendingApplications.length === 0 ? (
-          <div className="text-center py-12">
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <p className="text-gray-500">No pending applications</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-200">
-            {pendingApplications.map((app) => (
-              <div key={app.id} className="p-6 hover:bg-gray-50 transition">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold text-gray-900">{app.fullName}</h3>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        app.role === 'owner' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {app.role === 'owner' ? 'Restaurant Owner' : 'Delivery Agent'}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600">📧 {app.email}</p>
-                    <p className="text-sm text-gray-600">📞 {app.phone}</p>
-                    {app.businessName && (
-                      <p className="text-sm text-gray-600 mt-1">🏪 {app.businessName}</p>
-                    )}
-                    {app.vehicleType && (
-                      <p className="text-sm text-gray-600 mt-1">🛵 {app.vehicleType}</p>
-                    )}
-                    <p className="text-xs text-gray-400 mt-2">
-                      Applied: {new Date(app.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setSelectedApp(app)}
-                      className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
-                    >
-                      <Eye className="w-4 h-4 inline mr-1" />
-                      Review
-                    </button>
-                    <button
-                      onClick={() => handleApprove(app.id, app.role)}
-                      className="px-3 py-1 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
-                    >
-                      <CheckCircle className="w-4 h-4 inline mr-1" />
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => handleReject(app.id)}
-                      className="px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
-                    >
-                      <XCircle className="w-4 h-4 inline mr-1" />
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 className="font-semibold text-gray-800 mb-4">User Growth</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={userData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="customers" fill="#f97316" />
+              <Bar dataKey="owners" fill="#10b981" />
+              <Bar dataKey="agents" fill="#3b82f6" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
-
-      {/* Application Detail Modal */}
-      {selectedApp && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-2xl max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xl font-bold">Application Details</h3>
-                <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600">✕</button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-500">Full Name</p>
-                  <p className="font-medium">{selectedApp.fullName}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Email</p>
-                  <p className="font-medium">{selectedApp.email}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Phone</p>
-                  <p className="font-medium">{selectedApp.phone}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Role</p>
-                  <p className="font-medium capitalize">{selectedApp.role}</p>
-                </div>
-                {selectedApp.businessName && (
-                  <div>
-                    <p className="text-sm text-gray-500">Business Name</p>
-                    <p className="font-medium">{selectedApp.businessName}</p>
-                  </div>
-                )}
-                {selectedApp.businessAddress && (
-                  <div>
-                    <p className="text-sm text-gray-500">Business Address</p>
-                    <p className="font-medium">{selectedApp.businessAddress}</p>
-                  </div>
-                )}
-                {selectedApp.nidNumber && (
-                  <div>
-                    <p className="text-sm text-gray-500">NID Number</p>
-                    <p className="font-medium">{selectedApp.nidNumber}</p>
-                  </div>
-                )}
-                {selectedApp.vehicleType && (
-                  <div>
-                    <p className="text-sm text-gray-500">Vehicle Type</p>
-                    <p className="font-medium">{selectedApp.vehicleType}</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => handleApprove(selectedApp.id, selectedApp.role)}
-                  className="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600"
-                >
-                  Approve Application
-                </button>
-                <button
-                  onClick={() => handleReject(selectedApp.id)}
-                  className="flex-1 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600"
-                >
-                  Reject Application
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
