@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -8,6 +8,7 @@ import { MenuService } from '../menu/menu.service';
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { MailService } from '../mail/mail.service';
 import { UserRole } from '../users/entities/user.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class OrdersService {
@@ -19,6 +20,7 @@ export class OrdersService {
     private menuService: MenuService,
     private restaurantsService: RestaurantsService,
     private mailService: MailService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async createOrder(customerId: string, createOrderDto: CreateOrderDto) {
@@ -104,7 +106,18 @@ export class OrdersService {
         console.error('Email sending failed:', emailError.message);
       }
 
-      // 8. Return the complete order
+      // 8. Send real-time notifications
+      try {
+        // Notify customer
+        await this.notificationsService.notifyOrderPlaced(customerId, savedOrder.id);
+        
+        // Notify restaurant owner
+        await this.notificationsService.notifyNewOrder(restaurant.ownerId, savedOrder.id, restaurant.name);
+      } catch (notificationError) {
+        console.error('Notification sending failed:', notificationError.message);
+      }
+
+      // 9. Return the complete order
       return completeOrder;
     } catch (error) {
       console.error('Order creation error:', error);
@@ -116,6 +129,24 @@ export class OrdersService {
     return await this.orderRepository.find({
       where: { customerId },
       relations: ['restaurant', 'items', 'items.menuItem'],
+      order: { placedAt: 'DESC' },
+    });
+  }
+
+  // Get orders for owner's restaurants
+  async getOwnerRestaurantOrders(ownerId: string) {
+    // First get all restaurants owned by this owner
+    const restaurants = await this.restaurantsService.findByOwnerId(ownerId);
+    const restaurantIds = restaurants.map(r => r.id);
+    
+    if (restaurantIds.length === 0) {
+      return [];
+    }
+    
+    // Then get orders for those restaurants
+    return await this.orderRepository.find({
+      where: { restaurantId: In(restaurantIds) },
+      relations: ['restaurant', 'items', 'items.menuItem', 'customer', 'agent'],
       order: { placedAt: 'DESC' },
     });
   }
@@ -136,7 +167,14 @@ export class OrdersService {
   async updateOrderStatus(id: string, status: OrderStatus, userId: string, userRole: UserRole) {
     const order = await this.getOrderWithDetails(id);
 
-    if (userRole !== UserRole.ADMIN && userRole !== UserRole.OWNER) {
+    // Check permission for owner - verify they own the restaurant
+    if (userRole === UserRole.OWNER) {
+      const restaurants = await this.restaurantsService.findByOwnerId(userId);
+      const restaurantIds = restaurants.map(r => r.id);
+      if (!restaurantIds.includes(order.restaurantId)) {
+        throw new ForbiddenException('You do not own this restaurant');
+      }
+    } else if (userRole !== UserRole.ADMIN) {
       throw new ForbiddenException('You do not have permission to update order status');
     }
 
@@ -147,7 +185,15 @@ export class OrdersService {
     order.status = status;
     await this.orderRepository.save(order);
 
+    // Send email notification
     await this.mailService.sendOrderStatusUpdate(order);
+
+    // Send real-time notification to customer
+    try {
+      await this.notificationsService.notifyOrderStatusUpdate(order.customerId, id, status);
+    } catch (notificationError) {
+      console.error('Notification sending failed:', notificationError.message);
+    }
 
     return order;
   }
@@ -165,6 +211,13 @@ export class OrdersService {
 
     order.agentId = agentId;
     await this.orderRepository.save(order);
+
+    // Send real-time notification to agent
+    try {
+      await this.notificationsService.notifyNewDelivery(agentId, orderId);
+    } catch (notificationError) {
+      console.error('Notification sending failed:', notificationError.message);
+    }
 
     return order;
   }
@@ -187,6 +240,13 @@ export class OrdersService {
       await this.mailService.sendOrderDelivered(order);
     }
 
+    // Send real-time notification to customer
+    try {
+      await this.notificationsService.notifyOrderStatusUpdate(order.customerId, orderId, status);
+    } catch (notificationError) {
+      console.error('Notification sending failed:', notificationError.message);
+    }
+
     return order;
   }
 
@@ -203,6 +263,13 @@ export class OrdersService {
 
     order.status = OrderStatus.CANCELLED;
     await this.orderRepository.save(order);
+
+    // Send real-time notification to customer
+    try {
+      await this.notificationsService.notifyOrderStatusUpdate(order.customerId, id, OrderStatus.CANCELLED);
+    } catch (notificationError) {
+      console.error('Notification sending failed:', notificationError.message);
+    }
 
     return { message: 'Order cancelled successfully' };
   }

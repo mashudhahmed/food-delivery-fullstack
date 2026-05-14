@@ -7,6 +7,7 @@ import { OrderItem } from './entities/order-item.entity';
 import { MenuModule } from '../menu/menu.module';
 import { RestaurantsModule } from '../restaurants/restaurants.module';
 import { MailModule } from '../mail/mail.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { MailModule } from '../mail/mail.module';
     MenuModule,
     RestaurantsModule,
     MailModule,
+    NotificationsModule
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

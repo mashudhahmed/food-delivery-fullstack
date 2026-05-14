@@ -25,6 +25,14 @@ export class OrdersController {
     return this.ordersService.getCustomerOrders(req.user.id);
   }
 
+  // NEW: Get orders for owner's restaurants
+  @Get('my-restaurant')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.OWNER)
+  getMyRestaurantOrders(@Request() req) {
+    return this.ordersService.getOwnerRestaurantOrders(req.user.id);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.ordersService.getOrderWithDetails(id);
