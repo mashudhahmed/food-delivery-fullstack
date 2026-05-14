@@ -1,3 +1,5 @@
+// backend/src/restaurants/restaurants.controller.ts
+
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Query } from '@nestjs/common';
 import { RestaurantsService } from './restaurants.service';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
@@ -24,7 +26,17 @@ export class RestaurantsController {
   @Get()
   @ApiQuery({ name: 'cuisineType', required: false })
   @ApiQuery({ name: 'isOpen', required: false })
-  findAll(@Query('cuisineType') cuisineType?: string, @Query('isOpen') isOpen?: string) {
+  @ApiQuery({ name: 'ownerId', required: false })
+  findAll(
+    @Query('cuisineType') cuisineType?: string,
+    @Query('isOpen') isOpen?: string,
+    @Query('ownerId') ownerId?: string,
+  ) {
+    // If ownerId is provided, return only restaurants owned by that owner
+    if (ownerId) {
+      return this.restaurantsService.findByOwnerId(ownerId);
+    }
+    
     const filters = {
       cuisineType,
       isOpen: isOpen === 'true' ? true : isOpen === 'false' ? false : undefined,

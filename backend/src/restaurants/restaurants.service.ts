@@ -48,6 +48,14 @@ export class RestaurantsService {
     return restaurant;
   }
 
+  // NEW: Get restaurants by owner ID
+  async findByOwnerId(ownerId: string) {
+    return await this.restaurantRepository.find({
+      where: { ownerId },
+      relations: ['menuItems'],
+    });
+  }
+
   async update(id: string, updateRestaurantDto: UpdateRestaurantDto, userId: string, userRole: UserRole) {
     const restaurant = await this.findOne(id);
 
