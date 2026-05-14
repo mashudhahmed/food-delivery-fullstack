@@ -14,6 +14,7 @@ import { UploadsModule } from './uploads/uploads.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -49,7 +50,8 @@ import { AdminModule } from './admin/admin.module';
     ReviewsModule,
     MailModule,
     UploadsModule,
-    AdminModule
+    AdminModule,
+    NotificationsModule
   ],
   controllers: [AppController],
   providers: [AppService],
