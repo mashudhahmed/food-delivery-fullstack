@@ -17,7 +17,7 @@ export default function RestaurantDetailPage() {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const { items, addItem, removeItem, updateQuantity, getTotalPrice } = useCartStore();
+  const { items, addItem, removeItem, updateQuantity, getTotalPrice, clearCart } = useCartStore();
 
   // Safe rating conversion function
   const getRatingValue = (rating: any) => {
@@ -30,12 +30,20 @@ export default function RestaurantDetailPage() {
     fetchRestaurantDetails();
   }, [id]);
 
+  // Clear cart when restaurant changes or when restaurant is closed
+  useEffect(() => {
+    if (restaurant && !restaurant.isOpen && items.length > 0) {
+      clearCart();
+      toast.error('Restaurant is closed. Cart has been cleared.');
+    }
+  }, [restaurant?.isOpen]);
+
   const fetchRestaurantDetails = async () => {
     try {
       setLoading(true);
       const [restaurantRes, menuRes] = await Promise.all([
         api.get(`/restaurants/${id}`),
-        api.get(`/menu/restaurant/${id}`),  // ✅ FIXED: Changed from /restaurants/${id}/menu
+        api.get(`/menu/restaurant/${id}`),
       ]);
       setRestaurant(restaurantRes.data);
       setMenuItems(menuRes.data);
@@ -59,6 +67,10 @@ export default function RestaurantDetailPage() {
       toast.error('Your cart is empty');
       return;
     }
+    if (!restaurant?.isOpen) {
+      toast.error('Restaurant is closed. Cannot proceed to checkout.');
+      return;
+    }
     router.push('/checkout');
   };
 
@@ -79,6 +91,7 @@ export default function RestaurantDetailPage() {
   }
 
   const ratingNumber = getRatingValue(restaurant.rating);
+  const isOpen = restaurant.isOpen;
   const subtotal = getTotalPrice();
   const platformFee = 20;
   const deliveryFee = items.length > 0 ? 50 : 0;
@@ -149,6 +162,21 @@ export default function RestaurantDetailPage() {
             {/* Restaurant Name */}
             <h1 className="text-3xl font-bold text-gray-900 mb-2">{restaurant.name}</h1>
 
+            {/* Open/Closed Status Badge */}
+            <div className="flex items-center gap-2 mb-2">
+              {isOpen ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                  Open Now
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                  <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                  Closed
+                </span>
+              )}
+            </div>
+
             {/* Order Info */}
             <p className="text-gray-600 text-sm mb-3">No min. order</p>
 
@@ -183,6 +211,22 @@ export default function RestaurantDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Closed Restaurant Warning Banner */}
+        {!isOpen && (
+          <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <Clock className="w-5 h-5 text-amber-500 mt-0.5" />
+              <div>
+                <p className="font-semibold text-amber-800">Restaurant is Currently Closed</p>
+                <p className="text-sm text-amber-700 mt-1">
+                  This restaurant is not accepting orders right now. 
+                  Please check back during opening hours.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Menu Section Header */}
         <div className="mb-4">
@@ -239,6 +283,7 @@ export default function RestaurantDetailPage() {
                     item={item} 
                     restaurantName={restaurant.name}
                     restaurantId={restaurant.id}
+                    disabled={!isOpen}  // Disable when restaurant is closed
                   />
                 ))}
               </div>
@@ -246,10 +291,9 @@ export default function RestaurantDetailPage() {
           </div>
 
           {/* Sticky Payment Card - Fixed Size with Internal Scroll */}
-          {items.length > 0 && (
+          {items.length > 0 && isOpen && (
             <div className="lg:w-96 shrink-0">
               <div className="sticky top-24">
-                {/* Fixed size card - 500px height */}
                 <div className="bg-white rounded-xl shadow-lg border border-gray-200 h-125 flex flex-col overflow-hidden">
                   {/* Header - Fixed */}
                   <div className="p-4 border-b border-gray-100 shrink-0">
@@ -259,7 +303,7 @@ export default function RestaurantDetailPage() {
                     </h3>
                   </div>
 
-                  {/* Cart Items - Scrollable (takes remaining space) */}
+                  {/* Cart Items - Scrollable */}
                   <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
                     {items.map((item) => (
                       <div key={item.id} className="p-4">
@@ -310,7 +354,6 @@ export default function RestaurantDetailPage() {
                         <span className="text-gray-800">৳{platformFee.toFixed(2)}</span>
                       </div>
 
-                      {/* Cutlery Option */}
                       <div className="pt-2">
                         <div className="flex justify-between items-center">
                           <div>
@@ -320,7 +363,6 @@ export default function RestaurantDetailPage() {
                         </div>
                       </div>
 
-                      {/* Total */}
                       <div className="border-t border-gray-100 pt-3 mt-2">
                         <div className="flex justify-between font-bold">
                           <span className="text-gray-900">Total (incl. fees and tax)</span>
@@ -329,19 +371,39 @@ export default function RestaurantDetailPage() {
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="p-4 border-t border-gray-100 space-y-2">
+                    <div className="p-4 border-t border-gray-100">
                       <button
                         onClick={handleCheckout}
                         className="w-full bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition"
                       >
                         Review payment and address
                       </button>
-                      <button className="w-full text-sm text-gray-500 hover:text-orange-500 transition text-center">
+                      <button className="w-full text-sm text-gray-500 hover:text-orange-500 transition text-center mt-2">
                         See summary
                       </button>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Show message when cart has items but restaurant is closed */}
+          {items.length > 0 && !isOpen && (
+            <div className="lg:w-96 shrink-0">
+              <div className="sticky top-24">
+                <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 text-center">
+                  <Clock className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="font-medium text-gray-800">Restaurant is Closed</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Your cart has been cleared because the restaurant is no longer open.
+                  </p>
+                  <button
+                    onClick={() => clearCart()}
+                    className="mt-4 text-orange-500 hover:text-orange-600 text-sm"
+                  >
+                    Clear Cart
+                  </button>
                 </div>
               </div>
             </div>

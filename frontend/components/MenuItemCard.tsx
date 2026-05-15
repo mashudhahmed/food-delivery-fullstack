@@ -10,9 +10,10 @@ interface Props {
   item: MenuItem;
   restaurantName: string;
   restaurantId: string;
+  disabled?: boolean;  // Add this prop for restaurant closed state
 }
 
-export default function MenuItemCard({ item, restaurantName, restaurantId }: Props) {
+export default function MenuItemCard({ item, restaurantName, restaurantId, disabled = false }: Props) {
   const { items, addItem, removeItem, updateQuantity } = useCartStore();
   const [quantity, setQuantity] = useState(0);
 
@@ -23,6 +24,10 @@ export default function MenuItemCard({ item, restaurantName, restaurantId }: Pro
   }, [items, item.id]);
 
   const handleAddToCart = () => {
+    if (disabled) {
+      toast.error('Restaurant is currently closed');
+      return;
+    }
     if (!item.isAvailable) {
       toast.error('This item is currently unavailable');
       return;
@@ -32,6 +37,10 @@ export default function MenuItemCard({ item, restaurantName, restaurantId }: Pro
   };
 
   const handleRemoveFromCart = () => {
+    if (disabled) {
+      toast.error('Restaurant is currently closed');
+      return;
+    }
     if (quantity > 0) {
       if (quantity === 1) {
         removeItem(item.id);
@@ -70,6 +79,16 @@ export default function MenuItemCard({ item, restaurantName, restaurantId }: Pro
     return categoryEmojis[item.category] || '🍽️';
   };
 
+  // Check if the item is disabled (restaurant closed OR item unavailable)
+  const isDisabled = disabled || !item.isAvailable;
+  
+  // Get disabled message
+  const getDisabledMessage = () => {
+    if (disabled) return 'Restaurant is closed';
+    if (!item.isAvailable) return 'Currently unavailable';
+    return '';
+  };
+
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-4 flex gap-4 transition-all hover:shadow-sm">
       {/* Left Content: Text Details */}
@@ -89,6 +108,9 @@ export default function MenuItemCard({ item, restaurantName, restaurantId }: Pro
         {!item.isAvailable && (
           <p className="text-xs text-red-500 font-medium mt-2">Currently unavailable</p>
         )}
+        {disabled && item.isAvailable && (
+          <p className="text-xs text-amber-500 font-medium mt-2">Restaurant closed</p>
+        )}
       </div>
 
       {/* Right Content: Emoji & Action Button */}
@@ -99,7 +121,7 @@ export default function MenuItemCard({ item, restaurantName, restaurantId }: Pro
 
         {/* Floating Action Button */}
         <div className="absolute -bottom-2 -right-2">
-          {quantity > 0 ? (
+          {quantity > 0 && !isDisabled ? (
             <div className="flex items-center bg-orange-500 text-white rounded-full p-1 shadow-lg ring-2 ring-white">
               <button 
                 onClick={handleRemoveFromCart}
@@ -120,12 +142,13 @@ export default function MenuItemCard({ item, restaurantName, restaurantId }: Pro
           ) : (
             <button
               onClick={handleAddToCart}
-              disabled={!item.isAvailable}
+              disabled={isDisabled}
               className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-transform active:scale-95 ring-2 ring-white ${
-                item.isAvailable 
+                !isDisabled 
                   ? 'bg-orange-500 text-white hover:bg-orange-600' 
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
+              title={getDisabledMessage()}
             >
               <Plus className="w-6 h-6 stroke-[3px]" />
             </button>
