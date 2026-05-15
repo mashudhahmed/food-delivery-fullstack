@@ -42,8 +42,12 @@ export class Restaurant {
   @OneToMany(() => MenuItem, (menuItem) => menuItem.restaurant)
   menuItems: MenuItem[];
 
+
   @OneToMany(() => Review, (review) => review.restaurant)
   reviews: Review[];
+
+  @Column({ default: false })
+  isDeleted: boolean;
 
   @CreateDateColumn()
   createdAt: Date;
