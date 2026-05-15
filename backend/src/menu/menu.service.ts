@@ -1,8 +1,11 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+// backend/src/menu/menu.service.ts
+
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MenuItem } from './entities/menu-item.entity';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
+import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { RestaurantsService } from '../restaurants/restaurants.service';
 import { UserRole } from '../users/entities/user.entity';
 
@@ -33,6 +36,7 @@ export class MenuService {
     await this.restaurantsService.findOne(restaurantId);
     return await this.menuItemRepository.find({
       where: { restaurantId },
+      order: { category: 'ASC', name: 'ASC' },
     });
   }
 
@@ -44,7 +48,7 @@ export class MenuService {
     return menuItem;
   }
 
-  async updateMenuItem(id: string, updateData: Partial<CreateMenuItemDto>, userId: string, userRole: UserRole) {
+  async updateMenuItem(id: string, updateData: UpdateMenuItemDto, userId: string, userRole: UserRole) {
     const menuItem = await this.getMenuItem(id);
     const restaurant = await this.restaurantsService.findOne(menuItem.restaurantId);
 
@@ -57,14 +61,30 @@ export class MenuService {
   }
 
   async deleteMenuItem(id: string, userId: string, userRole: UserRole) {
+    console.log('Deleting menu item:', id);
+    
     const menuItem = await this.getMenuItem(id);
+    console.log('Found menu item:', menuItem);
+    
     const restaurant = await this.restaurantsService.findOne(menuItem.restaurantId);
+    console.log('Restaurant owner:', restaurant.ownerId, 'User:', userId);
 
     if (restaurant.ownerId !== userId && userRole !== UserRole.ADMIN) {
       throw new ForbiddenException('You do not have permission to delete this menu item');
     }
 
-    await this.menuItemRepository.remove(menuItem);
-    return { message: 'Menu item deleted successfully' };
+    try {
+      const result = await this.menuItemRepository.delete(id);
+      console.log('Delete result:', result);
+      
+      if (result.affected === 0) {
+        throw new NotFoundException('Menu item not found');
+      }
+      
+      return { message: 'Menu item deleted successfully', success: true };
+    } catch (error) {
+      console.error('Delete error:', error);
+      throw new BadRequestException('Failed to delete menu item');
+    }
   }
 }
