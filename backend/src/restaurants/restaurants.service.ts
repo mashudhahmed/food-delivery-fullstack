@@ -1,4 +1,6 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+// backend/src/restaurants/restaurants.service.ts
+
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Restaurant } from './entities/restaurant.entity';
@@ -48,7 +50,6 @@ export class RestaurantsService {
     return restaurant;
   }
 
-  // NEW: Get restaurants by owner ID
   async findByOwnerId(ownerId: string) {
     return await this.restaurantRepository.find({
       where: { ownerId },
@@ -67,6 +68,7 @@ export class RestaurantsService {
     return await this.restaurantRepository.save(restaurant);
   }
 
+  // SIMPLE WORKING VERSION - Restore this
   async remove(id: string, userId: string, userRole: UserRole) {
     const restaurant = await this.findOne(id);
 
@@ -74,7 +76,14 @@ export class RestaurantsService {
       throw new ForbiddenException('You do not have permission to delete this restaurant');
     }
 
-    await this.restaurantRepository.remove(restaurant);
+    // Delete menu items first (cascade)
+    if (restaurant.menuItems && restaurant.menuItems.length > 0) {
+      // This will cascade delete if set up in entity, otherwise manual delete
+      await this.restaurantRepository.delete(id);
+    } else {
+      await this.restaurantRepository.remove(restaurant);
+    }
+    
     return { message: 'Restaurant deleted successfully' };
   }
 

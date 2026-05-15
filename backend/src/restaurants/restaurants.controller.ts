@@ -1,5 +1,3 @@
-// backend/src/restaurants/restaurants.controller.ts
-
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Query } from '@nestjs/common';
 import { RestaurantsService } from './restaurants.service';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
@@ -32,7 +30,6 @@ export class RestaurantsController {
     @Query('isOpen') isOpen?: string,
     @Query('ownerId') ownerId?: string,
   ) {
-    // If ownerId is provided, return only restaurants owned by that owner
     if (ownerId) {
       return this.restaurantsService.findByOwnerId(ownerId);
     }
@@ -58,7 +55,7 @@ export class RestaurantsController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.OWNER, UserRole.ADMIN)  //Allow OWNER to delete
   @ApiBearerAuth()
   remove(@Param('id') id: string, @Request() req) {
     return this.restaurantsService.remove(id, req.user.id, req.user.role);
