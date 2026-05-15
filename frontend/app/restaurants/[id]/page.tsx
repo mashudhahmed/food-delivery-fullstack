@@ -35,7 +35,7 @@ export default function RestaurantDetailPage() {
       setLoading(true);
       const [restaurantRes, menuRes] = await Promise.all([
         api.get(`/restaurants/${id}`),
-        api.get(`/restaurants/${id}/menu`),
+        api.get(`/menu/restaurant/${id}`),  // ✅ FIXED: Changed from /restaurants/${id}/menu
       ]);
       setRestaurant(restaurantRes.data);
       setMenuItems(menuRes.data);
