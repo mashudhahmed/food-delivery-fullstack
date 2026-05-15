@@ -1,15 +1,57 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Mail, Phone, MapPin, Globe, Apple, Smartphone } from 'lucide-react';
 import { FaFacebook, FaTwitter, FaInstagram, FaYoutube } from 'react-icons/fa';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
+  const pathname = usePathname();
+  
+  // Check if on dashboard pages (admin, owner, agent)
+  const isDashboardPage = pathname?.startsWith('/admin') || 
+                          pathname?.startsWith('/owner') || 
+                          pathname?.startsWith('/agent');
+  
+  // Check if on settings page
+  const isSettingsPage = pathname === '/settings';
+  
+  // Check if on notifications page
+  const isNotificationsPage = pathname === '/notifications';
+  
+  // Check if on auth pages (login/register)
+  const isAuthPage = pathname === '/login' || pathname === '/register';
+  
+  // Check if on cart page
+  const isCartPage = pathname === '/cart';
+  
+  // Check if on checkout page
+  const isCheckoutPage = pathname === '/checkout';
+  
+  // Check if on orders page (customer orders)
+  const isOrdersPage = pathname?.startsWith('/orders');
+  
+  // Check if on profile page
+  const isProfilePage = pathname === '/profile';
+  
+  // Don't show footer on any of these pages
+  const shouldHideFooter = isDashboardPage || 
+                           isSettingsPage || 
+                           isNotificationsPage || 
+                           isAuthPage || 
+                           isCartPage || 
+                           isCheckoutPage || 
+                           isOrdersPage || 
+                           isProfilePage;
+  
+  if (shouldHideFooter) {
+    return null;
+  }
 
   return (
     <footer className="bg-gray-900 text-white mt-16">
-      {/* Main Footer */}
+      {/* Main Footer - Only for marketing/customer pages */}
       <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           

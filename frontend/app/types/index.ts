@@ -1,3 +1,5 @@
+// frontend/app/types/index.ts
+
 export interface User {
   id: string;
   fullName: string;
@@ -36,22 +38,44 @@ export interface CartItem extends MenuItem {
   quantity: number;
 }
 
+export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'picked_up' | 'delivered' | 'cancelled';
+
 export interface Order {
-  updatedAt: string | number | Date;
-  deliveryInstructions: import("react/jsx-runtime").JSX.Element;
   id: string;
   customerId: string;
   restaurantId: string;
-  restaurant?: Restaurant;
-  status: 'pending' | 'preparing' | 'ready' | 'picked_up' | 'delivered' | 'cancelled';
-  totalAmount: number;
+  agentId?: string;                    // ✅ Added - delivery agent assigned
+  status: OrderStatus;
+  
+  // Price breakdown
+  subtotal: number;                    // ✅ Added - before fees
+  deliveryFee: number;                 // ✅ Added - delivery charge
+  platformFee: number;                 // ✅ Added - platform/service fee
+  totalAmount: number;                 // ✅ Already there
+  
   deliveryAddress: string;
-  placedAt: string;
-  items: OrderItem[];
+  deliveryInstructions?: string;       // ✅ Fixed - should be string, not JSX.Element
+  
+  // Customer info
+  customerName?: string;               // ✅ Added - customer full name
+  customerEmail?: string;              // ✅ Added - customer email
+  customerPhone?: string;              // ✅ Added - customer phone
+  
+  paymentMethod?: string;              // ✅ Added - payment method used
+  
+  placedAt: Date | string;             // ✅ Fixed - Date type
+  updatedAt: Date | string;            // ✅ Fixed - Date type
+  
+  // Relations
+  restaurant?: Restaurant;
+  items?: OrderItem[];
+  customer?: User;                     // ✅ Added - customer relation
+  agent?: User;                        // ✅ Added - agent relation
 }
 
 export interface OrderItem {
   id: string;
+  orderId?: string;                    // ✅ Added - link to order
   menuItemId: string;
   quantity: number;
   unitPrice: number;

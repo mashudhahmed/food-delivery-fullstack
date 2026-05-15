@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import NotificationDropdown from './NotificationDropdown';
 import { 
   Home, 
   ShoppingBag, 
@@ -38,6 +39,7 @@ import toast from 'react-hot-toast';
 import LocationModal from './LocationModal';
 import LogoutModal from './LogoutModal';
 import AuthModal from './AuthModal';
+import { BiCycling } from 'react-icons/bi';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -99,12 +101,8 @@ export default function Navbar() {
     window.dispatchEvent(new Event('auth-change'));
     toast.success('Logged out successfully');
     
-    // Redirect to home for customers, or login for dashboard users
-    if (isDashboardPage) {
-      window.location.href = '/login';
-    } else {
-      window.location.href = '/';
-    }
+    // Always redirect to home page (not login page)
+    window.location.href = '/';
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -137,8 +135,7 @@ export default function Navbar() {
           { href: '/admin/users', label: 'Users', icon: Users },
           { href: '/admin/restaurants', label: 'Restaurants', icon: Store },
           { href: '/admin/orders', label: 'Orders', icon: Package },
-          { href: '/admin/reports', label: 'Reports', icon: TrendingUp },
-          { href: '/admin/settings', label: 'Settings', icon: Settings },
+          { href: '/admin/analytics', label: 'Analytics', icon: TrendingUp },
         ];
       case 'owner':
         return [
@@ -168,10 +165,10 @@ export default function Navbar() {
 
   const getDashboardIcon = () => {
     switch (user?.role) {
-      case 'admin': return <Shield className="w-6 h-6 text-orange-500" />;
-      case 'owner': return <Store className="w-6 h-6 text-orange-500" />;
-      case 'agent': return <Truck className="w-6 h-6 text-orange-500" />;
-      default: return <LayoutDashboard className="w-6 h-6 text-orange-500" />;
+      case 'admin': return <Shield className="w-5 h-5 text-orange-500" />;
+      case 'owner': return <Store className="w-5 h-5 text-orange-500" />;
+      case 'agent': return <BiCycling className="w-5 h-5 text-orange-500" />;
+      default: return <LayoutDashboard className="w-5 h-5 text-orange-500" />;
     }
   };
 
@@ -195,7 +192,6 @@ export default function Navbar() {
         <div className="bg-white shadow-sm sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex items-center justify-between h-16">
-              {/* Logo - Customer homepage goes to / */}
               <Link href="/" className="shrink-0">
                 <div className="flex items-center gap-2">
                   <Image src="/logo.png" alt="QuickBite" width={32} height={32} className="w-8 h-8 object-contain" />
@@ -352,64 +348,87 @@ export default function Navbar() {
     );
   }
 
-  // ========== DASHBOARD NAVBAR (Admin/Owner/Agent) - Industry Standard ==========
+  // ========== DASHBOARD NAVBAR (Admin/Owner/Agent) ==========
   if (isDashboardPage) {
+    // Safe role fallback
+    const userRole = user?.role || 'admin';
+    const dashboardPath = `/${userRole}/dashboard`;
+    
+    const getPortalTitle = () => {
+      switch (userRole) {
+        case 'admin': return 'Admin Portal';
+        case 'owner': return 'Owner Portal';
+        case 'agent': return 'Agent Portal';
+        default: return 'Dashboard';
+      }
+    };
+
+    // Handle dashboard logo click - STAYS IN DASHBOARD
+    const handleLogoClick = (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      router.push(dashboardPath);
+    };
+
     return (
       <>
         <LogoutModal isOpen={isLogoutModalOpen} onClose={() => setIsLogoutModalOpen(false)} onConfirm={handleConfirmLogout} />
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} initialMode={authModalMode} />
 
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4">
-            <div className="flex items-center justify-between h-16">
-              {/* Logo - ON CLICK STAYS IN DASHBOARD (Industry Standard) */}
+        <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
+          <div className="px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-20">
+              {/* LEFT SIDE: Logo + Brand Name */}
               <div className="flex items-center gap-3">
                 <button 
-                  onClick={() => router.push(`/${user?.role}/dashboard`)}
-                  className="flex items-center gap-2 hover:opacity-80 transition"
+                  onClick={handleLogoClick}
+                  className="flex items-center gap-3 hover:opacity-80 transition group cursor-pointer"
+                  type="button"
                 >
-                  <Image src="/logo.png" alt="QuickBite" width={28} height={28} className="w-7 h-7 object-contain" />
-                  <span className="text-lg font-bold text-orange-500 hidden sm:block">QuickBite</span>
+                  <div className="relative">
+                    <Image 
+                      src="/logo.png" 
+                      alt="QuickBite" 
+                      width={48} 
+                      height={48} 
+                      className="w-12 h-12 object-contain"
+                      priority
+                    />
+                  </div>
+                  <div className="flex flex-col items-start">
+                    <span className="text-2xl font-bold text-orange-500 leading-tight">QuickBite</span>
+                    <span className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">
+                      {getPortalTitle()}
+                    </span>
+                  </div>
                 </button>
-                <div className="hidden md:flex items-center gap-2 ml-4 pl-4 border-l border-gray-200">
-                  {getDashboardIcon()}
-                  <span className="text-sm font-semibold text-gray-700">{getDashboardTitle()}</span>
-                  <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full capitalize">{user?.role}</span>
-                </div>
               </div>
 
-              {/* Dashboard Navigation Links */}
-              <div className="hidden md:flex items-center gap-1">
-                {roleBasedLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 ${
-                      pathname === link.href
-                        ? 'bg-orange-50 text-orange-600'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
-                  >
-                    <link.icon className="w-4 h-4" />
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
+              {/* RIGHT SIDE: Global Actions */}
+              <div className="flex items-center gap-1">
+                {/* Notifications Dropdown - Integrated */}
+                <NotificationDropdown />
 
-              {/* Right Actions */}
-              <div className="flex items-center gap-2">
-                <button className="hidden md:flex p-2 hover:bg-gray-100 rounded-full relative">
-                  <Bell className="w-5 h-5 text-gray-500" />
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                </button>
-                <button className="hidden md:flex p-2 hover:bg-gray-100 rounded-full">
+                {/* Help Button */}
+                <button className="p-2.5 hover:bg-gray-100 rounded-full transition">
                   <HelpCircle className="w-5 h-5 text-gray-500" />
                 </button>
 
-                <div className="relative">
-                  <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-2 text-sm font-medium hover:text-orange-500 transition">
-                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center"><User className="w-4 h-4 text-orange-600" /></div>
-                    <span className="hidden sm:inline text-gray-700">{user?.fullName?.split(' ')[0]}</span>
+                {/* Settings - Direct link */}
+                <Link href="/settings" className="p-2.5 hover:bg-gray-100 rounded-full transition">
+                  <Settings className="w-5 h-5 text-gray-500" />
+                </Link>
+
+                {/* User Profile */}
+                <div className="relative ml-1">
+                  <button 
+                    onClick={() => setIsProfileOpen(!isProfileOpen)} 
+                    className="flex items-center gap-2 text-sm font-medium hover:text-orange-500 transition pl-2"
+                  >
+                    <div className="w-9 h-9 bg-orange-100 rounded-full flex items-center justify-center">
+                      <User className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <span className="hidden sm:inline text-gray-700 font-medium">{user?.fullName?.split(' ')[0] || 'User'}</span>
                     <ChevronDown className="w-4 h-4 text-gray-400" />
                   </button>
 
@@ -417,48 +436,32 @@ export default function Navbar() {
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} />
                       <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border py-2 z-50">
-                        <div className="px-4 py-2 border-b"><p className="text-sm font-medium text-gray-800">{user?.fullName}</p><p className="text-xs text-gray-500">{user?.email}</p></div>
-                        {roleBasedLinks.map((link) => (
-                          <Link key={link.href} href={link.href} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)}>
-                            <link.icon className="w-4 h-4" /> {link.label}
-                          </Link>
-                        ))}
-                        <Link href="/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)}><Settings className="w-4 h-4" /> Settings</Link>
+                        <div className="px-4 py-2 border-b">
+                          <p className="text-sm font-medium text-gray-800">{user?.fullName || 'User'}</p>
+                          <p className="text-xs text-gray-500">{user?.email || 'user@example.com'}</p>
+                          <div className="flex items-center gap-1 mt-2">
+                            {getDashboardIcon()}
+                            <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full capitalize">{user?.role || 'admin'}</span>
+                          </div>
+                        </div>
+                        <Link href="/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)}>
+                          <User className="w-4 h-4" /> My Profile
+                        </Link>
+                        <Link href="/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)}>
+                          <Settings className="w-4 h-4" /> Account Settings
+                        </Link>
                         <hr className="my-1" />
-                        <button onClick={handleLogoutClick} className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"><LogOut className="w-4 h-4" /> Logout</button>
+                        <button onClick={handleLogoutClick} className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50">
+                          <LogOut className="w-4 h-4" /> Logout
+                        </button>
                       </div>
                     </>
                   )}
                 </div>
-
-                <button className="md:hidden p-2" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-                  {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                </button>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Mobile Menu */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden fixed inset-0 top-16 bg-white z-40 overflow-auto border-t">
-            <div className="p-4 space-y-4">
-              <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
-                {getDashboardIcon()}
-                <span className="text-sm font-semibold text-gray-700">{getDashboardTitle()}</span>
-                <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full capitalize">{user?.role}</span>
-              </div>
-              {roleBasedLinks.map((link) => (
-                <Link key={link.href} href={link.href} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50" onClick={() => setIsMobileMenuOpen(false)}>
-                  <link.icon className="w-5 h-5 text-gray-500" /> <span className="text-gray-700">{link.label}</span>
-                </Link>
-              ))}
-              <Link href="/settings" className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50" onClick={() => setIsMobileMenuOpen(false)}><Settings className="w-5 h-5 text-gray-500" /> Settings</Link>
-              <hr />
-              <button onClick={handleLogoutClick} className="flex items-center gap-3 w-full p-3 rounded-lg text-red-600 hover:bg-red-50"><LogOut className="w-5 h-5" /> Logout</button>
-            </div>
-          </div>
-        )}
       </>
     );
   }

@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Mail, Lock, User, Phone, Eye, EyeOff, Apple, ArrowLeft, Briefcase, Truck, AlertCircle } from 'lucide-react';
+import { X, Mail, Lock, User, Phone, Eye, EyeOff, ArrowLeft, Briefcase, Truck, AlertCircle } from 'lucide-react';
 import { auth } from '@/app/lib/api';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
-import { FaFacebook, FaMapPin } from 'react-icons/fa';
+import { FaFacebook, FaGoogle, FaMapPin } from 'react-icons/fa';
+import { SiApple } from 'react-icons/si';
+import Image from 'next/image';
 import { api } from '@/app/lib/api';
 
 interface AuthModalProps {
@@ -182,6 +184,11 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     }
   };
 
+  const handleSocialLogin = (provider: string) => {
+    toast.success(`Connecting with ${provider}...`);
+    // Add your social login logic here
+  };
+
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
       onClose();
@@ -192,10 +199,10 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
 
   return (
     <div 
-      className="fixed inset-0 bg-black/50 z-200 flex items-center justify-center"
+      className="fixed inset-0 bg-black/50 z-200 flex items-center justify-center p-4"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white rounded-2xl w-full max-w-lg mx-4 overflow-hidden shadow-xl relative">
+      <div className="bg-white rounded-2xl w-full max-w-md mx-auto overflow-hidden shadow-xl relative">
         {/* Close button */}
         <button
           onClick={onClose}
@@ -217,12 +224,22 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
         {/* Scrollable Content */}
         <div className="max-h-[85vh] overflow-y-auto">
           <div className="p-6 pt-8">
-            {/* Logo */}
+            {/* Logo - Clean, Big, Visible, No Orange Box */}
             <div className="text-center mb-6">
+              <div className="flex justify-center mb-3">
+                <Image 
+                  src="/logo.png" 
+                  alt="QuickBite" 
+                  width={64} 
+                  height={64} 
+                  className="w-16 h-16 object-contain"
+                  priority
+                />
+              </div>
               <div className="text-3xl font-bold text-orange-500">QuickBite</div>
-              <p className="text-sm text-gray-500 mt-1">
-                {mode === 'login' && 'Welcome back!'}
-                {mode === 'signup' && 'Create your account'}
+              <p className="text-sm text-gray-500 mt-2">
+                {mode === 'login' && 'Welcome back! Sign in to continue'}
+                {mode === 'signup' && 'Create your account to get started'}
                 {mode === 'forgot' && 'Reset your password'}
                 {mode === 'reset' && 'Create new password'}
               </p>
@@ -264,7 +281,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                       type="email"
                       required
                       placeholder="Email address"
-                      className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500"
+                      className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                       value={loginData.email}
                       onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                     />
@@ -277,7 +294,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                       type={showPassword ? 'text' : 'password'}
                       required
                       placeholder="Password"
-                      className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500"
+                      className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                       value={loginData.password}
                       onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                     />
@@ -316,7 +333,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                     type="text"
                     required
                     placeholder="Full Name"
-                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500"
+                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                     value={signupData.fullName}
                     onChange={(e) => setSignupData({ ...signupData, fullName: e.target.value })}
                   />
@@ -327,7 +344,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                     type="email"
                     required
                     placeholder="Email address"
-                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500"
+                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                     value={signupData.email}
                     onChange={(e) => setSignupData({ ...signupData, email: e.target.value })}
                   />
@@ -338,7 +355,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                     type={showPassword ? 'text' : 'password'}
                     required
                     placeholder="Password"
-                    className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500"
+                    className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                     value={signupData.password}
                     onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
                   />
@@ -356,7 +373,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                     type="tel"
                     required
                     placeholder="Phone Number"
-                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500"
+                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                     value={signupData.phone}
                     onChange={(e) => setSignupData({ ...signupData, phone: e.target.value })}
                   />
@@ -366,7 +383,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                   <input
                     type="text"
                     placeholder="Address (optional)"
-                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500"
+                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                     value={signupData.address}
                     onChange={(e) => setSignupData({ ...signupData, address: e.target.value })}
                   />
@@ -548,7 +565,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                       type="email"
                       required
                       placeholder="Email address"
-                      className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500"
+                      className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
                     />
@@ -577,7 +594,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                       type="text"
                       required
                       placeholder="Reset Token"
-                      className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500"
+                      className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                       value={resetData.token}
                       onChange={(e) => setResetData({ ...resetData, token: e.target.value })}
                     />
@@ -590,7 +607,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                       type={showPassword ? 'text' : 'password'}
                       required
                       placeholder="New Password"
-                      className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500"
+                      className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                       value={resetData.newPassword}
                       onChange={(e) => setResetData({ ...resetData, newPassword: e.target.value })}
                     />
@@ -610,7 +627,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                       type={showPassword ? 'text' : 'password'}
                       required
                       placeholder="Confirm New Password"
-                      className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500"
+                      className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                       value={resetData.confirmPassword}
                       onChange={(e) => setResetData({ ...resetData, confirmPassword: e.target.value })}
                     />
@@ -638,15 +655,30 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                   </div>
                 </div>
 
-                {/* Social Login */}
+                {/* Social Login - Industry Standard Logos */}
                 <div className="space-y-2">
-                  <button className="w-full flex items-center justify-center gap-2 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition">
-                    <FaFacebook className="w-5 h-5 text-blue-600" />
-                    <span className="text-sm font-medium">Continue with Facebook</span>
+                  <button 
+                    onClick={() => handleSocialLogin('Google')}
+                    className="w-full flex items-center justify-center gap-3 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition group"
+                  >
+                    <FaGoogle className="w-5 h-5 text-red-500" />
+                    <span className="text-sm font-medium text-gray-700">Continue with Google</span>
                   </button>
-                  <button className="w-full flex items-center justify-center gap-2 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition">
-                    <Apple className="w-5 h-5 text-gray-800" />
-                    <span className="text-sm font-medium">Continue with Apple</span>
+                  
+                  <button 
+                    onClick={() => handleSocialLogin('Facebook')}
+                    className="w-full flex items-center justify-center gap-3 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition group"
+                  >
+                    <FaFacebook className="w-5 h-5 text-blue-600" />
+                    <span className="text-sm font-medium text-gray-700">Continue with Facebook</span>
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleSocialLogin('Apple')}
+                    className="w-full flex items-center justify-center gap-3 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition group"
+                  >
+                    <SiApple className="w-5 h-5 text-gray-800" />
+                    <span className="text-sm font-medium text-gray-700">Continue with Apple</span>
                   </button>
                 </div>
               </>
