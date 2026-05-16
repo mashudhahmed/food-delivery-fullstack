@@ -1,5 +1,3 @@
-// backend/src/notifications/notifications.service.ts
-
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -58,7 +56,6 @@ export class NotificationsService {
     
     const saved = await this.notificationRepository.save(newNotification);
     
-    // Send real-time via WebSocket
     this.notificationsGateway.sendNotificationToUser(userId, {
       id: saved.id,
       type: saved.type,
@@ -72,18 +69,53 @@ export class NotificationsService {
     return saved;
   }
 
-  // Send notification to a user
   async sendToUser(userId: string, notification: NotificationData) {
     return this.saveNotification(userId, notification);
   }
 
-  // Send notification to multiple users
   async sendToUsers(userIds: string[], notification: NotificationData) {
     const promises = userIds.map(userId => this.saveNotification(userId, notification));
     return Promise.all(promises);
   }
 
-  // Order notifications
+  // ==================== AGENT NOTIFICATIONS (Industry Standard) ====================
+
+  // 1. When order is READY - Notify ALL available agents
+  async notifyOrderReadyForAgents(orderId: string, restaurantName: string, earnings: number) {
+    // Get all agents from database
+    const agents = await this.getActiveAgents();
+    
+    console.log(`📢 Sending notification to ${agents.length} agents about order #${orderId.slice(-8)}`);
+    
+    for (const agent of agents) {
+      await this.sendToUser(agent.id, {
+        type: 'order_available',
+        title: '🍕 New Order Available!',
+        message: `${restaurantName} • Earn ৳${earnings}`,
+        data: { orderId, restaurantName, earnings },
+      });
+    }
+  }
+
+  // 2. Agent earnings notification (only after delivery)
+  async notifyAgentEarnings(agentId: string, orderId: string, earnings: number) {
+    await this.sendToUser(agentId, {
+      type: 'earnings_added',
+      title: '💰 Earnings Added',
+      message: `You earned ৳${earnings} for order #${orderId.slice(-8)}`,
+      data: { orderId, earnings },
+    });
+  }
+
+  // Helper method to get all agents
+  async getActiveAgents(): Promise<any[]> {
+    // This will be implemented when UserService is injected
+    // For now, return empty array - implement later
+    return [];
+  }
+
+  // ==================== EXISTING NOTIFICATIONS ====================
+
   async notifyOrderPlaced(customerId: string, orderId: string) {
     await this.sendToUser(customerId, {
       type: 'order_new',
@@ -112,22 +144,11 @@ export class NotificationsService {
     });
   }
 
-  // Restaurant notifications
   async notifyNewOrder(ownerId: string, orderId: string, restaurantName: string) {
     await this.sendToUser(ownerId, {
       type: 'order_new',
       title: 'New Order Received!',
       message: `New order #${orderId.slice(-8)} from ${restaurantName}`,
-      data: { orderId },
-    });
-  }
-
-  // Agent notifications
-  async notifyNewDelivery(agentId: string, orderId: string) {
-    await this.sendToUser(agentId, {
-      type: 'agent_assigned',
-      title: 'New Delivery Assignment',
-      message: `New delivery order #${orderId.slice(-8)} is available.`,
       data: { orderId },
     });
   }

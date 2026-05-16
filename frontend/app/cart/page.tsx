@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCartStore } from '../stores/cartStore';
 import { useRouter } from 'next/navigation';
-import { auth } from '../lib/auth';
+import { auth } from '../../lib/auth';
 import { useState } from 'react';
 import { 
   ShoppingBag, 

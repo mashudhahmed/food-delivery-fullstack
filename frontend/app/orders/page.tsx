@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { api } from '../lib/api';
+import { api } from '../../lib/api';
 import { Order } from '../types';
 import toast from 'react-hot-toast';
 import { Package, Clock, ChevronRight, Calendar, MapPin, CreditCard, Search, Filter } from 'lucide-react';

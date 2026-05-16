@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api } from '@/app/lib/api';
+import { api } from '@/lib/api';
 import { Order } from '@/app/types';
 import toast from 'react-hot-toast';
 import Link from 'next/link';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { api } from '@/app/lib/api';
+import { api } from '@/lib/api';
 import { Save, Globe, Bell, Shield, Palette, Mail, Lock, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 

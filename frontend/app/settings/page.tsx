@@ -31,7 +31,7 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
-import { auth } from '@/app/lib/api';
+import { auth } from '@/lib/api';
 import { useAddressStore } from '@/app/stores/addressStore';
 import toast from 'react-hot-toast';
 import Link from 'next/link';

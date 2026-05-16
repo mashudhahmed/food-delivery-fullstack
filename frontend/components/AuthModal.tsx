@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { X, Mail, Lock, User, Phone, Eye, EyeOff, ArrowLeft, Briefcase, Truck, AlertCircle } from 'lucide-react';
-import { auth } from '@/app/lib/api';
+import { auth } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { FaFacebook, FaGoogle, FaMapPin } from 'react-icons/fa';
 import { SiApple } from 'react-icons/si';
 import Image from 'next/image';
-import { api } from '@/app/lib/api';
+import { api } from '@/lib/api';
 
 interface AuthModalProps {
   isOpen: boolean;

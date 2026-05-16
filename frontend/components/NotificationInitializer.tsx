@@ -1,11 +1,9 @@
-// frontend/components/NotificationInitializer.tsx
-
 'use client';
 
 import { useEffect } from 'react';
 import { useNotificationStore } from '@/app/stores/notificationStore';
-import { auth } from '@/app/lib/api';
-import { wsService } from '@/app/lib/websocket';
+import { auth } from '@/lib/api';
+import { wsService } from '@/lib/websocket';
 
 export default function NotificationInitializer() {
   const { fetchNotifications } = useNotificationStore();
@@ -20,11 +18,15 @@ export default function NotificationInitializer() {
           // Fetch existing notifications
           await fetchNotifications();
           
-          // Start polling for real-time updates (no WebSocket)
-          wsService.connect(user.id);
+          // Try to connect WebSocket, but don't let it crash the app
+          try {
+            wsService.connect(user.id);
+          } catch (wsError) {
+            console.log('WebSocket not available - using polling only');
+          }
           console.log('Notification system initialized for user:', user.id);
         } catch (error) {
-          console.error('Failed to initialize notifications:', error);
+          console.log('Notification system initialization skipped:', error);
         }
       }
     };
@@ -34,8 +36,12 @@ export default function NotificationInitializer() {
     const handleAuthChange = () => {
       const user = auth.getCurrentUser();
       if (user) {
-        wsService.disconnect();
-        wsService.connect(user.id);
+        try {
+          wsService.disconnect();
+          wsService.connect(user.id);
+        } catch (error) {
+          console.log('WebSocket connection skipped');
+        }
         fetchNotifications();
       } else {
         wsService.disconnect();
@@ -46,7 +52,11 @@ export default function NotificationInitializer() {
     
     return () => {
       window.removeEventListener('auth-change', handleAuthChange);
-      wsService.disconnect();
+      try {
+        wsService.disconnect();
+      } catch (error) {
+        // Ignore disconnect errors
+      }
     };
   }, [fetchNotifications]);
 

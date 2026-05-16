@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { api } from '@/app/lib/api';
+import { api } from '@/lib/api';
 import { Eye, CheckCircle, XCircle, Download, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 

@@ -25,7 +25,7 @@ const Popup = dynamic(
 );
 
 // Import leaflet icons setup
-import '@/app/lib/leaflet-icons';
+import '@/lib/leaflet-icons';
 
 interface LocationModalProps {
   isOpen: boolean;

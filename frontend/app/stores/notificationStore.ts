@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { Notification } from '@/app/types/notification';
-import { api } from '@/app/lib/api';
+import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 interface NotificationStore {

@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/app/lib/api';
-import { api } from '@/app/lib/api';
+import { auth } from '@/lib/api';
+import { api } from '@/lib/api';
 import { 
   TrendingUp, 
   TrendingDown,

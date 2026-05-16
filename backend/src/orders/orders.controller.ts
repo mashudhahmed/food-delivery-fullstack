@@ -15,6 +15,14 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
+  // GET all orders (for agents and admins)
+  @Get()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  findAll() {
+    return this.ordersService.findAllOrders();
+  }
+
   @Post()
   create(@Body() createOrderDto: CreateOrderDto, @Request() req) {
     return this.ordersService.createOrder(req.user.id, createOrderDto);
@@ -25,7 +33,7 @@ export class OrdersController {
     return this.ordersService.getCustomerOrders(req.user.id);
   }
 
-  // NEW: Get orders for owner's restaurants
+  // Get orders for owner's restaurants
   @Get('my-restaurant')
   @UseGuards(RolesGuard)
   @Roles(UserRole.OWNER)
@@ -47,7 +55,7 @@ export class OrdersController {
 
   @Patch(':id/assign')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.AGENT)
   assignAgent(@Param('id') id: string, @Body('agentId') agentId: string, @Request() req) {
     return this.ordersService.assignDeliveryAgent(id, agentId, req.user.role);
   }

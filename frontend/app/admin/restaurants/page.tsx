@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { api } from '@/app/lib/api';
+import { api } from '@/lib/api';
 import { Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 

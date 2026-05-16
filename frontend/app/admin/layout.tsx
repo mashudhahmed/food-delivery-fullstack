@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { auth } from '@/app/lib/api';
+import { auth } from '@/lib/api';
 import { 
   LayoutDashboard, 
   Users, 

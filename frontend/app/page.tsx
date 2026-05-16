@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { api } from './lib/api';
-import { auth } from './lib/api';
+import { api } from '../lib/api';
+import { auth } from '../lib/api';
 import { Restaurant } from './types';
 import RestaurantCard from '@/components/RestaurantCard';
 import toast from 'react-hot-toast';

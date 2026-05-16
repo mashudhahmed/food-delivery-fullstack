@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Bell, CheckCheck, X } from 'lucide-react';
-import { api } from '@/app/lib/api';
+import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 interface Notification {

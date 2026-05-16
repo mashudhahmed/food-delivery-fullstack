@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '../stores/cartStore';
 import { useAddressStore } from '../stores/addressStore';
-import { api } from '../lib/api';
-import { auth } from '../lib/api';
+import { api } from '../../lib/api';
+import { auth } from '../../lib/api';
 import toast from 'react-hot-toast';
 import { MapPin, Edit2, Navigation, Clock, CreditCard, User, Phone, Mail, Home, Building } from 'lucide-react';
 

@@ -31,7 +31,7 @@ import {
   Star,
   TrendingUp
 } from 'lucide-react';
-import { auth } from '@/app/lib/api';
+import { auth } from '@/lib/api';
 import { useCartStore } from '@/app/stores/cartStore';
 import { useAddressStore } from '@/app/stores/addressStore';
 import Image from 'next/image';
