@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { auth } from '@/app/lib/api';
+import { auth } from '@/lib/api';
 import { 
   LayoutDashboard, 
   Package, 
@@ -12,12 +12,14 @@ import {
   Calendar,
   Menu,
   X,
-  Bike
+  Bike,
+  ClipboardList
 } from 'lucide-react';
 
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/agent/dashboard' },
   { id: 'deliveries', label: 'My Deliveries', icon: Package, path: '/agent/deliveries' },
+  { id: 'available', label: 'Available Orders', icon: ClipboardList, path: '/agent/available' },
   { id: 'earnings', label: 'Earnings', icon: DollarSign, path: '/agent/earnings' },
   { id: 'schedule', label: 'Schedule', icon: Calendar, path: '/agent/schedule' },
 ];
