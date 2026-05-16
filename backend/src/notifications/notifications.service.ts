@@ -1,7 +1,10 @@
+// backend/src/notifications/notifications.service.ts
+
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Notification } from './entities/notification.entity';
+import { User, UserRole } from '../users/entities/user.entity'; // ✅ Add UserRole import
 import { NotificationsGateway } from './notifications.gateway';
 
 export interface NotificationData {
@@ -16,6 +19,8 @@ export class NotificationsService {
   constructor(
     @InjectRepository(Notification)
     private notificationRepository: Repository<Notification>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
     private readonly notificationsGateway: NotificationsGateway,
   ) {}
 
@@ -78,11 +83,15 @@ export class NotificationsService {
     return Promise.all(promises);
   }
 
-  // ==================== AGENT NOTIFICATIONS (Industry Standard) ====================
+  // ✅ FIXED: Use UserRole enum instead of string
+  async getActiveAgents(): Promise<User[]> {
+    return await this.userRepository.find({
+      where: { role: UserRole.AGENT }, // ✅ Use enum value
+    });
+  }
 
-  // 1. When order is READY - Notify ALL available agents
+  // When order is READY - Notify ALL available agents
   async notifyOrderReadyForAgents(orderId: string, restaurantName: string, earnings: number) {
-    // Get all agents from database
     const agents = await this.getActiveAgents();
     
     console.log(`📢 Sending notification to ${agents.length} agents about order #${orderId.slice(-8)}`);
@@ -97,7 +106,7 @@ export class NotificationsService {
     }
   }
 
-  // 2. Agent earnings notification (only after delivery)
+  // Agent earnings notification
   async notifyAgentEarnings(agentId: string, orderId: string, earnings: number) {
     await this.sendToUser(agentId, {
       type: 'earnings_added',
@@ -105,13 +114,6 @@ export class NotificationsService {
       message: `You earned ৳${earnings} for order #${orderId.slice(-8)}`,
       data: { orderId, earnings },
     });
-  }
-
-  // Helper method to get all agents
-  async getActiveAgents(): Promise<any[]> {
-    // This will be implemented when UserService is injected
-    // For now, return empty array - implement later
-    return [];
   }
 
   // ==================== EXISTING NOTIFICATIONS ====================
@@ -130,6 +132,7 @@ export class NotificationsService {
       preparing: { title: 'Order Being Prepared', message: `Your order #${orderId.slice(-8)} is now being prepared.` },
       ready: { title: 'Order Ready', message: `Your order #${orderId.slice(-8)} is ready for pickup!` },
       picked_up: { title: 'Order Picked Up', message: `Your order #${orderId.slice(-8)} has been picked up by the delivery agent.` },
+      on_the_way: { title: 'Order On The Way!', message: `Your order #${orderId.slice(-8)} is on its way to you!` },
       delivered: { title: 'Order Delivered', message: `Your order #${orderId.slice(-8)} has been delivered. Enjoy your meal!` },
       cancelled: { title: 'Order Cancelled', message: `Your order #${orderId.slice(-8)} has been cancelled.` },
     };

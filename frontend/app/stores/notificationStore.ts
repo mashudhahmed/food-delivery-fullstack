@@ -26,6 +26,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     try {
       const response = await api.get('/notifications');
       const notifications = response.data || [];
+      console.log('📥 Fetched notifications:', notifications.length);
       set({
         notifications,
         unreadCount: notifications.filter((n: Notification) => !n.read).length,
@@ -64,12 +65,16 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   },
 
   addNotification: (notification: Notification) => {
+    console.log('🔔🔔🔔 NEW NOTIFICATION RECEIVED:', notification);
+    console.log('Title:', notification.title);
+    console.log('Message:', notification.message);
+    
     set((state) => ({
       notifications: [notification, ...state.notifications],
       unreadCount: state.unreadCount + 1,
     }));
     
-    // Show toast notification - simple version without custom JSX to avoid errors
+    // Show toast notification
     toast.success(notification.title, {
       duration: 5000,
       icon: '🔔',
