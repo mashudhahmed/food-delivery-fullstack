@@ -1,5 +1,5 @@
 import { api } from './api';
-import { User } from '../types';
+import { User } from '../app/types';
 
 interface LoginData {
   email: string;
