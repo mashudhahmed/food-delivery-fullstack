@@ -15,6 +15,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { FavoritesModule } from './favorites/favorites.module';
 
 @Module({
   imports: [
@@ -51,7 +52,8 @@ import { NotificationsModule } from './notifications/notifications.module';
     MailModule,
     UploadsModule,
     AdminModule,
-    NotificationsModule
+    NotificationsModule,
+    FavoritesModule
   ],
   controllers: [AppController],
   providers: [AppService],
