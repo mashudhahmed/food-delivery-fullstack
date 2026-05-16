@@ -34,6 +34,7 @@ import {
 import { auth } from '@/lib/api';
 import { useCartStore } from '@/app/stores/cartStore';
 import { useAddressStore } from '@/app/stores/addressStore';
+import { useFavoritesStore } from '@/app/stores/favoritesStore';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import LocationModal from './LocationModal';
@@ -57,6 +58,8 @@ export default function Navbar() {
   const cartItems = useCartStore((state) => state.items);
   const cartItemsCount = cartItems.reduce((total, item) => total + item.quantity, 0);
   
+  const favoritesCount = useFavoritesStore((state) => state.items.length);
+  
   const { selectedAddress, setIsLocationModalOpen, isLocationModalOpen } = useAddressStore();
 
   const isAuthPage = pathname === '/login' || pathname === '/register';
@@ -69,7 +72,12 @@ export default function Navbar() {
       const authenticated = auth.isAuthenticated();
       setIsAuthenticated(authenticated);
       if (authenticated) {
-        setUser(auth.getCurrentUser());
+        const currentUser = auth.getCurrentUser();
+        setUser(currentUser);
+        // Load favorites for customers
+        if (currentUser?.role === 'customer') {
+          useFavoritesStore.getState().loadFavorites();
+        }
       } else {
         setUser(null);
       }
@@ -78,7 +86,11 @@ export default function Navbar() {
     const authenticated = auth.isAuthenticated();
     setIsAuthenticated(authenticated);
     if (authenticated) {
-      setUser(auth.getCurrentUser());
+      const currentUser = auth.getCurrentUser();
+      setUser(currentUser);
+      if (currentUser?.role === 'customer') {
+        useFavoritesStore.getState().loadFavorites();
+      }
     }
 
     window.addEventListener('auth-change', handleAuthChange);
@@ -192,6 +204,7 @@ export default function Navbar() {
         <div className="bg-white shadow-sm sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex items-center justify-between h-16">
+              {/* Logo */}
               <Link href="/" className="shrink-0">
                 <div className="flex items-center gap-2">
                   <Image src="/logo.png" alt="QuickBite" width={32} height={32} className="w-8 h-8 object-contain" />
@@ -199,6 +212,7 @@ export default function Navbar() {
                 </div>
               </Link>
 
+              {/* Location Selector */}
               <button onClick={() => setIsLocationModalOpen(true)} className="hidden lg:flex items-center gap-2 bg-gray-100 px-4 py-2.5 rounded-full hover:bg-gray-200 transition border border-gray-200">
                 <MapPin className="w-4 h-4 text-orange-500" />
                 <span className="text-sm font-medium text-gray-700">{selectedAddress ? selectedAddress.area || selectedAddress.name : 'New address'}</span>
@@ -206,18 +220,42 @@ export default function Navbar() {
                 <ChevronDown className="w-4 h-4 text-gray-400" />
               </button>
 
+              {/* Right Side Icons */}
               <div className="flex items-center gap-3">
+                {/* Notification Bell - For customers */}
+                {isAuthenticated && user?.role === 'customer' && <NotificationDropdown />}
+
+                {/* Favorites (Heart) - For customers */}
                 {isAuthenticated && user?.role === 'customer' && (
-                  <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition">
-                    <ShoppingBag className="w-5 h-5 text-gray-600" />
-                    {cartItemsCount > 0 && <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{cartItemsCount}</span>}
+                  <Link href="/favorites" className="relative p-2 hover:bg-gray-100 rounded-full transition">
+                    <Heart className="w-5 h-5 text-gray-600" />
+                    {favoritesCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {favoritesCount > 9 ? '9+' : favoritesCount}
+                      </span>
+                    )}
                   </Link>
                 )}
 
+                {/* Shopping Cart - For customers */}
+                {isAuthenticated && user?.role === 'customer' && (
+                  <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition">
+                    <ShoppingBag className="w-5 h-5 text-gray-600" />
+                    {cartItemsCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {cartItemsCount}
+                      </span>
+                    )}
+                  </Link>
+                )}
+
+                {/* User Profile / Auth */}
                 {isAuthenticated ? (
                   <div className="relative">
                     <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-2 text-sm font-medium hover:text-orange-500 transition">
-                      <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center"><User className="w-4 h-4 text-orange-600" /></div>
+                      <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                        <User className="w-4 h-4 text-orange-600" />
+                      </div>
                       <span className="hidden sm:inline">{user?.fullName?.split(' ')[0]}</span>
                       <ChevronDown className="w-4 h-4" />
                     </button>
@@ -225,15 +263,22 @@ export default function Navbar() {
                       <>
                         <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} />
                         <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border py-2 z-50">
-                          <div className="px-4 py-2 border-b"><p className="text-sm font-medium text-gray-800">{user?.fullName}</p><p className="text-xs text-gray-500">{user?.email}</p></div>
+                          <div className="px-4 py-2 border-b">
+                            <p className="text-sm font-medium text-gray-800">{user?.fullName}</p>
+                            <p className="text-xs text-gray-500">{user?.email}</p>
+                          </div>
                           {roleBasedLinks.map((link) => (
                             <Link key={link.href} href={link.href} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)}>
                               <link.icon className="w-4 h-4" /> {link.label}
                             </Link>
                           ))}
-                          <Link href="/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)}><Settings className="w-4 h-4" /> Settings</Link>
+                          <Link href="/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)}>
+                            <Settings className="w-4 h-4" /> Settings
+                          </Link>
                           <hr className="my-1" />
-                          <button onClick={handleLogoutClick} className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"><LogOut className="w-4 h-4" /> Logout</button>
+                          <button onClick={handleLogoutClick} className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50">
+                            <LogOut className="w-4 h-4" /> Logout
+                          </button>
                         </div>
                       </>
                     )}
@@ -245,11 +290,19 @@ export default function Navbar() {
                   </div>
                 )}
 
-                <button className="hidden md:flex items-center gap-1 text-sm font-medium text-gray-600 px-3 py-2 rounded-full hover:bg-gray-100 transition"><Globe className="w-4 h-4" /> EN <ChevronDown className="w-3 h-3" /></button>
-                <button className="md:hidden p-2" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>{isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}</button>
+                {/* Language Selector */}
+                <button className="hidden md:flex items-center gap-1 text-sm font-medium text-gray-600 px-3 py-2 rounded-full hover:bg-gray-100 transition">
+                  <Globe className="w-4 h-4" /> EN <ChevronDown className="w-3 h-3" />
+                </button>
+                
+                {/* Mobile Menu Toggle */}
+                <button className="md:hidden p-2" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+                  {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                </button>
               </div>
             </div>
 
+            {/* Search Bar */}
             <div className="flex flex-col sm:flex-row items-center gap-4 py-3 border-t border-gray-200">
               <div className="flex gap-1 bg-gray-100 rounded-full p-1 shrink-0">
                 <button onClick={() => setDeliveryType('delivery')} className={`px-5 py-2 rounded-full text-sm font-medium transition ${deliveryType === 'delivery' ? 'bg-white text-orange-500 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>Delivery</button>
@@ -266,22 +319,43 @@ export default function Navbar() {
           </div>
         </div>
 
+        {/* Mobile Menu */}
         {isMobileMenuOpen && (
           <div className="md:hidden fixed inset-0 top-34 bg-white z-40 overflow-auto border-t">
             <div className="p-4 space-y-4">
               <button onClick={() => { setIsLocationModalOpen(true); setIsMobileMenuOpen(false); }} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 w-full">
                 <MapPin className="w-5 h-5 text-orange-500" />
-                <div className="text-left"><p className="text-sm font-medium text-gray-800">{selectedAddress ? selectedAddress.area || selectedAddress.name : 'Select address'}</p><p className="text-xs text-gray-500">{selectedAddress ? selectedAddress.city : 'Choose delivery location'}</p></div>
+                <div className="text-left">
+                  <p className="text-sm font-medium text-gray-800">{selectedAddress ? selectedAddress.area || selectedAddress.name : 'Select address'}</p>
+                  <p className="text-xs text-gray-500">{selectedAddress ? selectedAddress.city : 'Choose delivery location'}</p>
+                </div>
                 <ChevronDown className="w-4 h-4 text-gray-400 ml-auto" />
               </button>
+              
+              {/* Favorites in mobile menu */}
+              {isAuthenticated && user?.role === 'customer' && (
+                <Link href="/favorites" className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Heart className="w-5 h-5 text-gray-500" />
+                  <span className="text-gray-700">Favorites</span>
+                  {favoritesCount > 0 && (
+                    <span className="ml-auto bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full">{favoritesCount}</span>
+                  )}
+                </Link>
+              )}
+              
               {roleBasedLinks.map((link) => (
                 <Link key={link.href} href={link.href} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50" onClick={() => setIsMobileMenuOpen(false)}>
-                  <link.icon className="w-5 h-5 text-gray-500" /> <span className="text-gray-700">{link.label}</span>
+                  <link.icon className="w-5 h-5 text-gray-500" />
+                  <span className="text-gray-700">{link.label}</span>
                 </Link>
               ))}
-              <Link href="/settings" className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50" onClick={() => setIsMobileMenuOpen(false)}><Settings className="w-5 h-5 text-gray-500" /> Settings</Link>
+              <Link href="/settings" className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50" onClick={() => setIsMobileMenuOpen(false)}>
+                <Settings className="w-5 h-5 text-gray-500" /> Settings
+              </Link>
               <hr />
-              <button onClick={handleLogoutClick} className="flex items-center gap-3 w-full p-3 rounded-lg text-red-600 hover:bg-red-50"><LogOut className="w-5 h-5" /> Logout</button>
+              <button onClick={handleLogoutClick} className="flex items-center gap-3 w-full p-3 rounded-lg text-red-600 hover:bg-red-50">
+                <LogOut className="w-5 h-5" /> Logout
+              </button>
             </div>
           </div>
         )}
@@ -305,12 +379,30 @@ export default function Navbar() {
                 <span className="text-xl font-bold text-orange-500 hidden sm:block">QuickBite</span>
               </Link>
               <div className="flex items-center gap-3">
+                {/* Notification Bell for customers */}
+                {isAuthenticated && user?.role === 'customer' && <NotificationDropdown />}
+
+                {/* Favorites for customers */}
+                {isAuthenticated && user?.role === 'customer' && (
+                  <Link href="/favorites" className="relative p-2 hover:bg-gray-100 rounded-full transition">
+                    <Heart className="w-5 h-5 text-gray-600" />
+                    {favoritesCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {favoritesCount > 9 ? '9+' : favoritesCount}
+                      </span>
+                    )}
+                  </Link>
+                )}
+
+                {/* Cart for customers */}
                 {isAuthenticated && user?.role === 'customer' && (
                   <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition">
                     <ShoppingBag className="w-5 h-5 text-gray-600" />
                     {cartItemsCount > 0 && <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{cartItemsCount}</span>}
                   </Link>
                 )}
+
+                {/* User Profile */}
                 {isAuthenticated ? (
                   <div className="relative">
                     <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-2 text-sm font-medium hover:text-orange-500 transition">
@@ -487,10 +579,20 @@ export default function Navbar() {
             </div>
             <div className="flex items-center gap-3">
               {isAuthenticated && user?.role === 'customer' && (
-                <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition">
-                  <ShoppingBag className="w-5 h-5 text-gray-600" />
-                  {cartItemsCount > 0 && <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{cartItemsCount}</span>}
-                </Link>
+                <>
+                  <Link href="/favorites" className="relative p-2 hover:bg-gray-100 rounded-full transition">
+                    <Heart className="w-5 h-5 text-gray-600" />
+                    {favoritesCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {favoritesCount > 9 ? '9+' : favoritesCount}
+                      </span>
+                    )}
+                  </Link>
+                  <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition">
+                    <ShoppingBag className="w-5 h-5 text-gray-600" />
+                    {cartItemsCount > 0 && <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{cartItemsCount}</span>}
+                  </Link>
+                </>
               )}
               {isAuthenticated ? (
                 <div className="relative">

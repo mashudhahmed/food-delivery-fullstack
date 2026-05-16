@@ -1,28 +1,92 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Restaurant } from '@/app/types';
 import { Star, Heart } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { auth } from '@/lib/api';
+import { api } from '@/lib/api';
+import toast from 'react-hot-toast';
 
 interface Props {
   restaurant: Restaurant;
 }
 
 export default function RestaurantCard({ restaurant }: Props) {
-  // Safely convert rating to number (handles string, number, null, undefined)
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
   const getRatingValue = () => {
     const rating = restaurant.rating;
     if (typeof rating === 'number') return rating;
     if (typeof rating === 'string') return parseFloat(rating);
-    return 4.5; // Default rating if none exists
+    return 4.5;
   };
 
   const ratingNumber = getRatingValue();
 
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const user = auth.getCurrentUser();
+    setIsAuthenticated(!!token && !!user);
+    
+    if (token && user && user.role === 'customer') {
+      checkFavoriteStatus();
+    }
+  }, []);
+
+  const checkFavoriteStatus = async () => {
+    try {
+      const response = await api.get(`/favorites/${restaurant.id}`);
+      setIsFavorite(response.data.isFavorite);
+    } catch (error) {
+      console.error('Failed to check favorite status:', error);
+    }
+  };
+
+  const handleFavoriteClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!isAuthenticated) {
+      toast.error('Please login to add favorites');
+      setTimeout(() => {
+        router.push('/login');
+      }, 1500);
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      if (isFavorite) {
+        await api.delete(`/favorites/${restaurant.id}`);
+        setIsFavorite(false);
+        toast.success('Removed from favorites');
+      } else {
+        await api.post('/favorites', {
+          restaurantId: restaurant.id,
+          restaurantName: restaurant.name,
+          restaurantImage: restaurant.imageUrl,
+          cuisineType: restaurant.cuisineType,
+        });
+        setIsFavorite(true);
+        toast.success('Added to favorites');
+      }
+    } catch (error: any) {
+      console.error('Favorite error:', error);
+      toast.error(error.response?.data?.message || 'Something went wrong');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Link href={`/restaurants/${restaurant.id}`}>
       <div className="group bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden">
-        {/* Image Section */}
         <div className="relative h-40 overflow-hidden bg-linear-to-br from-orange-400 to-red-500">
           {restaurant.imageUrl ? (
             <img
@@ -36,19 +100,23 @@ export default function RestaurantCard({ restaurant }: Props) {
             </div>
           )}
           
-          {/* Favorite Button */}
           <button 
-            className="absolute top-2 right-2 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition"
-            onClick={(e) => {
-              e.preventDefault();
-              // Add to favorites logic here
-            }}
+            className={`absolute top-2 right-2 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center transition-all ${
+              isLoading ? 'opacity-50 cursor-wait' : 'hover:bg-white'
+            }`}
+            onClick={handleFavoriteClick}
+            disabled={isLoading}
           >
-            <Heart className="w-4 h-4 text-gray-500 hover:text-red-500 transition-colors" />
+            <Heart 
+              className={`w-4 h-4 transition-colors ${
+                isFavorite 
+                  ? 'text-red-500 fill-red-500' 
+                  : 'text-gray-500 hover:text-red-500'
+              }`} 
+            />
           </button>
         </div>
 
-        {/* Content Section */}
         <div className="p-3">
           <div className="flex justify-between items-start mb-1">
             <h3 className="font-bold text-gray-800 group-hover:text-orange-500 transition-colors text-base line-clamp-1">
