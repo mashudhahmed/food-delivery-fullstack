@@ -11,7 +11,8 @@ import {
   CheckCircle,
   Clock,
   XCircle,
-  Truck
+  Truck,
+  Navigation
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -116,12 +117,14 @@ export default function OwnerOrdersPage() {
     }
   };
 
+  // ✅ UPDATED: 6-step status badges with on_the_way
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { color: string; icon: React.ReactNode; text: string }> = {
       pending: { color: 'bg-yellow-100 text-yellow-800', icon: <Clock className="w-3 h-3" />, text: 'Pending' },
       preparing: { color: 'bg-blue-100 text-blue-800', icon: <Package className="w-3 h-3" />, text: 'Preparing' },
       ready: { color: 'bg-green-100 text-green-800', icon: <CheckCircle className="w-3 h-3" />, text: 'Ready' },
       picked_up: { color: 'bg-purple-100 text-purple-800', icon: <Truck className="w-3 h-3" />, text: 'Picked Up' },
+      on_the_way: { color: 'bg-indigo-100 text-indigo-800', icon: <Navigation className="w-3 h-3" />, text: 'On the Way' },
       delivered: { color: 'bg-gray-100 text-gray-800', icon: <CheckCircle className="w-3 h-3" />, text: 'Delivered' },
       cancelled: { color: 'bg-red-100 text-red-800', icon: <XCircle className="w-3 h-3" />, text: 'Cancelled' },
     };
@@ -135,10 +138,13 @@ export default function OwnerOrdersPage() {
     return matchesSearch && matchesStatus;
   });
 
+  // ✅ UPDATED: Added picked_up and on_the_way counts
   const statusCounts = {
     pending: orders.filter(o => o.status === 'pending').length,
     preparing: orders.filter(o => o.status === 'preparing').length,
     ready: orders.filter(o => o.status === 'ready').length,
+    picked_up: orders.filter(o => o.status === 'picked_up').length,
+    on_the_way: orders.filter(o => o.status === 'on_the_way').length,
     delivered: orders.filter(o => o.status === 'delivered').length,
     cancelled: orders.filter(o => o.status === 'cancelled').length,
   };
@@ -174,12 +180,15 @@ export default function OwnerOrdersPage() {
         ))}
       </div>
 
+      {/* ✅ UPDATED: 6-step filter tabs */}
       <div className="flex flex-wrap gap-2 mb-6">
         {[
           { id: 'all', label: 'All', count: orders.length },
           { id: 'pending', label: 'Pending', count: statusCounts.pending, color: 'bg-yellow-100 text-yellow-800' },
           { id: 'preparing', label: 'Preparing', count: statusCounts.preparing, color: 'bg-blue-100 text-blue-800' },
           { id: 'ready', label: 'Ready', count: statusCounts.ready, color: 'bg-green-100 text-green-800' },
+          { id: 'picked_up', label: 'Picked Up', count: statusCounts.picked_up, color: 'bg-purple-100 text-purple-800' },
+          { id: 'on_the_way', label: 'On the Way', count: statusCounts.on_the_way, color: 'bg-indigo-100 text-indigo-800' },
           { id: 'delivered', label: 'Delivered', count: statusCounts.delivered, color: 'bg-gray-100 text-gray-800' },
           { id: 'cancelled', label: 'Cancelled', count: statusCounts.cancelled, color: 'bg-red-100 text-red-800' },
         ].map((tab) => (

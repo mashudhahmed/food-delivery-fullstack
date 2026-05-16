@@ -55,14 +55,27 @@ export default function OrdersPage() {
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-800',
-      confirmed: 'bg-blue-100 text-blue-800',
-      preparing: 'bg-purple-100 text-purple-800',
-      'ready-for-pickup': 'bg-indigo-100 text-indigo-800',
-      'in-transit': 'bg-orange-100 text-orange-800',
-      delivered: 'bg-green-100 text-green-800',
+      preparing: 'bg-blue-100 text-blue-800',
+      ready: 'bg-green-100 text-green-800',
+      picked_up: 'bg-purple-100 text-purple-800',
+      on_the_way: 'bg-indigo-100 text-indigo-800',
+      delivered: 'bg-gray-100 text-gray-800',
       cancelled: 'bg-red-100 text-red-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getStatusText = (status: string) => {
+    const texts: Record<string, string> = {
+      pending: 'Order Placed',
+      preparing: 'Preparing',
+      ready: 'Ready for Pickup',
+      picked_up: 'Picked Up',
+      on_the_way: 'On the Way',
+      delivered: 'Delivered',
+      cancelled: 'Cancelled',
+    };
+    return texts[status] || status.replace('_', ' ');
   };
 
   const filteredOrders = orders.filter(order => {
@@ -73,7 +86,16 @@ export default function OrdersPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const statusOptions = ['all', 'pending', 'confirmed', 'preparing', 'ready-for-pickup', 'in-transit', 'delivered', 'cancelled'];
+  const statusOptions = [
+    'all', 
+    'pending', 
+    'preparing', 
+    'ready', 
+    'picked_up', 
+    'on_the_way', 
+    'delivered', 
+    'cancelled'
+  ];
 
   if (loading) {
     return (
@@ -120,7 +142,7 @@ export default function OrdersPage() {
           >
             {statusOptions.map(status => (
               <option key={status} value={status}>
-                {status.charAt(0).toUpperCase() + status.slice(1)}
+                {status === 'all' ? 'All Orders' : getStatusText(status)}
               </option>
             ))}
           </select>
@@ -162,7 +184,7 @@ export default function OrdersPage() {
                   </td>
                   <td className="px-6 py-4">
                     <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(order.status)}`}>
-                      {order.status}
+                      {getStatusText(order.status)}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
@@ -218,7 +240,7 @@ export default function OrdersPage() {
               <div>
                 <p className="text-sm text-gray-500">Status</p>
                 <span className={`text-xs px-2 py-1 rounded-full inline-block ${getStatusColor(selectedOrder.status)}`}>
-                  {selectedOrder.status}
+                  {getStatusText(selectedOrder.status)}
                 </span>
               </div>
               <div>

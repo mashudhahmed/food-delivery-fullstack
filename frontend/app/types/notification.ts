@@ -1,9 +1,9 @@
-// frontend/app/types/notification.ts
-
 export type NotificationType = 
   | 'order_new'
   | 'order_status'
   | 'order_ready'
+  | 'order_picked_up'      // NEW
+  | 'order_on_the_way'     // NEW
   | 'order_delivered'
   | 'order_cancelled'
   | 'restaurant_approved'

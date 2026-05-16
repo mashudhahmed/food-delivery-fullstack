@@ -19,7 +19,8 @@ import {
   Eye,
   RefreshCw,
   ChevronRight,
-  Star
+  Star,
+  XCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -29,6 +30,20 @@ const formatCurrency = (amount: number | string | undefined): string => {
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
   if (isNaN(numAmount)) return '0';
   return Math.round(numAmount).toLocaleString();
+};
+
+// Get progress percentage based on status for agent view
+const getProgressPercentage = (status: OrderStatus): number => {
+  const progressMap: Record<OrderStatus, number> = {
+    pending: 0,
+    preparing: 0,
+    ready: 33,
+    picked_up: 66,
+    on_the_way: 66,
+    delivered: 100,
+    cancelled: 0,
+  };
+  return progressMap[status] || 0;
 };
 
 export default function AgentDeliveriesPage() {
@@ -55,7 +70,7 @@ export default function AgentDeliveriesPage() {
       setLastUpdated(new Date());
       
       if (showToast && assigned.length > 0) {
-        const activeCount = assigned.filter(o => o.status !== 'delivered').length;
+        const activeCount = assigned.filter(o => o.status !== 'delivered' && o.status !== 'cancelled').length;
         if (activeCount > 0) {
           toast.success(`${activeCount} active delivery${activeCount > 1 ? 's' : ''}`);
         }
@@ -104,10 +119,19 @@ export default function AgentDeliveriesPage() {
     setUpdatingId(orderId);
     try {
       await api.patch(`/orders/${orderId}/delivery`, { status });
-      toast.success(status === 'picked_up' ? 'Order picked up! Head to customer' : 'Order delivered! Earnings added', {
-        icon: status === 'picked_up' ? '📦' : '💰',
-        duration: 3000,
-      });
+      
+      if (status === 'picked_up') {
+        toast.success('Order picked up! Ready to deliver', {
+          icon: '📦',
+          duration: 3000,
+        });
+      } else if (status === 'delivered') {
+        toast.success('Order delivered! Earnings added', {
+          icon: '💰',
+          duration: 3000,
+        });
+      }
+      
       await fetchDeliveries();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to update order status');
@@ -121,9 +145,10 @@ export default function AgentDeliveriesPage() {
       pending: { color: 'bg-yellow-100 text-yellow-800', text: 'Pending', icon: <Clock className="w-4 h-4" /> },
       preparing: { color: 'bg-purple-100 text-purple-800', text: 'Preparing', icon: <Package className="w-4 h-4" /> },
       ready: { color: 'bg-green-100 text-green-800', text: 'Ready for Pickup', icon: <Package className="w-4 h-4" /> },
-      picked_up: { color: 'bg-blue-100 text-blue-800', text: 'On Delivery', icon: <Navigation className="w-4 h-4" /> },
+      picked_up: { color: 'bg-blue-100 text-blue-800', text: 'Picked Up', icon: <Truck className="w-4 h-4" /> },
+      on_the_way: { color: 'bg-indigo-100 text-indigo-800', text: 'On the Way', icon: <Navigation className="w-4 h-4" /> },
       delivered: { color: 'bg-gray-100 text-gray-800', text: 'Delivered', icon: <CheckCircle className="w-4 h-4" /> },
-      cancelled: { color: 'bg-red-100 text-red-800', text: 'Cancelled', icon: <CheckCircle className="w-4 h-4" /> },
+      cancelled: { color: 'bg-red-100 text-red-800', text: 'Cancelled', icon: <XCircle className="w-4 h-4" /> },
     };
     return statusMap[status] || statusMap.pending;
   };
@@ -153,6 +178,7 @@ export default function AgentDeliveriesPage() {
     all: assignedOrders.length,
     ready: assignedOrders.filter(o => o.status === 'ready').length,
     picked_up: assignedOrders.filter(o => o.status === 'picked_up').length,
+    on_the_way: assignedOrders.filter(o => o.status === 'on_the_way').length,
     delivered: assignedOrders.filter(o => o.status === 'delivered').length,
     totalEarnings: assignedOrders
       .filter(o => o.status === 'delivered')
@@ -187,11 +213,11 @@ export default function AgentDeliveriesPage() {
         </button>
       </div>
 
-      {/* Stats Cards - Fixed Earnings Display */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="bg-linear-to-r from-blue-500 to-cyan-500 rounded-xl p-4 text-white">
           <p className="text-white/80 text-xs">Active Deliveries</p>
-          <p className="text-2xl font-bold">{statusCounts.ready + statusCounts.picked_up}</p>
+          <p className="text-2xl font-bold">{statusCounts.ready + statusCounts.picked_up + statusCounts.on_the_way}</p>
         </div>
         <div className="bg-linear-to-r from-green-500 to-emerald-500 rounded-xl p-4 text-white">
           <p className="text-white/80 text-xs">Completed</p>
@@ -250,11 +276,26 @@ export default function AgentDeliveriesPage() {
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
           }`}
         >
-          On Delivery
+          Picked Up
           <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
             statusFilter === 'picked_up' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'
           }`}>
             {statusCounts.picked_up}
+          </span>
+        </button>
+        <button
+          onClick={() => setStatusFilter('on_the_way')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+            statusFilter === 'on_the_way'
+              ? 'bg-orange-500 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          On the Way
+          <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
+            statusFilter === 'on_the_way' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'
+          }`}>
+            {statusCounts.on_the_way}
           </span>
         </button>
         <button
@@ -312,8 +353,8 @@ export default function AgentDeliveriesPage() {
         <div className="space-y-4">
           {filteredOrders.map((order) => {
             const statusInfo = getStatusInfo(order.status);
-            // ✅ FIX: Ensure earnings is a single number
             const earnings = typeof order.deliveryFee === 'number' ? order.deliveryFee : 50;
+            const progressPercentage = getProgressPercentage(order.status);
             
             return (
               <div 
@@ -337,19 +378,19 @@ export default function AgentDeliveriesPage() {
                         </span>
                       </div>
                       
-                      {/* Progress Bar */}
-                      {(order.status === 'ready' || order.status === 'picked_up') && (
+                      {/* Progress Bar - Agent View */}
+                      {(order.status === 'ready' || order.status === 'picked_up' || order.status === 'delivered') && (
                         <div className="mb-4">
                           <div className="flex justify-between text-xs text-gray-500 mb-1">
-                            <span>Pick up</span>
-                            <span>On the way</span>
+                            <span className={order.status === 'ready' ? 'font-bold text-orange-500' : ''}>Pick up</span>
+                            <span className={order.status === 'picked_up' ? 'font-bold text-orange-500' : ''}>Picked Up</span>
+                            <span>On the Way</span>
                             <span>Deliver</span>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-1.5">
+                          <div className="w-full bg-gray-200 rounded-full h-2">
                             <div 
-                              className={`h-1.5 rounded-full transition-all duration-500 ${
-                                order.status === 'ready' ? 'w-1/3 bg-orange-500' : 'w-2/3 bg-orange-500'
-                              }`}
+                              className="h-2 rounded-full transition-all duration-500 bg-orange-500"
+                              style={{ width: `${progressPercentage}%` }}
                             />
                           </div>
                         </div>
@@ -362,6 +403,7 @@ export default function AgentDeliveriesPage() {
                           <div>
                             <p className="text-xs text-gray-500">Pick up from</p>
                             <p className="font-medium text-gray-800 text-sm">{order.restaurant?.name || 'Restaurant'}</p>
+                            <p className="text-xs text-gray-400">{order.restaurant?.address?.split(',')[0]}</p>
                           </div>
                         </div>
                         <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg">
@@ -369,11 +411,12 @@ export default function AgentDeliveriesPage() {
                           <div>
                             <p className="text-xs text-gray-500">Deliver to</p>
                             <p className="font-medium text-gray-800 text-sm">{order.customerName || 'Customer'}</p>
+                            <p className="text-xs text-gray-400">{order.deliveryAddress?.split(',')[0]}</p>
                           </div>
                         </div>
                       </div>
                       
-                      {/* Order Stats - Fixed Earnings Display */}
+                      {/* Order Stats */}
                       <div className="flex flex-wrap gap-4 text-sm">
                         <div className="flex items-center gap-1">
                           <Package className="w-4 h-4 text-gray-400" />
@@ -392,6 +435,7 @@ export default function AgentDeliveriesPage() {
                     
                     {/* Action Buttons */}
                     <div className="flex flex-row lg:flex-col gap-2 min-w-40">
+                      {/* Show "Mark as Picked Up" only for ready orders */}
                       {order.status === 'ready' && (
                         <button
                           onClick={() => updateDeliveryStatus(order.id, 'picked_up')}
@@ -403,6 +447,7 @@ export default function AgentDeliveriesPage() {
                         </button>
                       )}
                       
+                      {/* Show "Mark as Delivered" only for picked_up orders */}
                       {order.status === 'picked_up' && (
                         <button
                           onClick={() => updateDeliveryStatus(order.id, 'delivered')}
@@ -414,6 +459,15 @@ export default function AgentDeliveriesPage() {
                         </button>
                       )}
                       
+                      {/* Show status message for on_the_way */}
+                      {order.status === 'on_the_way' && (
+                        <div className="w-full bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg text-center font-medium text-sm flex items-center justify-center gap-2">
+                          <Navigation className="w-4 h-4 animate-pulse" />
+                          On the Way to Customer
+                        </div>
+                      )}
+                      
+                      {/* Show completed badge for delivered */}
                       {order.status === 'delivered' && (
                         <div className="w-full bg-gray-100 text-gray-500 px-4 py-2 rounded-lg text-center font-medium text-sm">
                           ✓ Completed

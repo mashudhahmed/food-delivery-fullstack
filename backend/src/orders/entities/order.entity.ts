@@ -5,11 +5,12 @@ import { OrderItem } from './order-item.entity';
 import { DeliveryAgent } from '../../delivery/entities/delivery-agent.entity';
 
 export enum OrderStatus {
-  PENDING = 'pending',
-  PREPARING = 'preparing',
-  READY = 'ready',
-  PICKED_UP = 'picked_up',
-  DELIVERED = 'delivered',
+  PENDING = 'pending',           // 1. Order Placed
+  PREPARING = 'preparing',       // 2. Preparing
+  READY = 'ready',               // 3. Ready for Pickup
+  PICKED_UP = 'picked_up',       // 4. Picked Up
+  ON_THE_WAY = 'on_the_way',     // 5. On the Way (NEW)
+  DELIVERED = 'delivered',       // 6. Delivered
   CANCELLED = 'cancelled',
 }
 
@@ -43,7 +44,6 @@ export class Order {
   })
   status: OrderStatus;
 
-  // Price breakdown fields
   @Column('decimal', { precision: 10, scale: 2, default: 0 })
   subtotal: number;
 
@@ -59,7 +59,6 @@ export class Order {
   @Column()
   deliveryAddress: string;
 
-  // New fields for customer info
   @Column({ nullable: true })
   deliveryInstructions: string;
 
@@ -84,13 +83,10 @@ export class Order {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  // Add these lines inside the Order entity class if missing
-@Column({ nullable: true })
-deliveryAgentId: string;
+  @Column({ nullable: true })
+  deliveryAgentId: string;
 
-@ManyToOne(() => DeliveryAgent, { nullable: true })
-@JoinColumn({ name: 'deliveryAgentId' })
-deliveryAgent: DeliveryAgent;
-
-  
+  @ManyToOne(() => DeliveryAgent, { nullable: true })
+  @JoinColumn({ name: 'deliveryAgentId' })
+  deliveryAgent: DeliveryAgent;
 }

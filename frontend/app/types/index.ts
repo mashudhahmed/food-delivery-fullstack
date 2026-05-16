@@ -38,44 +38,52 @@ export interface CartItem extends MenuItem {
   quantity: number;
 }
 
-export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'picked_up' | 'delivered' | 'cancelled';
+// ✅ UPDATED: Added 'on_the_way' status
+export type OrderStatus = 
+  | 'pending'      // 1. Order Placed
+  | 'preparing'    // 2. Preparing
+  | 'ready'        // 3. Ready for Pickup
+  | 'picked_up'    // 4. Picked Up
+  | 'on_the_way'   // 5. On the Way (NEW)
+  | 'delivered'    // 6. Delivered
+  | 'cancelled';   // Cancelled
 
 export interface Order {
   id: string;
   customerId: string;
   restaurantId: string;
-  agentId?: string;                    // ✅ Added - delivery agent assigned
+  agentId?: string;
   status: OrderStatus;
   
   // Price breakdown
-  subtotal: number;                    // ✅ Added - before fees
-  deliveryFee: number;                 // ✅ Added - delivery charge
-  platformFee: number;                 // ✅ Added - platform/service fee
-  totalAmount: number;                 // ✅ Already there
+  subtotal: number;
+  deliveryFee: number;
+  platformFee: number;
+  totalAmount: number;
   
   deliveryAddress: string;
-  deliveryInstructions?: string;       // ✅ Fixed - should be string, not JSX.Element
+  deliveryInstructions?: string;
   
   // Customer info
-  customerName?: string;               // ✅ Added - customer full name
-  customerEmail?: string;              // ✅ Added - customer email
-  customerPhone?: string;              // ✅ Added - customer phone
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
   
-  paymentMethod?: string;              // ✅ Added - payment method used
+  paymentMethod?: string;
   
-  placedAt: Date | string;             // ✅ Fixed - Date type
-  updatedAt: Date | string;            // ✅ Fixed - Date type
+  placedAt: Date | string;
+  updatedAt: Date | string;
   
   // Relations
   restaurant?: Restaurant;
   items?: OrderItem[];
-  customer?: User;                     // ✅ Added - customer relation
-  agent?: User;                        // ✅ Added - agent relation
+  customer?: User;
+  agent?: User;
 }
 
 export interface OrderItem {
   id: string;
-  orderId?: string;                    // ✅ Added - link to order
+  orderId?: string;
   menuItemId: string;
   quantity: number;
   unitPrice: number;

@@ -18,7 +18,8 @@ import {
   Truck,
   CheckCircle,
   AlertCircle,
-  ShoppingBag
+  ShoppingBag,
+  Navigation
 } from 'lucide-react';
 
 export default function OrderDetailPage() {
@@ -41,7 +42,6 @@ export default function OrderDetailPage() {
       setOrder(orderData);
       calculateTrackingProgress(orderData.status);
       
-      // Calculate subtotal from order items
       const calculatedSubtotal = orderData.items?.reduce(
         (sum: number, item: any) => sum + (item.unitPrice * item.quantity), 
         0
@@ -54,12 +54,14 @@ export default function OrderDetailPage() {
     }
   };
 
+  // ✅ UPDATED: 6-step progress mapping
   const calculateTrackingProgress = (status: string) => {
     const progressMap: Record<string, number> = {
-      'pending': 20,
-      'preparing': 40,
-      'ready': 60,
-      'picked_up': 80,
+      'pending': 16,
+      'preparing': 33,
+      'ready': 50,
+      'picked_up': 66,
+      'on_the_way': 83,
       'delivered': 100,
       'cancelled': 0,
     };
@@ -72,6 +74,7 @@ export default function OrderDetailPage() {
       preparing: 'bg-blue-500',
       ready: 'bg-purple-500',
       picked_up: 'bg-indigo-500',
+      on_the_way: 'bg-orange-500',
       delivered: 'bg-green-500',
       cancelled: 'bg-red-500',
     };
@@ -83,7 +86,8 @@ export default function OrderDetailPage() {
       pending: 'Order Placed',
       preparing: 'Being Prepared',
       ready: 'Ready for Pickup',
-      picked_up: 'On the Way',
+      picked_up: 'Picked Up',
+      on_the_way: 'On the Way',
       delivered: 'Delivered',
       cancelled: 'Cancelled',
     };
@@ -96,7 +100,6 @@ export default function OrderDetailPage() {
     return '30-45 minutes';
   };
 
-  // Fixed fees
   const deliveryFee = 50;
   const platformFee = 20;
   const total = subtotal + deliveryFee + platformFee;
@@ -130,6 +133,19 @@ export default function OrderDetailPage() {
   const isDelivered = order.status === 'delivered';
   const isCancelled = order.status === 'cancelled';
 
+  // ✅ UPDATED: 6 steps for tracking
+  const trackingSteps = [
+    { key: 'pending', label: 'Order Placed', icon: <Package className="w-4 h-4" /> },
+    { key: 'preparing', label: 'Preparing', icon: <Clock className="w-4 h-4" /> },
+    { key: 'ready', label: 'Ready', icon: <CheckCircle className="w-4 h-4" /> },
+    { key: 'picked_up', label: 'Pick Up', icon: <Truck className="w-4 h-4" /> },
+    { key: 'on_the_way', label: 'On the Way', icon: <Navigation className="w-4 h-4" /> },
+    { key: 'delivered', label: 'Delivered', icon: <CheckCircle className="w-4 h-4" /> },
+  ];
+
+  const currentStepIndex = trackingSteps.findIndex(step => step.key === order.status);
+  const currentStep = currentStepIndex + 1;
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
@@ -143,7 +159,7 @@ export default function OrderDetailPage() {
         </button>
 
         {/* Order Header Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+        <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6`}>
           <div className={`p-6 ${isCancelled ? 'bg-red-50' : 'bg-linear-to-r from-orange-500 to-orange-600'}`}>
             <div className="flex justify-between items-start">
               <div>
@@ -184,26 +200,63 @@ export default function OrderDetailPage() {
             </div>
           </div>
 
-          {/* Tracking Progress Bar */}
+          {/* ✅ UPDATED: 6-Step Tracking Progress Bar */}
           {!isCancelled && (
             <div className="p-6 border-b border-gray-100">
-              <div className="mb-2 flex justify-between text-sm text-gray-600">
-                <span>Order Placed</span>
-                <span>Preparing</span>
-                <span>Ready</span>
-                <span>On the Way</span>
-                <span>Delivered</span>
+              {/* Step Labels */}
+              <div className="flex justify-between mb-3">
+                {trackingSteps.map((step, index) => (
+                  <div key={step.key} className="text-center flex-1">
+                    <div className={`text-[10px] font-medium ${
+                      index + 1 <= currentStep ? 'text-orange-500' : 'text-gray-400'
+                    }`}>
+                      {step.label}
+                    </div>
+                  </div>
+                ))}
               </div>
+              
+              {/* Progress Bar */}
               <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div 
                   className="absolute left-0 top-0 h-full bg-orange-500 rounded-full transition-all duration-500"
                   style={{ width: `${trackingProgress}%` }}
                 />
               </div>
+              
+              {/* Step Icons */}
+              <div className="flex justify-between mt-2">
+                {trackingSteps.map((step, index) => (
+                  <div key={step.key} className="text-center flex-1">
+                    <div className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs ${
+                      index + 1 < currentStep
+                        ? 'bg-green-500 text-white'
+                        : index + 1 === currentStep
+                        ? 'bg-orange-500 text-white animate-pulse'
+                        : 'bg-gray-200 text-gray-400'
+                    }`}>
+                      {index + 1 < currentStep ? (
+                        <CheckCircle className="w-3 h-3" />
+                      ) : (
+                        <div className={`w-1.5 h-1.5 rounded-full ${
+                          index + 1 === currentStep ? 'bg-white' : 'bg-gray-400'
+                        }`} />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               {order.status === 'delivered' && (
-                <div className="mt-3 flex items-center gap-2 text-green-600 text-sm">
+                <div className="mt-4 flex items-center gap-2 text-green-600 text-sm justify-center">
                   <CheckCircle className="w-4 h-4" />
                   Delivered successfully on {new Date(order.updatedAt).toLocaleDateString()}
+                </div>
+              )}
+              {order.status === 'on_the_way' && (
+                <div className="mt-4 flex items-center gap-2 text-orange-600 text-sm justify-center animate-pulse">
+                  <Navigation className="w-4 h-4" />
+                  Your order is on the way! Estimated arrival in 10-15 minutes.
                 </div>
               )}
             </div>

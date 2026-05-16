@@ -211,10 +211,7 @@ export class OrdersService {
       throw new BadRequestException('Order already assigned to another agent');
     }
 
-    // ✅ FIX: ONLY assign the agent - DO NOT change status to picked_up
-    // Status changes only when agent physically picks up the order
     order.agentId = agentId;
-    // REMOVED: order.status = OrderStatus.PICKED_UP;
     await this.orderRepository.save(order);
 
     const restaurant = await this.restaurantsService.findOne(order.restaurantId);
@@ -240,6 +237,7 @@ export class OrdersService {
     return order;
   }
 
+  // ✅ FIXED: updateDeliveryStatus - No auto-transition to on_the_way
   async updateDeliveryStatus(orderId: string, status: OrderStatus, agentId: string) {
     const order = await this.getOrderWithDetails(orderId);
 
@@ -251,53 +249,48 @@ export class OrdersService {
       throw new BadRequestException('Agents can only update to picked_up or delivered');
     }
 
-    order.status = status;
-    await this.orderRepository.save(order);
-
-    if (status === OrderStatus.DELIVERED) {
-      await this.mailService.sendOrderDelivered(order);
-    }
-
-    try {
-      if (status === OrderStatus.PICKED_UP) {
-        await this.notificationsService.sendToUser(order.customerId, {
-          type: 'order_on_the_way',
-          title: 'Order On The Way!',
-          message: `Your order has been picked up and is on its way to you`,
-          data: { orderId },
-        });
-        
-        const restaurant = await this.restaurantsService.findOne(order.restaurantId);
-        await this.notificationsService.sendToUser(restaurant.ownerId, {
-          type: 'order_picked_up',
-          title: 'Order Picked Up',
-          message: `Order #${orderId.slice(-8)} has been picked up by the delivery agent`,
-          data: { orderId },
-        });
-      }
+    if (status === OrderStatus.PICKED_UP) {
+      order.status = OrderStatus.PICKED_UP;
+      await this.orderRepository.save(order);
       
-      if (status === OrderStatus.DELIVERED) {
-        const earnings = order.deliveryFee || 50;
-        
-        await this.notificationsService.notifyAgentEarnings(agentId, orderId, earnings);
-        
-        await this.notificationsService.sendToUser(order.customerId, {
-          type: 'order_delivered',
-          title: 'Order Delivered!',
-          message: `Your order has been delivered. Enjoy your meal!`,
-          data: { orderId },
-        });
-        
-        const restaurant = await this.restaurantsService.findOne(order.restaurantId);
-        await this.notificationsService.sendToUser(restaurant.ownerId, {
-          type: 'order_completed',
-          title: 'Order Completed',
-          message: `Order #${orderId.slice(-8)} has been delivered successfully`,
-          data: { orderId },
-        });
-      }
-    } catch (notificationError) {
-      console.error('Notification sending failed:', notificationError.message);
+      await this.notificationsService.sendToUser(order.customerId, {
+        type: 'order_picked_up',
+        title: 'Order Picked Up',
+        message: `Your order has been picked up by the delivery agent`,
+        data: { orderId },
+      });
+      
+      const restaurant = await this.restaurantsService.findOne(order.restaurantId);
+      await this.notificationsService.sendToUser(restaurant.ownerId, {
+        type: 'order_picked_up',
+        title: 'Order Picked Up',
+        message: `Order #${orderId.slice(-8)} has been picked up by the delivery agent`,
+        data: { orderId },
+      });
+    }
+    
+    if (status === OrderStatus.DELIVERED) {
+      order.status = OrderStatus.DELIVERED;
+      await this.orderRepository.save(order);
+      
+      const earnings = order.deliveryFee || 50;
+      
+      await this.notificationsService.notifyAgentEarnings(agentId, orderId, earnings);
+      
+      await this.notificationsService.sendToUser(order.customerId, {
+        type: 'order_delivered',
+        title: 'Order Delivered!',
+        message: `Your order has been delivered. Enjoy your meal!`,
+        data: { orderId },
+      });
+      
+      const restaurant = await this.restaurantsService.findOne(order.restaurantId);
+      await this.notificationsService.sendToUser(restaurant.ownerId, {
+        type: 'order_completed',
+        title: 'Order Completed',
+        message: `Order #${orderId.slice(-8)} has been delivered successfully`,
+        data: { orderId },
+      });
     }
 
     return order;
