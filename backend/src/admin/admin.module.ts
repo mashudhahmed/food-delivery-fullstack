@@ -6,7 +6,7 @@ import { User } from '../users/entities/user.entity';
 import { Order } from '../orders/entities/order.entity';
 import { Restaurant } from '../restaurants/entities/restaurant.entity';
 import { MenuItem } from '../menu/entities/menu-item.entity';
-import { DeliveryAgent } from '../delivery/entities/delivery-agent.entity';
+
 
 @Module({
   imports: [
@@ -15,7 +15,6 @@ import { DeliveryAgent } from '../delivery/entities/delivery-agent.entity';
       Order,
       Restaurant,
       MenuItem,
-      DeliveryAgent,
     ]),
   ],
   controllers: [AdminController],

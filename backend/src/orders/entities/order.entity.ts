@@ -2,14 +2,13 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateCol
 import { User } from '../../users/entities/user.entity';
 import { Restaurant } from '../../restaurants/entities/restaurant.entity';
 import { OrderItem } from './order-item.entity';
-import { DeliveryAgent } from '../../delivery/entities/delivery-agent.entity';
 
 export enum OrderStatus {
   PENDING = 'pending',           // 1. Order Placed
   PREPARING = 'preparing',       // 2. Preparing
   READY = 'ready',               // 3. Ready for Pickup
   PICKED_UP = 'picked_up',       // 4. Picked Up
-  ON_THE_WAY = 'on_the_way',     // 5. On the Way (NEW)
+  ON_THE_WAY = 'on_the_way',     // 5. On the Way
   DELIVERED = 'delivered',       // 6. Delivered
   CANCELLED = 'cancelled',
 }
@@ -83,10 +82,4 @@ export class Order {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Column({ nullable: true })
-  deliveryAgentId: string;
-
-  @ManyToOne(() => DeliveryAgent, { nullable: true })
-  @JoinColumn({ name: 'deliveryAgentId' })
-  deliveryAgent: DeliveryAgent;
 }

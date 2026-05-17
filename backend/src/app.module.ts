@@ -7,7 +7,6 @@ import { UsersModule } from './users/users.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
 import { MenuModule } from './menu/menu.module';
 import { OrdersModule } from './orders/orders.module';
-import { DeliveryModule } from './delivery/delivery.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { MailModule } from './mail/mail.module';
 import { UploadsModule } from './uploads/uploads.module';
@@ -47,7 +46,6 @@ import { FavoritesModule } from './favorites/favorites.module';
     RestaurantsModule,
     MenuModule,
     OrdersModule,
-    DeliveryModule,
     ReviewsModule,
     MailModule,
     UploadsModule,
