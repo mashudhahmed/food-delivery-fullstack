@@ -6,55 +6,71 @@
   <title>Order Confirmation - QuickBite</title>
   <style>
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
       line-height: 1.6;
-      color: #333;
+      color: #1f2937;
       margin: 0;
       padding: 0;
-      background-color: #f5f5f5;
+      background-color: #f3f4f6;
     }
     .container {
       max-width: 600px;
       margin: 20px auto;
-      background: white;
-      border-radius: 10px;
+      background: #ffffff;
+      border-radius: 16px;
       overflow: hidden;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
     }
     .header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
       color: white;
-      padding: 30px;
+      padding: 32px;
       text-align: center;
+    }
+    .logo {
+      margin-bottom: 16px;
+    }
+    .logo img {
+      width: 60px;
+      height: 60px;
+      border-radius: 12px;
     }
     .header h1 {
       margin: 0;
-      font-size: 28px;
+      font-size: 24px;
+      font-weight: 700;
     }
     .order-id {
-      font-size: 20px;
-      margin-top: 10px;
-      opacity: 0.95;
+      font-size: 14px;
+      margin-top: 8px;
+      opacity: 0.9;
     }
     .content {
-      padding: 30px;
+      padding: 32px;
     }
     .greeting {
-      font-size: 18px;
+      font-size: 16px;
       margin-bottom: 20px;
+      color: #374151;
     }
     .restaurant-info {
-      background: #f8f9fa;
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      border-left: 4px solid #667eea;
+      background: #fff7ed;
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      border-left: 4px solid #f97316;
     }
     .restaurant-name {
-      font-size: 20px;
-      font-weight: bold;
-      color: #667eea;
-      margin-bottom: 5px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #f97316;
+      margin-bottom: 4px;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1f2937;
+      margin: 24px 0 12px 0;
     }
     .items-table {
       width: 100%;
@@ -63,122 +79,139 @@
     }
     .items-table th {
       text-align: left;
-      padding: 10px;
-      background: #f8f9fa;
-      border-bottom: 2px solid #dee2e6;
+      padding: 12px;
+      background: #f9fafb;
+      border-bottom: 2px solid #e5e7eb;
+      font-size: 12px;
+      font-weight: 600;
+      color: #6b7280;
     }
     .items-table td {
-      padding: 10px;
-      border-bottom: 1px solid #dee2e6;
+      padding: 12px;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: 14px;
     }
     .total-row {
-      font-weight: bold;
-      background: #f8f9fa;
+      background: #f9fafb;
+      font-weight: 700;
     }
     .total-amount {
-      font-size: 24px;
-      color: #28a745;
-      font-weight: bold;
+      font-size: 20px;
+      color: #f97316;
+      font-weight: 700;
     }
     .delivery-info {
-      background: #fff3cd;
-      padding: 15px;
-      border-radius: 8px;
+      background: #f0fdf4;
+      padding: 16px;
+      border-radius: 12px;
       margin: 20px 0;
-      border-left: 4px solid #ffc107;
+      border-left: 4px solid #22c55e;
     }
     .delivery-time {
-      background: #d1ecf1;
-      padding: 15px;
-      border-radius: 8px;
+      background: #fef3c7;
+      padding: 16px;
+      border-radius: 12px;
       margin: 20px 0;
-      border-left: 4px solid #17a2b8;
-    }
-    .footer {
-      background: #f8f9fa;
-      padding: 20px;
-      text-align: center;
-      font-size: 12px;
-      color: #6c757d;
+      border-left: 4px solid #f59e0b;
     }
     .button {
       display: inline-block;
-      padding: 12px 24px;
-      background: #667eea;
+      padding: 12px 28px;
+      background: #f97316;
       color: white;
       text-decoration: none;
-      border-radius: 5px;
+      border-radius: 8px;
+      font-weight: 600;
       margin: 20px 0;
+    }
+    .footer {
+      background: #f9fafb;
+      padding: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: #6b7280;
+      border-top: 1px solid #e5e7eb;
+    }
+    .social-links a {
+      color: #f97316;
+      text-decoration: none;
+      margin: 0 8px;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
+      <div class="logo">
+        <img src="{{logoUrl}}" alt="QuickBite">
+      </div>
       <h1>🍔 Order Confirmed!</h1>
-      <div class="order-id">Order #{{order.id}}</div>
+      <div class="order-id">Order #{{orderId}}</div>
     </div>
     
     <div class="content">
       <div class="greeting">
-        <strong>Hello {{order.customer.fullName}},</strong>
+        Hello <strong>{{customerName}}</strong>,
       </div>
       
-      <p>Thank you for ordering with QuickBite! Your order has been received and is being processed.</p>
+      <p>Thank you for ordering with QuickBite! Your order has been received and is being prepared.</p>
       
       <div class="restaurant-info">
-        <div class="restaurant-name">{{order.restaurant.name}}</div>
-        <div>{{order.restaurant.address}}</div>
-        <div>📞 {{order.restaurant.phone}}</div>
+        <div class="restaurant-name">{{restaurantName}}</div>
+        <div>{{restaurantAddress}}</div>
+        <div>📞 {{restaurantPhone}}</div>
       </div>
       
-      <h3>Order Details:</h3>
+      <div class="section-title">📋 Order Summary</div>
       <table class="items-table">
         <thead>
           <tr>
             <th>Item</th>
-            <th>Quantity</th>
+            <th>Qty</th>
             <th>Price</th>
             <th>Total</th>
           </tr>
         </thead>
         <tbody>
-          {{#each order.items}}
+          {{#each items}}
           <tr>
-            <td>{{this.menuItem.name}}</td>
+            <td>{{this.name}}</td>
             <td>{{this.quantity}}</td>
-            <td>৳{{this.unitPrice}}</td>
-            <td>৳{{multiply this.quantity this.unitPrice}}</td>
+            <td>৳{{this.price}}</td>
+            <td>৳{{multiply this.quantity this.price}}</td>
           </tr>
           {{/each}}
           <tr class="total-row">
             <td colspan="3" style="text-align: right;"><strong>Total Amount:</strong></td>
-            <td><span class="total-amount">৳{{order.totalAmount}}</span></td>
+            <td><span class="total-amount">৳{{totalAmount}}</span></td>
           </tr>
         </tbody>
       </table>
       
       <div class="delivery-info">
-        <strong>📍 Delivery Address:</strong><br>
-        {{order.deliveryAddress}}
+        <strong>📍 Delivery Address</strong><br>
+        {{deliveryAddress}}
       </div>
       
       <div class="delivery-time">
-        <strong>⏰ Estimated Delivery Time:</strong><br>
-        30-45 minutes from order placement
+        <strong>⏰ Estimated Delivery Time</strong><br>
+        30-45 minutes • Free cancellation within 5 minutes
       </div>
       
-      <p>You can track your order status in real-time through your dashboard.</p>
+      <p style="font-size: 14px; color: #6b7280;">You can track your order status in real-time through your dashboard.</p>
       
       <center>
-        <a href="{{trackingUrl}}" class="button">Track Your Order</a>
+        <a href="{{trackingUrl}}" class="button">Track Your Order →</a>
       </center>
     </div>
     
     <div class="footer">
-      <p>This email was sent to {{order.customer.email}}</p>
-      <p>© 2026 QuickBite Food Delivery. All rights reserved.</p>
-      <p>Need help? Contact our support team</p>
+      <p>QuickBite • Delivering happiness to your doorstep</p>
+      <div class="social-links">
+        <a href="#">Facebook</a> • <a href="#">Instagram</a> • <a href="#">Twitter</a>
+      </div>
+      <p>© {{year}} QuickBite. All rights reserved.</p>
+      <p style="font-size: 11px;">This email was sent to {{customerEmail}}</p>
     </div>
   </div>
 </body>

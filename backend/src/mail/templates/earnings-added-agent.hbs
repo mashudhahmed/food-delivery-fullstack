@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Earnings Added - QuickBite Agent</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #1f2937;
+      margin: 0;
+      padding: 0;
+      background-color: #f3f4f6;
+    }
+    .container {
+      max-width: 600px;
+      margin: 20px auto;
+      background: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      color: white;
+      padding: 32px;
+      text-align: center;
+    }
+    .logo img {
+      width: 50px;
+      height: 50px;
+      border-radius: 10px;
+      margin-bottom: 12px;
+    }
+    .earnings-amount {
+      font-size: 48px;
+      font-weight: 700;
+      margin: 16px 0;
+    }
+    .content {
+      padding: 32px;
+    }
+    .stats {
+      display: flex;
+      justify-content: space-around;
+      margin: 24px 0;
+    }
+    .stat-card {
+      text-align: center;
+    }
+    .stat-number {
+      font-size: 28px;
+      font-weight: 700;
+      color: #f97316;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: #6b7280;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 28px;
+      background: #f97316;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+    .footer {
+      background: #f9fafb;
+      padding: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: #6b7280;
+      border-top: 1px solid #e5e7eb;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">
+        <img src="{{logoUrl}}" alt="QuickBite">
+      </div>
+      <h2>💰 Earnings Added!</h2>
+    </div>
+    
+    <div class="content">
+      <p>Hello <strong>{{agentName}}</strong>,</p>
+      
+      <p>Great news! Your delivery has been completed and earnings have been added to your account.</p>
+      
+      <div class="earnings-amount">+ ৳{{earnings}}</div>
+      
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-number">৳{{totalEarnings}}</div>
+          <div class="stat-label">Total Earnings</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">{{deliveriesCount}}</div>
+          <div class="stat-label">Deliveries</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">{{avgRating}}.0 ★</div>
+          <div class="stat-label">Rating</div>
+        </div>
+      </div>
+      
+      <div style="background: #f0fdf4; padding: 16px; border-radius: 12px; margin: 20px 0;">
+        <strong>📦 Delivery Details</strong><br>
+        Order #{{orderId}}<br>
+        Restaurant: {{restaurantName}}<br>
+        Delivery to: {{deliveryAddress}}
+      </div>
+      
+      <center>
+        <a href="{{earningsUrl}}" class="button">View Earnings →</a>
+      </center>
+      
+      <p style="text-align: center; font-size: 13px; color: #6b7280; margin-top: 20px;">
+        Keep up the great work! More deliveries = more earnings.
+      </p>
+    </div>
+    
+    <div class="footer">
+      <p>QuickBite Agent Portal • Deliver and earn</p>
+      <p>© {{year}} QuickBite. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
