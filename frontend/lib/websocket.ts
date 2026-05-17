@@ -17,7 +17,7 @@ class WebSocketService {
     
     // 2. Try WebSocket connection
     try {
-      this.socket = io('http://localhost:3002/notifications', {
+      this.socket = io('http://localhost:3001/notifications', {
         query: { userId },
         transports: ['websocket'],
         reconnection: true,
