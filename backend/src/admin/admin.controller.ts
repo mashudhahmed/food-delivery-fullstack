@@ -1,11 +1,15 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
+  Delete,
   Param,
   Query,
+  Body,
   Res,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { AdminService } from './admin.service';
@@ -19,10 +23,43 @@ import { Roles } from '../auth/decorators/roles.decorator';
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
-  // Dashboard Stats
+  // Dashboard
   @Get('dashboard/stats')
   async getDashboardStats() {
     return this.adminService.getDashboardStats();
+  }
+
+  // User Management
+  @Get('users')
+  async getAllUsers(@Query('role') role?: string) {
+    return this.adminService.getAllUsers(role);
+  }
+
+  @Get('users/:userId')
+  async getUserDetails(@Param('userId', ParseUUIDPipe) userId: string) {
+    return this.adminService.getUserDetails(userId);
+  }
+
+  @Patch('users/:userId/status')
+  async updateUserStatus(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Body('status') status: string,
+    @Body('reason') reason?: string,
+  ) {
+    return this.adminService.updateUserStatus(userId, status, reason);
+  }
+
+  @Patch('users/:userId/role')
+  async updateUserRole(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Body('role') role: string,
+  ) {
+    return this.adminService.updateUserRole(userId, role);
+  }
+
+  @Delete('users/:userId')
+  async deleteUser(@Param('userId', ParseUUIDPipe) userId: string) {
+    return this.adminService.deleteUser(userId);
   }
 
   // Pending Approvals
@@ -33,66 +70,112 @@ export class AdminController {
 
   @Patch('approve/:userId')
   async approveUser(
-    @Param('userId') userId: string,
-    @Query('role') role: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Body('role') role: string,
+    @Body('notes') notes?: string,
   ) {
-    return this.adminService.approveUser(userId, role);
+    return this.adminService.approveUser(userId, role, notes);
   }
 
   @Patch('reject/:userId')
   async rejectUser(
-    @Param('userId') userId: string,
-    @Query('reason') reason: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Body('reason') reason: string,
   ) {
     return this.adminService.rejectUser(userId, reason);
   }
 
-  // Users Management
-  @Get('users')
-  async getAllUsers() {
-    return this.adminService.getAllUsers();
-  }
-
-  @Patch('users/:userId/status')
-  async updateUserStatus(
-    @Param('userId') userId: string,
-    @Query('status') status: string,
-  ) {
-    return this.adminService.updateUserStatus(userId, status);
-  }
-
-  // Restaurants Management
+  // Restaurant Management
   @Get('restaurants')
-  async getAllRestaurants() {
-    return this.adminService.getAllRestaurants();
+  async getAllRestaurants(@Query('status') status?: string) {
+    return this.adminService.getAllRestaurants(status);
+  }
+
+  @Get('restaurants/:restaurantId')
+  async getRestaurantDetails(@Param('restaurantId', ParseUUIDPipe) restaurantId: string) {
+    return this.adminService.getRestaurantDetails(restaurantId);
   }
 
   @Patch('restaurants/:restaurantId/status')
   async updateRestaurantStatus(
-    @Param('restaurantId') restaurantId: string,
-    @Query('status') status: string,
+    @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
+    @Body('status') status: string,
   ) {
     return this.adminService.updateRestaurantStatus(restaurantId, status);
   }
 
-  // Orders Management
-  @Get('orders/recent')
-  async getRecentOrders(@Query('limit') limit?: string) {
-    return this.adminService.getRecentOrders(limit ? parseInt(limit) : 10);
+  @Patch('restaurants/:restaurantId/verify')
+  async verifyRestaurant(
+    @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
+    @Body('verified') verified: boolean,
+  ) {
+    return this.adminService.verifyRestaurant(restaurantId, verified);
+  }
+
+  @Delete('restaurants/:restaurantId')
+  async deleteRestaurant(@Param('restaurantId', ParseUUIDPipe) restaurantId: string) {
+    return this.adminService.deleteRestaurant(restaurantId);
+  }
+
+  // Order Management
+  @Get('orders')
+  async getAllOrders(
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.adminService.getAllOrders(status, limit ? parseInt(limit) : 50);
   }
 
   @Get('orders/:orderId')
-  async getOrderDetails(@Param('orderId') orderId: string) {
+  async getOrderDetails(@Param('orderId', ParseUUIDPipe) orderId: string) {
     return this.adminService.getOrderDetails(orderId);
   }
 
-  // Delivery Agents
-  @Get('delivery-agents')
-  async getDeliveryAgents() {
-    return this.adminService.getDeliveryAgents();
+  @Patch('orders/:orderId/status')
+  async updateOrderStatus(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @Body('status') status: string,
+  ) {
+    return this.adminService.updateOrderStatus(orderId, status);
   }
 
-  // Chart Data
+  @Patch('orders/:orderId/cancel')
+  async cancelOrder(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @Body('reason') reason: string,
+  ) {
+    return this.adminService.cancelOrder(orderId, reason);
+  }
+
+  // Delivery Agent Management
+  @Get('delivery-agents')
+  async getDeliveryAgents(@Query('status') status?: string) {
+    return this.adminService.getDeliveryAgents(status);
+  }
+
+  @Get('delivery-agents/:agentId')
+  async getDeliveryAgentDetails(@Param('agentId', ParseUUIDPipe) agentId: string) {
+    return this.adminService.getDeliveryAgentDetails(agentId);
+  }
+
+  @Patch('delivery-agents/:agentId/status')
+  async updateAgentStatus(
+    @Param('agentId', ParseUUIDPipe) agentId: string,
+    @Body('status') status: string,
+  ) {
+    return this.adminService.updateAgentStatus(agentId, status);
+  }
+
+  @Patch('delivery-agents/:agentId/verify-document')
+  async verifyAgentDocument(
+    @Param('agentId', ParseUUIDPipe) agentId: string,
+    @Body('documentType') documentType: string,
+    @Body('verified') verified: boolean,
+  ) {
+    return this.adminService.verifyAgentDocument(agentId, documentType, verified);
+  }
+
+  // Analytics
   @Get('charts/revenue')
   async getRevenueChartData() {
     return this.adminService.getRevenueChartData();
@@ -114,17 +197,19 @@ export class AdminController {
     return this.adminService.getNotifications();
   }
 
+  @Post('notifications')
+  async sendNotification(@Body() body: any) {
+    return this.adminService.sendNotification(body);
+  }
+
   @Patch('notifications/:notificationId/read')
   async markNotificationAsRead(@Param('notificationId') notificationId: string) {
     return this.adminService.markNotificationAsRead(notificationId);
   }
 
-  // Export Data
+  // Data Export
   @Get('export/:type')
-  async exportData(
-    @Param('type') type: string,
-    @Res() res: Response,
-  ) {
+  async exportData(@Param('type') type: string, @Res() res: Response) {
     const data = await this.adminService.exportData(type);
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename=${type}_${Date.now()}.csv`);
@@ -135,5 +220,11 @@ export class AdminController {
   @Get('activity')
   async getActivityFeed(@Query('limit') limit?: string) {
     return this.adminService.getActivityFeed(limit ? parseInt(limit) : 20);
+  }
+
+  // System Stats
+  @Get('system/stats')
+  async getSystemStats() {
+    return this.adminService.getSystemStats();
   }
 }
