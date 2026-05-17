@@ -1,5 +1,3 @@
-// backend/src/orders/orders.service.ts
-
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
