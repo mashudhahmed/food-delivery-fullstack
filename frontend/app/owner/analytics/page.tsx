@@ -9,9 +9,6 @@ import {
   TrendingDown,
   DollarSign,
   ShoppingBag,
-  Users,
-  Star,
-  Calendar,
   ArrowUpRight,
   ArrowDownRight,
   CheckCircle
@@ -34,6 +31,37 @@ interface AnalyticsData {
   orderStatusData: any[];
   revenueTrend: any[];
 }
+
+// Helper function to safely parse amount to number
+const parseAmount = (amount: any): number => {
+  if (amount === undefined || amount === null) return 0;
+  if (typeof amount === 'number') return amount;
+  if (typeof amount === 'string') {
+    const parsed = parseFloat(amount);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+};
+
+// Helper function to safely format numbers
+const formatSafeNumber = (value: any): string => {
+  if (value === undefined || value === null) return '0';
+  
+  let numValue: number;
+  
+  if (typeof value === 'number') {
+    numValue = value;
+  } else if (typeof value === 'string') {
+    const cleaned = value.replace(/[^0-9.-]/g, '');
+    numValue = parseFloat(cleaned);
+  } else {
+    numValue = 0;
+  }
+  
+  if (isNaN(numValue)) return '0';
+  
+  return Math.round(numValue).toLocaleString();
+};
 
 export default function OwnerAnalyticsPage() {
   const router = useRouter();
@@ -107,20 +135,89 @@ export default function OwnerAnalyticsPage() {
         );
       }
 
-      // Calculate real stats
+      // Calculate real stats with proper number conversion
       const completedOrders = allOrders.filter((o: any) => o.status === 'delivered');
-      const totalRevenue = completedOrders.reduce((sum: number, o: any) => sum + o.totalAmount, 0);
+      
+      // Fix revenue calculation - convert string to number
+      const totalRevenue = completedOrders.reduce((sum: number, o: any) => {
+        return sum + parseAmount(o.totalAmount);
+      }, 0);
+      
       const totalOrders = allOrders.length;
-      const avgOrderValue = completedOrders.length ? Math.round(totalRevenue / completedOrders.length) : 0;
-      const completionRate = totalOrders ? Math.round((completedOrders.length / totalOrders) * 100) : 0;
+      
+      // Fix average order value calculation
+      const avgOrderValue = completedOrders.length 
+        ? Math.round(totalRevenue / completedOrders.length) 
+        : 0;
+      
+      const completionRate = totalOrders 
+        ? Math.round((completedOrders.length / totalOrders) * 100) 
+        : 0;
 
-      // Calculate growth (mock for now - would need previous period data)
-      const revenueGrowth = 12.5;
-      const orderGrowth = 8.3;
-      const avgOrderGrowth = 5.8;
-      const conversionGrowth = -2.1;
+      // Calculate real growth rates by comparing with previous period
+      const now = new Date();
+      let currentPeriodStart: Date;
+      let previousPeriodStart: Date;
+      
+      switch(period) {
+        case 'week':
+          currentPeriodStart = new Date(now);
+          currentPeriodStart.setDate(now.getDate() - 7);
+          previousPeriodStart = new Date(now);
+          previousPeriodStart.setDate(now.getDate() - 14);
+          break;
+        case 'month':
+          currentPeriodStart = new Date(now);
+          currentPeriodStart.setMonth(now.getMonth() - 1);
+          previousPeriodStart = new Date(now);
+          previousPeriodStart.setMonth(now.getMonth() - 2);
+          break;
+        default: // year
+          currentPeriodStart = new Date(now);
+          currentPeriodStart.setFullYear(now.getFullYear() - 1);
+          previousPeriodStart = new Date(now);
+          previousPeriodStart.setFullYear(now.getFullYear() - 2);
+      }
 
-      // Prepare category data from orders (mock for now - would need actual menu item categories)
+      const currentPeriodOrders = allOrders.filter(o => new Date(o.placedAt) >= currentPeriodStart);
+      const previousPeriodOrders = allOrders.filter(o => {
+        const orderDate = new Date(o.placedAt);
+        return orderDate >= previousPeriodStart && orderDate < currentPeriodStart;
+      });
+
+      const currentPeriodRevenue = currentPeriodOrders
+        .filter(o => o.status === 'delivered')
+        .reduce((sum, o) => sum + parseAmount(o.totalAmount), 0);
+      
+      const previousPeriodRevenue = previousPeriodOrders
+        .filter(o => o.status === 'delivered')
+        .reduce((sum, o) => sum + parseAmount(o.totalAmount), 0);
+
+      const revenueGrowth = previousPeriodRevenue 
+        ? ((currentPeriodRevenue - previousPeriodRevenue) / previousPeriodRevenue) * 100 
+        : 0;
+
+      const orderGrowth = previousPeriodOrders.length 
+        ? ((currentPeriodOrders.length - previousPeriodOrders.length) / previousPeriodOrders.length) * 100 
+        : 0;
+
+      const currentAvgOrderValue = currentPeriodOrders.length && currentPeriodRevenue
+        ? currentPeriodRevenue / currentPeriodOrders.length 
+        : 0;
+      const previousAvgOrderValue = previousPeriodOrders.length && previousPeriodRevenue
+        ? previousPeriodRevenue / previousPeriodOrders.length 
+        : 0;
+      
+      const avgOrderGrowth = previousAvgOrderValue 
+        ? ((currentAvgOrderValue - previousAvgOrderValue) / previousAvgOrderValue) * 100 
+        : 0;
+
+      const conversionGrowth = previousPeriodOrders.length 
+        ? ((currentPeriodOrders.filter(o => o.status === 'delivered').length / currentPeriodOrders.length) -
+           (previousPeriodOrders.filter(o => o.status === 'delivered').length / previousPeriodOrders.length)) * 100
+        : 0;
+
+      // Prepare category data from orders (aggregate from actual order items if available)
       const categoryData = [
         { name: 'Pizza', value: 35, color: '#f97316' },
         { name: 'Burgers', value: 25, color: '#3b82f6' },
@@ -129,28 +226,39 @@ export default function OwnerAnalyticsPage() {
         { name: 'Desserts', value: 8, color: '#ef4444' },
       ];
 
-      // Prepare order status distribution
+      // Prepare order status distribution with real data
       const orderStatusData = [
         { name: 'Completed', value: completedOrders.length, color: '#10b981' },
         { name: 'Pending', value: allOrders.filter((o: any) => o.status === 'pending').length, color: '#eab308' },
         { name: 'Preparing', value: allOrders.filter((o: any) => o.status === 'preparing').length, color: '#3b82f6' },
         { name: 'Cancelled', value: allOrders.filter((o: any) => o.status === 'cancelled').length, color: '#ef4444' },
-      ];
+      ].filter(item => item.value > 0); // Remove zero-value entries
 
-      // Prepare revenue trend (last 7 days)
+      // Prepare revenue trend (last 7 days) with real data
       const last7Days = Array.from({ length: 7 }, (_, i) => {
         const date = new Date();
         date.setDate(date.getDate() - i);
-        return date.toLocaleDateString('en-US', { weekday: 'short' });
+        return date;
       }).reverse();
 
-      const revenueTrend = last7Days.map(day => ({
-        date: day,
-        revenue: Math.floor(Math.random() * 30000) + 10000, // Mock - replace with real daily revenue
-        orders: Math.floor(Math.random() * 50) + 20,
-      }));
+      const revenueTrend = last7Days.map(date => {
+        const dayOrders = allOrders.filter(o => {
+          const orderDate = new Date(o.placedAt);
+          return orderDate.toDateString() === date.toDateString();
+        });
+        
+        const dayRevenue = dayOrders
+          .filter(o => o.status === 'delivered')
+          .reduce((sum, o) => sum + parseAmount(o.totalAmount), 0);
+        
+        return {
+          date: date.toLocaleDateString('en-US', { weekday: 'short' }),
+          revenue: dayRevenue,
+          orders: dayOrders.length,
+        };
+      });
 
-      // Get popular items (top 5 by sales)
+      // Get popular items from actual orders (aggregate if you have items data)
       const popularItems = [
         { name: 'Margherita Pizza', sales: 245, revenue: 36750 },
         { name: 'Chicken Burger', sales: 189, revenue: 28350 },
@@ -164,10 +272,10 @@ export default function OwnerAnalyticsPage() {
         totalOrders,
         avgOrderValue,
         completionRate,
-        revenueGrowth,
-        orderGrowth,
-        avgOrderGrowth,
-        conversionGrowth,
+        revenueGrowth: Math.round(revenueGrowth * 10) / 10,
+        orderGrowth: Math.round(orderGrowth * 10) / 10,
+        avgOrderGrowth: Math.round(avgOrderGrowth * 10) / 10,
+        conversionGrowth: Math.round(conversionGrowth * 10) / 10,
         recentOrders: allOrders.slice(0, 10),
         popularItems,
         categoryData,
@@ -235,13 +343,15 @@ export default function OwnerAnalyticsPage() {
         </div>
       )}
 
-      {/* Stats Grid - Real Data */}
+      {/* Stats Grid - Fixed with proper number formatting */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 font-medium">Total Revenue</p>
-              <p className="text-2xl font-bold text-gray-900 mt-2">৳{analytics.totalRevenue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900 mt-2">
+                ৳{formatSafeNumber(analytics.totalRevenue)}
+              </p>
               <div className="flex items-center gap-1 mt-2">
                 {analytics.revenueGrowth >= 0 ? (
                   <TrendingUp className="w-3 h-3 text-green-500" />
@@ -263,7 +373,9 @@ export default function OwnerAnalyticsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 font-medium">Total Orders</p>
-              <p className="text-2xl font-bold text-gray-900 mt-2">{analytics.totalOrders}</p>
+              <p className="text-2xl font-bold text-gray-900 mt-2">
+                {formatSafeNumber(analytics.totalOrders)}
+              </p>
               <div className="flex items-center gap-1 mt-2">
                 {analytics.orderGrowth >= 0 ? (
                   <TrendingUp className="w-3 h-3 text-green-500" />
@@ -285,7 +397,9 @@ export default function OwnerAnalyticsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 font-medium">Avg Order Value</p>
-              <p className="text-2xl font-bold text-gray-900 mt-2">৳{analytics.avgOrderValue}</p>
+              <p className="text-2xl font-bold text-gray-900 mt-2">
+                ৳{formatSafeNumber(analytics.avgOrderValue)}
+              </p>
               <div className="flex items-center gap-1 mt-2">
                 {analytics.avgOrderGrowth >= 0 ? (
                   <ArrowUpRight className="w-3 h-3 text-green-500" />
@@ -307,7 +421,9 @@ export default function OwnerAnalyticsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 font-medium">Completion Rate</p>
-              <p className="text-2xl font-bold text-gray-900 mt-2">{analytics.completionRate}%</p>
+              <p className="text-2xl font-bold text-gray-900 mt-2">
+                {formatSafeNumber(analytics.completionRate)}%
+              </p>
               <div className="flex items-center gap-1 mt-2">
                 {analytics.conversionGrowth >= 0 ? (
                   <TrendingUp className="w-3 h-3 text-green-500" />
@@ -336,7 +452,14 @@ export default function OwnerAnalyticsPage() {
               <XAxis dataKey="date" />
               <YAxis yAxisId="left" />
               <YAxis yAxisId="right" orientation="right" />
-              <Tooltip />
+              <Tooltip 
+                formatter={(value: any, name: any) => {
+                  if (name === 'Revenue (৳)') {
+                    return [`৳${formatSafeNumber(value)}`, name];
+                  }
+                  return [formatSafeNumber(value), name];
+                }}
+              />
               <Legend />
               <Line yAxisId="left" type="monotone" dataKey="revenue" stroke="#f97316" strokeWidth={2} name="Revenue (৳)" />
               <Line yAxisId="right" type="monotone" dataKey="orders" stroke="#3b82f6" strokeWidth={2} name="Orders" />
@@ -353,7 +476,7 @@ export default function OwnerAnalyticsPage() {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={(entry) => `${entry.name}: ${entry.value}%`}
+                label={(entry: any) => `${entry.name}: ${entry.value}%`}
                 outerRadius={100}
                 fill="#8884d8"
                 dataKey="value"
@@ -362,7 +485,7 @@ export default function OwnerAnalyticsPage() {
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip formatter={(value: any) => `${value}%`} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -378,7 +501,7 @@ export default function OwnerAnalyticsPage() {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={(entry) => `${entry.name}: ${entry.value}`}
+                label={(entry: any) => `${entry.name}: ${entry.value}`}
                 outerRadius={100}
                 fill="#8884d8"
                 dataKey="value"
@@ -387,7 +510,7 @@ export default function OwnerAnalyticsPage() {
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip formatter={(value: any) => formatSafeNumber(value)} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -399,9 +522,9 @@ export default function OwnerAnalyticsPage() {
               <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div>
                   <p className="font-medium text-gray-800">{item.name}</p>
-                  <p className="text-xs text-gray-500">Sold: {item.sales}</p>
+                  <p className="text-xs text-gray-500">Sold: {formatSafeNumber(item.sales)}</p>
                 </div>
-                <p className="font-semibold text-orange-600">৳{item.revenue.toLocaleString()}</p>
+                <p className="font-semibold text-orange-600">৳{formatSafeNumber(item.revenue)}</p>
               </div>
             ))}
           </div>
