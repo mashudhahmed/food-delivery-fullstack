@@ -32,33 +32,27 @@ export default function CheckoutPage() {
   const platformFee = 20;
   const total = subtotal + deliveryFee + platformFee;
 
-  // Sync address from address bar - SHOW FULL ADDRESS (Foodpanda style)
+  // Sync address from address bar
   useEffect(() => {
     if (selectedAddress) {
       let fullAddress = '';
       
-      // Priority 1: Use fullAddress from map selection
       if (selectedAddress.fullAddress) {
         fullAddress = selectedAddress.fullAddress;
       }
-      // Priority 2: Build from street and city
       else if (selectedAddress.street && selectedAddress.city) {
         fullAddress = `${selectedAddress.street}, ${selectedAddress.city}`;
       }
-      // Priority 3: Build from area and city
       else if (selectedAddress.area && selectedAddress.city) {
         fullAddress = `${selectedAddress.area}, ${selectedAddress.city}`;
       }
-      // Priority 4: Build from name and city
       else if (selectedAddress.name && selectedAddress.city) {
         fullAddress = `${selectedAddress.name}, ${selectedAddress.city}`;
       }
-      // Priority 5: Fallback
       else {
         fullAddress = `${selectedAddress.area || selectedAddress.street || selectedAddress.name}, ${selectedAddress.city || 'Dhaka'}`;
       }
       
-      // Add country for completeness (Foodpanda style)
       if (!fullAddress.toLowerCase().includes('bangladesh')) {
         fullAddress = `${fullAddress}, Bangladesh`;
       }
@@ -116,7 +110,11 @@ export default function CheckoutPage() {
         restaurantId: restaurantId,
         deliveryAddress: deliveryAddress,
         deliveryInstructions: deliveryInstructions,
-        customerInfo: customerInfo,
+        customerInfo: {
+          fullName: customerInfo.fullName,
+          email: customerInfo.email,
+          phone: customerInfo.phone,
+        },
         paymentMethod: selectedPaymentMethod,
         items: items.map((item) => ({
           menuItemId: item.id,
@@ -124,11 +122,28 @@ export default function CheckoutPage() {
         })),
       };
 
+      console.log('📦 Placing order:', orderData);
+      
       const response = await api.post('/orders', orderData);
+      console.log('✅ Order response:', response.data);
+      
+      // Extract order ID from response
+      const orderId = response.data?.id || response.data?.order?.id;
+      
+      if (!orderId) {
+        console.error('No order ID in response:', response.data);
+        toast.error('Order placed but unable to get order details');
+        clearCart();
+        router.push('/orders');
+        return;
+      }
+      
       clearCart();
       toast.success('Order placed successfully!');
-      router.push(`/orders/${response.data.id}`);
+      router.push(`/orders/${orderId}`);
+      
     } catch (error: any) {
+      console.error('❌ Order error:', error.response?.data || error);
       toast.error(error.response?.data?.message || 'Failed to place order');
     } finally {
       setLoading(false);
@@ -227,7 +242,6 @@ export default function CheckoutPage() {
                           key={addr.id}
                           onClick={() => {
                             setSelectedAddress(addr);
-                            // Show full address when selected
                             const fullAddr = addr.fullAddress || `${addr.street || addr.area}, ${addr.city}`;
                             setDeliveryAddress(fullAddr);
                           }}
@@ -282,7 +296,7 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
-                {/* Current Location Button - More Visible */}
+                {/* Current Location Button */}
                 <button
                   onClick={handleUseCurrentLocation}
                   className="mt-4 w-full flex items-center justify-center gap-3 bg-orange-50 hover:bg-orange-100 text-orange-700 font-medium py-3 px-4 rounded-xl transition border border-orange-200"

@@ -1,5 +1,3 @@
-// frontend/app/types/index.ts
-
 export interface User {
   id: string;
   fullName: string;
@@ -7,10 +5,10 @@ export interface User {
   phone: string;
   address?: string;
   role: 'customer' | 'owner' | 'agent' | 'admin';
+  status?: 'pending' | 'approved' | 'rejected' | 'suspended';
 }
 
 export interface Restaurant {
-  createdAt: string | number | Date;
   id: string;
   name: string;
   description: string;
@@ -20,6 +18,8 @@ export interface Restaurant {
   isOpen: boolean;
   rating: number;
   imageUrl?: string;
+  ownerId?: string;
+  createdAt?: string;
 }
 
 export interface MenuItem {
@@ -38,15 +38,14 @@ export interface CartItem extends MenuItem {
   quantity: number;
 }
 
-// ✅ UPDATED: Added 'on_the_way' status
 export type OrderStatus = 
-  | 'pending'      // 1. Order Placed
-  | 'preparing'    // 2. Preparing
-  | 'ready'        // 3. Ready for Pickup
-  | 'picked_up'    // 4. Picked Up
-  | 'on_the_way'   // 5. On the Way (NEW)
-  | 'delivered'    // 6. Delivered
-  | 'cancelled';   // Cancelled
+  | 'pending'
+  | 'preparing'
+  | 'ready'
+  | 'picked_up'
+  | 'on_the_way'
+  | 'delivered'
+  | 'cancelled';
 
 export interface Order {
   id: string;
@@ -54,27 +53,18 @@ export interface Order {
   restaurantId: string;
   agentId?: string;
   status: OrderStatus;
-  
-  // Price breakdown
-  subtotal: number;
-  deliveryFee: number;
-  platformFee: number;
-  totalAmount: number;
-  
+  subtotal: number | string;
+  deliveryFee: number | string;
+  platformFee: number | string;
+  totalAmount: number | string;
   deliveryAddress: string;
   deliveryInstructions?: string;
-  
-  // Customer info
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
-  
-  paymentMethod?: string;
-  
+  paymentMethod: string;
   placedAt: Date | string;
   updatedAt: Date | string;
-  
-  // Relations
   restaurant?: Restaurant;
   items?: OrderItem[];
   customer?: User;
@@ -88,4 +78,16 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   menuItem?: MenuItem;
+}
+
+export interface Address {
+  id: string;
+  name?: string;
+  street?: string;
+  area?: string;
+  city: string;
+  fullAddress?: string;
+  latitude?: number;
+  longitude?: number;
+  isDefault?: boolean;
 }
