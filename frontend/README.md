@@ -426,11 +426,11 @@ node_modules/  # Dependencies
 
 | Login | Registration |
 |--------|--------------|
-| <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/918ca06f-163f-43ac-8ce9-a9728f34e758" />| <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/c4467d6e-3420-4728-8aa3-ff1e078ad2e1" />|
+| <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/918ca06f-163f-43ac-8ce9-a9728f34e758" /> | <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/c4467d6e-3420-4728-8aa3-ff1e078ad2e1" /> |
 
 | Role Selection | Password Reset |
 |----------------|----------------|
-| <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/8553c41f-f5c1-43cb-8526-df87d35cb9a7" />| <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/603d0f39-b318-4925-97be-f78bf57d5014" />|
+| <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/8553c41f-f5c1-43cb-8526-df87d35cb9a7" /> | <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/603d0f39-b318-4925-97be-f78bf57d5014" /> |
 
 ---
 
@@ -438,11 +438,11 @@ node_modules/  # Dependencies
 
 | Home Page | Restaurant Details |
 |------------|-------------------|
-| <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/7dcbd49d-8866-4542-bd92-6a7527d1d074" />| <img width="959" height="475" alt="image" src="https://github.com/user-attachments/assets/bfa00ef7-8162-45ea-baf9-77eb0fb4b2e8" />|
+| <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/7dcbd49d-8866-4542-bd92-6a7527d1d074" /> | <img width="959" height="475" alt="image" src="https://github.com/user-attachments/assets/bfa00ef7-8162-45ea-baf9-77eb0fb4b2e8" /> |
 
 | Shopping Cart | Order Tracking |
 |----------------|----------------|
-| <img width="959" height="475" alt="image" src="https://github.com/user-attachments/assets/3e17c560-5545-4ecd-86cd-937668f76c31" />| <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/55588589-15e7-4d86-92ff-daf38a2d5310" />|
+| <img width="959" height="475" alt="image" src="https://github.com/user-attachments/assets/3e17c560-5545-4ecd-86cd-937668f76c31" /> | <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/55588589-15e7-4d86-92ff-daf38a2d5310" /> |
 
 ---
 
@@ -450,11 +450,11 @@ node_modules/  # Dependencies
 
 | Owner Dashboard | Menu Management |
 |-----------------|-----------------|
-| ![](./docs/screenshots/owner-dashboard.png) | ![](./docs/screenshots/menu-management.png) |
+| <img width="959" height="470" alt="image" src="https://github.com/user-attachments/assets/ab72bd72-3a20-4ce7-b2bc-6086c44f33a6" /> | <img width="959" height="469" alt="image" src="https://github.com/user-attachments/assets/4340e9da-262b-4a06-a097-f10dcf598816" />|
 
 | Restaurant Orders | Restaurant Analytics |
 |-------------------|----------------------|
-| ![](./docs/screenshots/owner-orders.png) | ![](./docs/screenshots/owner-analytics.png) |
+| <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/e9c2f6f0-2eae-4e7f-a4dc-028518bcc94d" /> | <img width="959" height="474" alt="image" src="https://github.com/user-attachments/assets/608a6482-1a2e-49d1-83e1-296555b3b272" /> |
 
 ---
 
@@ -462,11 +462,11 @@ node_modules/  # Dependencies
 
 | Agent Dashboard | Available Deliveries |
 |-----------------|----------------------|
-| ![](./docs/screenshots/agent-dashboard.png) | ![](./docs/screenshots/agent-deliveries.png) |
+| <img width="959" height="475" alt="image" src="https://github.com/user-attachments/assets/3adf7a29-c7e9-4577-91dc-9831f2bedae2" /> | <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/56f45a8f-bdfb-478f-bc63-406f03f5e28d" /> |
 
 | Earnings Page | Delivery Tracking |
 |----------------|------------------|
-| ![](./docs/screenshots/agent-earnings.png) | ![](./docs/screenshots/delivery-tracking.png) |
+| <img width="959" height="470" alt="image" src="https://github.com/user-attachments/assets/e39cac14-ed40-4085-a6ba-e51b2445db10" /> | <img width="959" height="475" alt="image" src="https://github.com/user-attachments/assets/f8462303-1341-4dbd-9d77-f8955beb171a" /> |
 
 ---
 
@@ -474,11 +474,11 @@ node_modules/  # Dependencies
 
 | Admin Dashboard | User Management |
 |-----------------|-----------------|
-| ![](./docs/screenshots/admin-dashboard.png) | ![](./docs/screenshots/admin-users.png) |
+| <img width="959" height="475" alt="image" src="https://github.com/user-attachments/assets/fba42b45-71bb-40c4-9af5-f314cd39d7af" /> | <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/9be74913-6386-47cc-926c-e130d95619c1" /> |
 
 | Restaurant Approval | System Analytics |
 |---------------------|------------------|
-| ![](./docs/screenshots/admin-restaurants.png) | ![](./docs/screenshots/admin-analytics.png) |
+| <img width="959" height="475" alt="image" src="https://github.com/user-attachments/assets/5ae547e8-284d-4654-9ced-60f759271ecf" /> | <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/7ba1b8f5-260f-42ff-936d-909cc7c7e83d" /> |
 
 ---
 
@@ -486,11 +486,7 @@ node_modules/  # Dependencies
 
 | Notifications | Location Selection |
 |---------------|-------------------|
-| ![](./docs/screenshots/notifications.png) | ![](./docs/screenshots/location-modal.png) |
-
-| Favorites | Responsive Mobile View |
-|------------|------------------------|
-| ![](./docs/screenshots/favorites.png) | ![](./docs/screenshots/mobile-view.png) |
+| <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/23d741a6-a47d-42be-bc79-65ad8b1b89b1" /> | <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/37ee2b19-eae3-43a4-9a24-a60e5ee5418d" /> |
 
 ---
 
