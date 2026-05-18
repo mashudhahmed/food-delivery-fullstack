@@ -1,6 +1,6 @@
 'use client';
 
-import { JSX, useEffect, useState } from 'react';
+import { JSX, useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Order } from '@/app/types';
@@ -36,42 +36,10 @@ export default function OrderDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<{ minutes: number; seconds: number } | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const hasRefreshedRef = useRef(false);
 
-  useEffect(() => {
-    fetchOrderDetails();
-  }, [id]);
-
-  // Real-time timer for cancel button
-  useEffect(() => {
-    if (!order) return;
-    
-    const interval = setInterval(() => {
-      if (order.status === 'pending') {
-        const orderTime = new Date(order.placedAt).getTime();
-        const currentTime = new Date().getTime();
-        const secondsPassed = (currentTime - orderTime) / 1000;
-        const secondsRemaining = Math.max(0, 300 - secondsPassed);
-        
-        if (secondsRemaining > 0) {
-          const minutes = Math.floor(secondsRemaining / 60);
-          const seconds = Math.floor(secondsRemaining % 60);
-          setTimeRemaining({ minutes, seconds });
-        } else {
-          setTimeRemaining(null);
-          // Refresh order to update status if needed
-          if (order.status === 'pending') {
-            fetchOrderDetails();
-          }
-        }
-      } else {
-        setTimeRemaining(null);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [order?.status, order?.placedAt]);
-
-  const fetchOrderDetails = async () => {
+  // Memoize fetchOrderDetails to prevent unnecessary re-renders
+  const fetchOrderDetails = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.get(`/orders/${id}`);
@@ -84,12 +52,17 @@ export default function OrderDetailPage() {
         0
       ) || 0;
       setSubtotal(calculatedSubtotal);
+      
+      // Reset refresh flag when order status changes from pending
+      if (orderData.status !== 'pending') {
+        hasRefreshedRef.current = false;
+      }
     } catch (error) {
       toast.error('Failed to load order details');
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   const calculateTrackingProgress = (status: string) => {
     const progressMap: Record<string, number> = {
@@ -103,6 +76,49 @@ export default function OrderDetailPage() {
     };
     setTrackingProgress(progressMap[status] || 0);
   };
+
+  // Initial load
+  useEffect(() => {
+    fetchOrderDetails();
+  }, [fetchOrderDetails]);
+
+  // Real-time timer for cancel button - NO API calls here
+  useEffect(() => {
+    if (!order) return;
+    
+    const updateTimer = () => {
+      if (order.status === 'pending') {
+        const orderTime = new Date(order.placedAt).getTime();
+        const currentTime = new Date().getTime();
+        const secondsPassed = (currentTime - orderTime) / 1000;
+        const secondsRemaining = Math.max(0, 300 - secondsPassed);
+        
+        if (secondsRemaining > 0) {
+          const minutes = Math.floor(secondsRemaining / 60);
+          const seconds = Math.floor(secondsRemaining % 60);
+          setTimeRemaining({ minutes, seconds });
+        } else {
+          // Only refresh once when time expires
+          if (!hasRefreshedRef.current) {
+            hasRefreshedRef.current = true;
+            setTimeRemaining(null);
+            fetchOrderDetails(); // Refresh to update order status
+          }
+        }
+      } else {
+        setTimeRemaining(null);
+        hasRefreshedRef.current = false;
+      }
+    };
+    
+    // Update timer immediately
+    updateTimer();
+    
+    // Set interval for timer display only (no API calls on every tick)
+    const interval = setInterval(updateTimer, 1000);
+    
+    return () => clearInterval(interval);
+  }, [order?.status, order?.placedAt, fetchOrderDetails]);
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
