@@ -57,16 +57,16 @@ quickbite/
 ## Architecture
 
 ```text
-┌─────────────────────────────┐      HTTP / WS      ┌──────────────────────────────┐
-│        Frontend              │ ◄─────────────────► │         Backend               │
-│  Next.js 14 · TypeScript    │                      │  NestJS 11 · TypeScript      │
-│  Tailwind · Zustand          │                      │  TypeORM · Passport JWT       │
-│  Leaflet · Socket.IO Client  │                      │  Socket.IO · Nodemailer       │
-└─────────────────────────────┘                      └──────────────┬───────────────┘
+┌─────────────────────────────┐       HTTP / WS       ┌──────────────────────────────┐
+│        Frontend             │  ◄─────────────────►  │         Backend              │
+│  Next.js 14 · TypeScript    │                       │  NestJS 11 · TypeScript      │
+│  Tailwind · Zustand         │                       │  TypeORM · Passport JWT      │
+│  Leaflet · Socket.IO Client │                       │  Socket.IO · Nodemailer      │
+└─────────────────────────────┘                       └──────────────┬───────────────┘
                                                                      │
                                                               ┌──────▼──────┐
-                                                              │  PostgreSQL  │
-                                                              │     16.x     │
+                                                              │  PostgreSQL │
+                                                              │     16.x    │
                                                               └─────────────┘
 ```
 
@@ -404,8 +404,7 @@ Screenshots captured from Mailtrap demonstrating all triggered emails:
 |---|---|---|---|
 | 1 | Order Confirmation | Customer | <img width="959" height="473" alt="Order Confirmation Email" src="https://github.com/user-attachments/assets/13bae20e-9543-49ef-8e59-110bd2ffad74" /> |
 | 2 | Order Status Update | Customer | <img width="959" height="473" alt="Order Status Update Email" src="https://github.com/user-attachments/assets/845c92c4-a524-4794-a991-c6abbcab19e3" /> |
-| 3 | Order Delivered | Customer | *(screenshot pending)* |
-| 4 | New Review Received | Restaurant Owner | *(screenshot pending)* |
+| 3 | Order Delivered | Customer | <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/2367aa70-d4b4-4665-9a32-8a11dbbb475e" /> |
 
 > Additional templates (password reset, account approval/rejection, earnings, order availability) are implemented. See `/backend/src/mail/templates/` for all 10 Handlebars templates.
 
@@ -417,7 +416,7 @@ Screenshots captured from Mailtrap demonstrating all triggered emails:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│                                    users                                          │
+│                                    users                                         │
 │  id · fullName · email · passwordHash · phone · role · status                    │
 └──────┬──────────────────┬──────────────────────────────────┬─────────────────────┘
        │ 1                │ 1                                │ 1
@@ -425,26 +424,26 @@ Screenshots captured from Mailtrap demonstrating all triggered emails:
        │                  │                                  │
        ▼ N                ▼ N                                ▼ N
 ┌─────────────┐    ┌──────────────────────────────────────────────────────────────┐
-│ restaurants │    │                        orders                                 │
+│ restaurants │    │                        orders                                │
 │  id         │◄───│  id · customerId · restaurantId · agentId                    │
 │  name       │ N  │  status · totalAmount · deliveryAddress · placedAt           │
 │  address    │    └──────────────────────┬───────────────────────────────────────┘
 │  cuisineType│                           │ 1
 │  isOpen     │                           │
 │  rating     │                           ▼ N
-│  ownerId    │              ┌────────────────────────────┐
+│  ownerId    │              ┌─────────────────────────── ─┐
 └──────┬──────┘              │         order_items         │
        │ 1                   │  id · orderId · menuItemId  │
-       │                     │  quantity · unitPrice        │
+       │                     │  quantity · unitPrice       │
        ▼ N                   └──────────────┬──────────────┘
 ┌─────────────┐                             │ N
-│  menu_items │◄────────────────────────────┘
-│  id         │ 1     (Many-to-Many via join entity)
-│  name       │
-│  price      │
-│  category   │
-│  isAvailable│
-│  restaurantId
+│ menu_items  │◄────────────────────────────┘
+│ id          │ 1     (Many-to-Many via join entity)
+│ name        │
+│ price       │
+│ category    │
+│ isAvailable │
+│ restaurantId| 
 └─────────────┘
 
 restaurants 1 ──► N  reviews  ◄── N  orders
