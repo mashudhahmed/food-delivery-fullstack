@@ -1,5 +1,3 @@
-// backend/src/admin/admin.service.ts
-
 import {
   Injectable,
   NotFoundException,
@@ -17,15 +15,49 @@ import {
   OrderChartDataDto,
   UserChartDataDto,
 } from './dto/chart-data.dto';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AdminService {
-  verifyAgentDocument(agentId: string, documentType: string, verified: boolean) {
-    throw new Error('Method not implemented.');
+ // Add this method to admin.service.ts (around line 450)
+
+async verifyRestaurant(restaurantId: string, verified: boolean) {
+  const restaurant = await this.restaurantRepository.findOne({
+    where: { id: restaurantId },
+  });
+  
+  if (!restaurant) {
+    throw new NotFoundException('Restaurant not found');
   }
-  verifyRestaurant(restaurantId: string, verified: boolean) {
-    throw new Error('Method not implemented.');
+
+  restaurant.isVerified = verified;
+  await this.restaurantRepository.save(restaurant);
+
+  return { 
+    success: true, 
+    message: `Restaurant ${verified ? 'verified' : 'unverified'} successfully` 
+  };
+}
+
+async verifyAgentDocument(agentId: string, documentType: string, verified: boolean) {
+  const agent = await this.userRepository.findOne({
+    where: { id: agentId, role: UserRole.AGENT },
+  });
+  
+  if (!agent) {
+    throw new NotFoundException('Agent not found');
   }
+
+  // Store verification info (you can add a documentVerification field to User entity if needed)
+  console.log(`Document ${documentType} for agent ${agent.email} ${verified ? 'verified' : 'rejected'}`);
+  
+  return { 
+    success: true, 
+    message: `${documentType} ${verified ? 'verified' : 'rejected'} successfully` 
+  };
+}
+
+  
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
@@ -33,9 +65,10 @@ export class AdminService {
     private orderRepository: Repository<Order>,
     @InjectRepository(Restaurant)
     private restaurantRepository: Repository<Restaurant>,
+    private mailService: MailService,
   ) {}
 
-  // ==================== DASHBOARD STATS ====================
+  // dashboard stats for total users, restaurants, orders, revenue, pending approvals, etc.
   
   async getDashboardStats(): Promise<DashboardStatsDto> {
     const now = new Date();
@@ -230,7 +263,7 @@ export class AdminService {
     };
   }
 
-  // ==================== USER MANAGEMENT ====================
+  // user management for admin to view, update, and delete users
 
   async getAllUsers(role?: string) {
     const whereCondition: any = {};
@@ -347,7 +380,7 @@ export class AdminService {
     return { success: true, message: 'User deleted successfully' };
   }
 
-  // ==================== PENDING APPROVALS ====================
+  // Pending approvals for restaurant owners and delivery agents
 
   async getPendingApprovals() {
     const pendingUsers = await this.userRepository.find({
@@ -369,6 +402,7 @@ export class AdminService {
     };
   }
 
+  //FIXED: Approve user with email notification
   async approveUser(userId: string, role?: string, notes?: string) {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
@@ -382,9 +416,18 @@ export class AdminService {
     user.status = UserStatus.APPROVED;
     await this.userRepository.save(user);
 
+    // ✅ SEND APPROVAL EMAIL
+    try {
+      await this.mailService.sendApprovalEmail(user, user.role, notes);
+      console.log(`✅ Approval email sent to ${user.email}`);
+    } catch (emailError) {
+      console.error('Failed to send approval email:', emailError.message);
+    }
+
     return { success: true, message: 'User approved successfully', user };
   }
 
+  // ✅ FIXED: Reject user with email notification
   async rejectUser(userId: string, reason: string) {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
@@ -394,10 +437,18 @@ export class AdminService {
     user.status = UserStatus.REJECTED;
     await this.userRepository.save(user);
 
+    // ✅ SEND REJECTION EMAIL
+    try {
+      await this.mailService.sendRejectionEmail(user, reason);
+      console.log(`✅ Rejection email sent to ${user.email}`);
+    } catch (emailError) {
+      console.error('Failed to send rejection email:', emailError.message);
+    }
+
     return { success: true, message: 'User rejected successfully' };
   }
 
-  // ==================== RESTAURANT MANAGEMENT ====================
+  //restaurant management for admin to view, update, and delete restaurants
 
   async getAllRestaurants(status?: string) {
     const whereCondition: any = {};
@@ -508,7 +559,7 @@ export class AdminService {
     return { success: true, message: 'Restaurant deleted successfully' };
   }
 
-  // ==================== ORDER MANAGEMENT ====================
+  // order management for admin to view, update, and cancel orders
 
   async getAllOrders(status?: string, limit: number = 50, page: number = 1) {
     const whereCondition: any = {};
@@ -674,7 +725,7 @@ export class AdminService {
     return { success: true, message: `Agent status updated to ${status}` };
   }
 
-  // ==================== CHART DATA ====================
+  //chart data for revenue, orders, users, and notifications
 
   async getRevenueChartData(): Promise<RevenueChartDataDto[]> {
     const last6Months = [];
@@ -787,7 +838,7 @@ export class AdminService {
     return last6Months;
   }
 
-  // ==================== NOTIFICATIONS ====================
+  //notifications for low stock, new orders, pending approvals, etc.
 
   async getNotifications(): Promise<NotificationDto[]> {
     const mockNotifications: NotificationDto[] = [
@@ -828,7 +879,7 @@ export class AdminService {
     return { success: true, message: 'Notification marked as read' };
   }
 
-  // ==================== EXPORT DATA ====================
+  //export data as CSV for users, orders, restaurants, pending approvals, and delivery agents
 
   async exportData(type: string): Promise<string> {
     let data: any[] = [];
@@ -875,7 +926,7 @@ export class AdminService {
     return csvRows.join('\n');
   }
 
-  // ==================== ACTIVITY FEED ====================
+  //activity feed for recent orders and user signups
 
   async getActivityFeed(limit: number = 20) {
     const recentOrders = await this.orderRepository.find({

@@ -32,6 +32,9 @@ export class Restaurant {
   @Column({ nullable: true })
   imageUrl: string;
 
+  @Column({ default: false })
+  isVerified: boolean;
+
   @ManyToOne(() => User, (user) => user.restaurants)
   @JoinColumn({ name: 'ownerId' })
   owner: User;
@@ -39,11 +42,16 @@ export class Restaurant {
   @Column()
   ownerId: string;
 
-  @OneToMany(() => MenuItem, (menuItem) => menuItem.restaurant)
+  @OneToMany(() => MenuItem, (menuItem) => menuItem.restaurant, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
   menuItems: MenuItem[];
 
-
-  @OneToMany(() => Review, (review) => review.restaurant)
+  @OneToMany(() => Review, (review) => review.restaurant, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
   reviews: Review[];
 
   @Column({ default: false })
@@ -54,6 +62,4 @@ export class Restaurant {
 
   @UpdateDateColumn()
   updatedAt: Date;
-
-  
 }

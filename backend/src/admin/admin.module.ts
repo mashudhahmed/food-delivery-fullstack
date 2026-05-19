@@ -6,6 +6,7 @@ import { User } from '../users/entities/user.entity';
 import { Order } from '../orders/entities/order.entity';
 import { Restaurant } from '../restaurants/entities/restaurant.entity';
 import { MenuItem } from '../menu/entities/menu-item.entity';
+import { MailModule } from '../mail/mail.module';
 
 
 @Module({
@@ -15,7 +16,9 @@ import { MenuItem } from '../menu/entities/menu-item.entity';
       Order,
       Restaurant,
       MenuItem,
+      
     ]),
+    MailModule
   ],
   controllers: [AdminController],
   providers: [AdminService],

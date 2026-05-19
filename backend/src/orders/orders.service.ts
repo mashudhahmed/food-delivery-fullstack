@@ -177,7 +177,11 @@ export class OrdersService {
     order.status = status;
     await this.orderRepository.save(order);
 
-    await this.mailService.sendOrderStatusUpdate(order);
+    try {
+      await this.mailService.sendOrderStatusUpdate(order);
+    } catch (emailError) {
+      console.error('Failed to send status update email:', emailError.message);
+    }
 
     try {
       await this.notificationsService.notifyOrderStatusUpdate(order.customerId, id, status);
@@ -235,19 +239,20 @@ export class OrdersService {
     return order;
   }
 
-  // ✅ FIXED: updateDeliveryStatus - No auto-transition to on_the_way
-  async updateDeliveryStatus(orderId: string, status: OrderStatus, agentId: string) {
+  async updateDeliveryStatus(orderId: string, status: string, agentId: string) {
     const order = await this.getOrderWithDetails(orderId);
 
     if (order.agentId !== agentId) {
       throw new ForbiddenException('You are not assigned to this order');
     }
 
-    if (status !== OrderStatus.PICKED_UP && status !== OrderStatus.DELIVERED) {
+    const orderStatus = status as OrderStatus;
+
+    if (orderStatus !== OrderStatus.PICKED_UP && orderStatus !== OrderStatus.DELIVERED) {
       throw new BadRequestException('Agents can only update to picked_up or delivered');
     }
 
-    if (status === OrderStatus.PICKED_UP) {
+    if (orderStatus === OrderStatus.PICKED_UP) {
       order.status = OrderStatus.PICKED_UP;
       await this.orderRepository.save(order);
       
@@ -267,28 +272,48 @@ export class OrdersService {
       });
     }
     
-    if (status === OrderStatus.DELIVERED) {
+    if (orderStatus === OrderStatus.DELIVERED) {
       order.status = OrderStatus.DELIVERED;
       await this.orderRepository.save(order);
       
       const earnings = order.deliveryFee || 50;
       
-      await this.notificationsService.notifyAgentEarnings(agentId, orderId, earnings);
+      // ✅ FIX: Send order delivered email
+      try {
+        await this.mailService.sendOrderDelivered(order);
+        console.log(`✅ Order delivered email sent to customer: ${order.customerEmail}`);
+      } catch (emailError) {
+        console.error('Failed to send order delivered email:', emailError.message);
+      }
       
-      await this.notificationsService.sendToUser(order.customerId, {
-        type: 'order_delivered',
-        title: 'Order Delivered!',
-        message: `Your order has been delivered. Enjoy your meal!`,
-        data: { orderId },
-      });
+      try {
+        await this.notificationsService.notifyAgentEarnings(agentId, orderId, earnings);
+      } catch (notificationError) {
+        console.error('Failed to send agent earnings notification:', notificationError.message);
+      }
+      
+      try {
+        await this.notificationsService.sendToUser(order.customerId, {
+          type: 'order_delivered',
+          title: 'Order Delivered!',
+          message: `Your order has been delivered. Enjoy your meal!`,
+          data: { orderId },
+        });
+      } catch (notificationError) {
+        console.error('Failed to send customer notification:', notificationError.message);
+      }
       
       const restaurant = await this.restaurantsService.findOne(order.restaurantId);
-      await this.notificationsService.sendToUser(restaurant.ownerId, {
-        type: 'order_completed',
-        title: 'Order Completed',
-        message: `Order #${orderId.slice(-8)} has been delivered successfully`,
-        data: { orderId },
-      });
+      try {
+        await this.notificationsService.sendToUser(restaurant.ownerId, {
+          type: 'order_completed',
+          title: 'Order Completed',
+          message: `Order #${orderId.slice(-8)} has been delivered successfully`,
+          data: { orderId },
+        });
+      } catch (notificationError) {
+        console.error('Failed to send owner notification:', notificationError.message);
+      }
     }
 
     return order;

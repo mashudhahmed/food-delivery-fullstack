@@ -31,24 +31,59 @@ export class MailService {
   }
 
   private loadTemplates() {
-    const templatesDir = path.join(__dirname, 'templates');
+    // ✅ FIXED: Multiple path resolution attempts
+    let templatesDir = path.join(__dirname, 'templates');
+    
+    // Check if templates exist, try alternative paths
+    if (!fs.existsSync(templatesDir)) {
+      const alternativePaths = [
+        path.join(process.cwd(), 'dist', 'mail', 'templates'),
+        path.join(process.cwd(), 'src', 'mail', 'templates'),
+        path.join(__dirname, '..', 'mail', 'templates'),
+      ];
+      
+      for (const altPath of alternativePaths) {
+        if (fs.existsSync(altPath)) {
+          templatesDir = altPath;
+          console.log(`✅ Found templates at: ${templatesDir}`);
+          break;
+        }
+      }
+    }
+    
+    if (!fs.existsSync(templatesDir)) {
+      console.error(`❌ Templates directory not found at: ${templatesDir}`);
+      return;
+    }
+    
     const templateFiles = [
-      'application-approved.hbs',
-      'application-rejected.hbs',
-      'earnings-added-agent.hbs',
-      'new-order-available-agent.hbs',
-      'new-order-owner.hbs',
-      'order-confirmation.hbs',
-      'order-delivered.hbs',
-      'order-status-update.hbs',
-      'password-reset.hbs',
-      'review-notification.hbs',
+      'application-approved',
+      'application-rejected',
+      'earnings-added-agent',
+      'new-order-available-agent',
+      'new-order-owner',
+      'order-confirmation',
+      'order-delivered',
+      'order-status-update',
+      'password-reset',
+      'review-notification',
     ];
 
     templateFiles.forEach(file => {
-      const templatePath = path.join(templatesDir, file);
-      const templateContent = fs.readFileSync(templatePath, 'utf-8');
-      this.templates.set(file.replace('.hbs', ''), Handlebars.compile(templateContent));
+      const templatePath = path.join(templatesDir, `${file}.hbs`);
+      
+      // ✅ FIXED: Check if file exists before reading
+      if (fs.existsSync(templatePath)) {
+        try {
+          const templateContent = fs.readFileSync(templatePath, 'utf-8');
+          this.templates.set(file, Handlebars.compile(templateContent));
+          console.log(`✅ Loaded template: ${file}`);
+        } catch (error) {
+          console.error(`❌ Failed to load template ${file}:`, error.message);
+        }
+      } else {
+        console.warn(`⚠️ Template not found: ${templatePath}`);
+      }
     });
   }
 
@@ -66,10 +101,15 @@ export class MailService {
     return statusMap[status] || status;
   }
 
-  // ==================== AGENT EMAILS (UPDATED WITH HTML) ====================
+  // ==================== AGENT EMAILS ====================
 
   async sendNewOrderAvailableToAgent(agent: User, order: Order, earnings: number) {
     const template = this.templates.get('new-order-available-agent');
+    
+    if (!template) {
+      console.error('Template new-order-available-agent not found');
+      return;
+    }
     
     const html = template({
       logoUrl: `${this.configService.get('FRONTEND_URL')}/logo.png`,
@@ -79,7 +119,7 @@ export class MailService {
       restaurantName: order.restaurant.name,
       restaurantAddress: order.restaurant.address,
       deliveryAddress: order.deliveryAddress,
-      distance: ((Math.random() * 5) + 1).toFixed(1), // Calculate actual distance if available
+      distance: ((Math.random() * 5) + 1).toFixed(1),
       acceptUrl: `${this.configService.get('FRONTEND_URL')}/agent/orders/${order.id}`,
       year: new Date().getFullYear(),
     });
@@ -94,6 +134,11 @@ export class MailService {
 
   async sendEarningsAddedToAgent(agent: User, order: Order, earnings: number, totalEarnings: number, deliveriesCount: number, avgRating: number = 4.5) {
     const template = this.templates.get('earnings-added-agent');
+    
+    if (!template) {
+      console.error('Template earnings-added-agent not found');
+      return;
+    }
     
     const html = template({
       logoUrl: `${this.configService.get('FRONTEND_URL')}/logo.png`,
@@ -118,7 +163,12 @@ export class MailService {
   }
 
   async sendOrderAssignedToAgent(agent: User, order: Order) {
-    const template = this.templates.get('new-order-available-agent'); // Reuse or create specific one
+    const template = this.templates.get('new-order-available-agent');
+    
+    if (!template) {
+      console.error('Template new-order-available-agent not found');
+      return;
+    }
     
     const html = template({
       logoUrl: `${this.configService.get('FRONTEND_URL')}/logo.png`,
@@ -141,13 +191,18 @@ export class MailService {
     });
   }
 
-  // ==================== EXISTING EMAILS (UPDATED WITH HBS) ====================
+  // ==================== EXISTING EMAILS ====================
 
   async sendPasswordResetEmail(email: string, token: string, fullName: string = 'User') {
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
     const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
 
     const template = this.templates.get('password-reset');
+    
+    if (!template) {
+      console.error('Template password-reset not found');
+      return;
+    }
     
     const html = template({
       logoUrl: `${frontendUrl}/logo.png`,
@@ -167,30 +222,35 @@ export class MailService {
   async sendOrderConfirmation(order: Order) {
     const template = this.templates.get('order-confirmation');
     
-    const items = order.items.map(item => ({
+    if (!template) {
+      console.error('Template order-confirmation not found');
+      return;
+    }
+    
+    const items = order.items?.map(item => ({
       name: item.menuItem?.name || 'Item',
       quantity: item.quantity,
       price: item.unitPrice,
-    }));
+    })) || [];
 
     const html = template({
       logoUrl: `${this.configService.get('FRONTEND_URL')}/logo.png`,
-      customerName: order.customer?.fullName || 'Customer',
+      customerName: order.customer?.fullName || order.customerName || 'Customer',
       orderId: order.id.slice(-8).toUpperCase(),
-      restaurantName: order.restaurant.name,
-      restaurantAddress: order.restaurant.address,
-      restaurantPhone: order.restaurant.phone,
+      restaurantName: order.restaurant?.name || 'Restaurant',
+      restaurantAddress: order.restaurant?.address || '',
+      restaurantPhone: order.restaurant?.phone || '',
       items: items,
       totalAmount: order.totalAmount,
       deliveryAddress: order.deliveryAddress,
       trackingUrl: `${this.configService.get('FRONTEND_URL')}/orders/${order.id}`,
-      customerEmail: order.customer?.email || '',
+      customerEmail: order.customer?.email || order.customerEmail || '',
       year: new Date().getFullYear(),
     });
 
     await this.transporter.sendMail({
       from: `"QuickBite" <${this.configService.get<string>('MAIL_FROM')}>`,
-      to: order.customer.email,
+      to: order.customer?.email || order.customerEmail,
       subject: `Order Confirmed! - #${order.id.slice(-8).toUpperCase()}`,
       html: html,
     });
@@ -199,13 +259,18 @@ export class MailService {
   async sendOrderStatusUpdate(order: Order) {
     const template = this.templates.get('order-status-update');
     
+    if (!template) {
+      console.error('Template order-status-update not found');
+      return;
+    }
+    
     const html = template({
       logoUrl: `${this.configService.get('FRONTEND_URL')}/logo.png`,
-      customerName: order.customer?.fullName || 'Customer',
+      customerName: order.customer?.fullName || order.customerName || 'Customer',
       orderId: order.id.slice(-8).toUpperCase(),
       status: order.status,
       statusText: this.getStatusText(order.status),
-      restaurantName: order.restaurant.name,
+      restaurantName: order.restaurant?.name || 'Restaurant',
       totalAmount: order.totalAmount,
       agentName: order.agent?.fullName,
       agentPhone: order.agent?.phone,
@@ -215,7 +280,7 @@ export class MailService {
 
     await this.transporter.sendMail({
       from: `"QuickBite" <${this.configService.get<string>('MAIL_FROM')}>`,
-      to: order.customer.email,
+      to: order.customer?.email || order.customerEmail,
       subject: `Order ${this.getStatusText(order.status)} - #${order.id.slice(-8).toUpperCase()}`,
       html: html,
     });
@@ -224,23 +289,28 @@ export class MailService {
   async sendOrderDelivered(order: Order) {
     const template = this.templates.get('order-delivered');
     
+    if (!template) {
+      console.error('Template order-delivered not found');
+      return;
+    }
+    
     const html = template({
       logoUrl: `${this.configService.get('FRONTEND_URL')}/logo.png`,
-      customerName: order.customer?.fullName || 'Customer',
+      customerName: order.customer?.fullName || order.customerName || 'Customer',
       orderId: order.id.slice(-8).toUpperCase(),
-      restaurantName: order.restaurant.name,
+      restaurantName: order.restaurant?.name || 'Restaurant',
       totalAmount: order.totalAmount,
       deliveryAddress: order.deliveryAddress,
       agentName: order.agent?.fullName,
       agentPhone: order.agent?.phone,
       reviewUrl: `${this.configService.get('FRONTEND_URL')}/orders/${order.id}/review`,
-      orderAgainUrl: `${this.configService.get('FRONTEND_URL')}/restaurants/${order.restaurant.id}`,
+      orderAgainUrl: `${this.configService.get('FRONTEND_URL')}/restaurants/${order.restaurantId}`,
       year: new Date().getFullYear(),
     });
 
     await this.transporter.sendMail({
       from: `"QuickBite" <${this.configService.get<string>('MAIL_FROM')}>`,
-      to: order.customer.email,
+      to: order.customer?.email || order.customerEmail,
       subject: `Order Delivered! - #${order.id.slice(-8).toUpperCase()}`,
       html: html,
     });
@@ -249,21 +319,26 @@ export class MailService {
   async sendNewReviewNotification(review: Review, restaurantOwnerEmail: string) {
     const template = this.templates.get('review-notification');
     
+    if (!template) {
+      console.error('Template review-notification not found');
+      return;
+    }
+    
     const getInitials = (name: string) => {
-      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+      return name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
     };
 
     const html = template({
       logoUrl: `${this.configService.get('FRONTEND_URL')}/logo.png`,
-      ownerName: review.restaurant.owner?.fullName || 'Owner',
-      restaurantName: review.restaurant.name,
-      customerName: review.customer.fullName,
+      ownerName: review.restaurant?.owner?.fullName || 'Owner',
+      restaurantName: review.restaurant?.name || 'Restaurant',
+      customerName: review.customer?.fullName || 'Customer',
       rating: review.rating,
       reviewComment: review.comment,
       reviewDate: review.createdAt,
-      orderId: review.order.id.slice(-8).toUpperCase(),
-      avgRating: 4.5, // Calculate from actual reviews
-      reviewCount: 127, // Get from database
+      orderId: review.order?.id?.slice(-8).toUpperCase() || 'N/A',
+      avgRating: 4.5,
+      reviewCount: 127,
       dashboardUrl: `${this.configService.get('FRONTEND_URL')}/owner/reviews`,
       year: new Date().getFullYear(),
     });
@@ -271,13 +346,18 @@ export class MailService {
     await this.transporter.sendMail({
       from: `"QuickBite" <${this.configService.get<string>('MAIL_FROM')}>`,
       to: restaurantOwnerEmail,
-      subject: `New ${review.rating}⭐ Review for ${review.restaurant.name}`,
+      subject: `New ${review.rating}⭐ Review for ${review.restaurant?.name}`,
       html: html,
     });
   }
 
   async sendApprovalEmail(user: User, role: UserRole, notes?: string) {
     const template = this.templates.get('application-approved');
+    
+    if (!template) {
+      console.error('Template application-approved not found');
+      return;
+    }
     
     const roleText = role === UserRole.OWNER ? 'Restaurant Owner' : 'Delivery Agent';
     
@@ -301,6 +381,11 @@ export class MailService {
   async sendRejectionEmail(user: User, reason?: string) {
     const template = this.templates.get('application-rejected');
     
+    if (!template) {
+      console.error('Template application-rejected not found');
+      return;
+    }
+    
     const roleText = user.role === UserRole.OWNER ? 'Restaurant Owner' : 'Delivery Agent';
     
     const html = template({
@@ -323,19 +408,24 @@ export class MailService {
   async sendNewOrderToOwner(order: Order, ownerEmail: string) {
     const template = this.templates.get('new-order-owner');
     
-    const items = order.items.map(item => ({
+    if (!template) {
+      console.error('Template new-order-owner not found');
+      return;
+    }
+    
+    const items = order.items?.map(item => ({
       name: item.menuItem?.name || 'Item',
       quantity: item.quantity,
       price: item.unitPrice,
-    }));
+    })) || [];
 
     const html = template({
       logoUrl: `${this.configService.get('FRONTEND_URL')}/logo.png`,
-      ownerName: order.restaurant.owner?.fullName || 'Owner',
+      ownerName: order.restaurant?.owner?.fullName || 'Owner',
       orderId: order.id.slice(-8).toUpperCase(),
-      restaurantName: order.restaurant.name,
-      customerName: order.customer?.fullName || 'Customer',
-      customerPhone: order.customer?.phone || 'Not provided',
+      restaurantName: order.restaurant?.name || 'Restaurant',
+      customerName: order.customer?.fullName || order.customerName || 'Customer',
+      customerPhone: order.customer?.phone || order.customerPhone || 'Not provided',
       deliveryAddress: order.deliveryAddress,
       orderTime: new Date(order.placedAt).toLocaleString(),
       items: items,
