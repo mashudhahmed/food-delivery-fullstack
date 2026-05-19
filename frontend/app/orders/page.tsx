@@ -3,7 +3,7 @@
 import { JSX, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '../../lib/api';
-import { Order } from '../types';
+import { Order } from '../../types';
 import toast from 'react-hot-toast';
 import CancelOrderModal from '@/components/CancelOrderModal';
 import { 

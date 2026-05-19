@@ -7,8 +7,8 @@ import { api } from '@/lib/api';
 import { Heart, ShoppingBag, Trash2, Star, MapPin } from 'lucide-react';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
-import { useCartStore } from '@/app/stores/cartStore';
-import { useFavoritesStore } from '@/app/stores/favoritesStore';
+import { useCartStore } from '@/stores/cartStore';
+import { useFavoritesStore } from '@/stores/favoritesStore';
 
 interface FavoriteItem {
   id: string;

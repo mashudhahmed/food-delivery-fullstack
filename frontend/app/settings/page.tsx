@@ -32,7 +32,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { auth } from '@/lib/api';
-import { useAddressStore } from '@/app/stores/addressStore';
+import { useAddressStore } from '@/stores/addressStore';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import Image from 'next/image';

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/api';
 import { api } from '@/lib/api';
-import { Order } from '@/app/types';
+import { Order } from '@/types';
 import { 
   Package, 
   CheckCircle, 

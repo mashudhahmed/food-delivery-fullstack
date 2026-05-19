@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import { Restaurant, MenuItem } from '@/app/types';
+import { Restaurant, MenuItem } from '@/types';
 import MenuItemCard from '@/components/MenuItemCard';
 import toast from 'react-hot-toast';
 import { Star, MapPin, Phone, Clock, ChevronRight, Search, Info, ShoppingBag, Truck, Minus, Plus, Trash2 } from 'lucide-react';
-import { useCartStore } from '@/app/stores/cartStore';
+import { useCartStore } from '@/stores/cartStore';
 
 export default function RestaurantDetailPage() {
   const { id } = useParams();

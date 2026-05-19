@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, MapPin, Navigation, Search, ChevronRight, Loader2 } from 'lucide-react';
-import { useAddressStore } from '@/app/stores/addressStore';
+import { useAddressStore } from '@/stores/addressStore';
 import toast from 'react-hot-toast';
 import dynamic from 'next/dynamic';
 

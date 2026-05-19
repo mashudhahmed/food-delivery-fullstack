@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
-import { useNotificationStore } from '@/app/stores/notificationStore';
-import { Notification } from '@/app/types/notification';
+import { useNotificationStore } from '@/stores/notificationStore';
+import { Notification } from '@/types/notification';
 import { api } from './api';
 
 class WebSocketService {

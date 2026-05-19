@@ -5,8 +5,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bell, CheckCheck, X, Clock, Package, CheckCircle, Truck, Store, DollarSign } from 'lucide-react';
-import { useNotificationStore } from '@/app/stores/notificationStore';
-import { Notification, NotificationType } from '@/app/types/notification';
+import { useNotificationStore } from '@/stores/notificationStore';
+import { Notification, NotificationType } from '@/types/notification';
 import { formatDistanceToNow } from 'date-fns';
 
 const getNotificationIcon = (type: NotificationType) => {

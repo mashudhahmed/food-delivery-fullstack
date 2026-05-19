@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Restaurant } from '@/app/types';
+import { Restaurant } from '@/types';
 import { Star, Heart } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { auth } from '@/lib/api';
-import { useFavoritesStore } from '@/app/stores/favoritesStore';
+import { useFavoritesStore } from '@/stores/favoritesStore';
 import toast from 'react-hot-toast';
 
 interface Props {

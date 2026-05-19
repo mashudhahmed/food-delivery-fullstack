@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '../lib/api';
 import { auth } from '../lib/api';
-import { Restaurant } from './types';
+import { Restaurant } from '../types';
 import RestaurantCard from '@/components/RestaurantCard';
 import toast from 'react-hot-toast';
 import { Filter, X, Star, Clock, SlidersHorizontal, ChevronDown, ChevronUp, Search, MapPin } from 'lucide-react';
-import { useAddressStore } from '@/app/stores/addressStore';
+import { useAddressStore } from '@/stores/addressStore';
 
 export default function HomePage() {
   const router = useRouter();

@@ -1,7 +1,7 @@
 // frontend/app/stores/notificationStore.ts
 
 import { create } from 'zustand';
-import { Notification } from '@/app/types/notification';
+import { Notification } from '@/types/notification';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 

@@ -4,7 +4,7 @@ import { JSX, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/api';
 import { api } from '@/lib/api';
-import { Order, OrderStatus } from '@/app/types';
+import { Order, OrderStatus } from '@/types';
 import { 
   Package, 
   MapPin, 

@@ -32,9 +32,9 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { auth } from '@/lib/api';
-import { useCartStore } from '@/app/stores/cartStore';
-import { useAddressStore } from '@/app/stores/addressStore';
-import { useFavoritesStore } from '@/app/stores/favoritesStore';
+import { useCartStore } from '@/stores/cartStore';
+import { useAddressStore } from '@/stores/addressStore';
+import { useFavoritesStore } from '@/stores/favoritesStore';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import LocationModal from './LocationModal';

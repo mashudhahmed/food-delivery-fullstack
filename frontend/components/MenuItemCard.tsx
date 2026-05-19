@@ -1,7 +1,7 @@
 'use client';
 
-import { useCartStore } from '@/app/stores/cartStore';
-import { MenuItem } from '@/app/types';
+import { useCartStore } from '@/stores/cartStore';
+import { MenuItem } from '@/types';
 import toast from 'react-hot-toast';
 import { Plus, Minus } from 'lucide-react';
 import { useEffect, useState } from 'react';

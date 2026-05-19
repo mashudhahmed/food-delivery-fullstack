@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useNotificationStore } from '@/app/stores/notificationStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import { auth } from '@/lib/api';
 import { wsService } from '@/lib/websocket';
 

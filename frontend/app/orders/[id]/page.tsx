@@ -3,7 +3,7 @@
 import { JSX, useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import { Order } from '@/app/types';
+import { Order } from '@/types';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import CancelOrderModal from '@/components/CancelOrderModal'; // Adjust path as needed
