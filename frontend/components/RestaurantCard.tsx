@@ -6,7 +6,7 @@ import { Restaurant } from '@/app/types';
 import { Star, Heart } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { auth } from '@/lib/api';
-import { api } from '@/lib/api';
+import { useFavoritesStore } from '@/app/stores/favoritesStore';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -16,8 +16,11 @@ interface Props {
 export default function RestaurantCard({ restaurant }: Props) {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Use the favorites store
+  const { isFavorite, addFavorite, removeFavorite, loadFavorites } = useFavoritesStore();
+  const isFavorited = isFavorite(restaurant.id);
 
   const getRatingValue = () => {
     const rating = restaurant.rating;
@@ -33,19 +36,11 @@ export default function RestaurantCard({ restaurant }: Props) {
     const user = auth.getCurrentUser();
     setIsAuthenticated(!!token && !!user);
     
+    // Load favorites if authenticated
     if (token && user && user.role === 'customer') {
-      checkFavoriteStatus();
+      loadFavorites();
     }
   }, []);
-
-  const checkFavoriteStatus = async () => {
-    try {
-      const response = await api.get(`/favorites/${restaurant.id}`);
-      setIsFavorite(response.data.isFavorite);
-    } catch (error) {
-      console.error('Failed to check favorite status:', error);
-    }
-  };
 
   const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -62,23 +57,27 @@ export default function RestaurantCard({ restaurant }: Props) {
     setIsLoading(true);
 
     try {
-      if (isFavorite) {
-        await api.delete(`/favorites/${restaurant.id}`);
-        setIsFavorite(false);
-        toast.success('Removed from favorites');
+      if (isFavorited) {
+        // Remove from favorites - this will update the store
+        await removeFavorite(restaurant.id);
+        // Force a reload of favorites to ensure sync
+        await loadFavorites();
       } else {
-        await api.post('/favorites', {
-          restaurantId: restaurant.id,
-          restaurantName: restaurant.name,
-          restaurantImage: restaurant.imageUrl,
-          cuisineType: restaurant.cuisineType,
-        });
-        setIsFavorite(true);
-        toast.success('Added to favorites');
+        // Add to favorites
+        await addFavorite(
+          restaurant.id,
+          restaurant.name,
+          restaurant.imageUrl,
+          restaurant.cuisineType
+        );
+        // Force a reload of favorites to ensure sync
+        await loadFavorites();
       }
     } catch (error: any) {
       console.error('Favorite error:', error);
-      toast.error(error.response?.data?.message || 'Something went wrong');
+      if (error.response?.status !== 409) {
+        toast.error(error.response?.data?.message || 'Something went wrong');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -100,6 +99,7 @@ export default function RestaurantCard({ restaurant }: Props) {
             </div>
           )}
           
+          {/* Heart button - now synced with store */}
           <button 
             className={`absolute top-2 right-2 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center transition-all ${
               isLoading ? 'opacity-50 cursor-wait' : 'hover:bg-white'
@@ -109,7 +109,7 @@ export default function RestaurantCard({ restaurant }: Props) {
           >
             <Heart 
               className={`w-4 h-4 transition-colors ${
-                isFavorite 
+                isFavorited 
                   ? 'text-red-500 fill-red-500' 
                   : 'text-gray-500 hover:text-red-500'
               }`} 
