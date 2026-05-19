@@ -1,8 +1,8 @@
 <div align="center">
 
-# QuickBite - Food Delivery API
+# QuickBite backend - Food Delivery API
 
-**A production-ready RESTful backend for food ordering, restaurant management, and delivery tracking**
+**A RESTful backend for food ordering, restaurant management, and delivery tracking**
 
 [![NestJS](https://img.shields.io/badge/NestJS-11.x-E0234E?style=flat-square&logo=nestjs)](https://nestjs.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
