@@ -1,8 +1,8 @@
 <div align="center">
 
-# QuickBite - Food Delivery API
+# QuickBite backend - Food Delivery API
 
-**A production-ready RESTful backend for food ordering, restaurant management, and delivery tracking**
+**A RESTful backend for food ordering, restaurant management, and delivery tracking**
 
 [![NestJS](https://img.shields.io/badge/NestJS-11.x-E0234E?style=flat-square&logo=nestjs)](https://nestjs.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
@@ -323,6 +323,29 @@ socket.on('notification', (data) => {
 
 ---
 
+## Email Evidence
+
+Screenshots of the required email triggers using Mailtrap SMTP testing:
+
+| # | Email Type | Recipient | Screenshot |
+|---|------------|-----------|-------------|
+| 1 | Order Confirmation | Customer | <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/13bae20e-9543-49ef-8e59-110bd2ffad74" />|
+| 2 | Order Status Update | Customer | <img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/845c92c4-a524-4794-a991-c6abbcab19e3" />|
+
+> **Note:** Additional email templates including password reset, account approval/rejection, earnings notifications, and order availability alerts are also implemented. Total email templates available: **10**
+
+### SMTP Configuration
+
+```env
+MAIL_HOST=smtp.mailtrap.io
+MAIL_PORT=587
+MAIL_USER=your_mailtrap_username
+MAIL_PASSWORD=your_mailtrap_password
+MAIL_FROM=noreply@quickbite.com
+```
+
+---
+
 ## Testing
 
 ```bash
@@ -350,6 +373,7 @@ npm run start:prod
 # Using PM2
 pm2 start dist/main.js --name quickbite-api
 ```
+
 ---
 
 ## Project Structure
@@ -384,7 +408,6 @@ src/
 | 422 | INVALID_STATUS_TRANSITION | Illegal order status change |
 | 429 | TOO_MANY_REQUESTS | Rate limit exceeded (10 req/min) |
 | 500 | INTERNAL_SERVER_ERROR | Something went wrong on our end |
-
 
 ---
 
