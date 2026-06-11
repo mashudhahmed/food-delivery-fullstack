@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { auth } from '@/lib/api';
@@ -33,7 +34,8 @@ interface Restaurant {
   name: string;
 }
 
-export default function OwnerMenuPage() {
+// Create a separate component that uses useSearchParams
+function OwnerMenuContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const restaurantIdParam = searchParams.get('restaurant');
@@ -107,7 +109,6 @@ export default function OwnerMenuPage() {
   const fetchMenuItems = async () => {
     if (!selectedRestaurant) return;
     try {
-      // FIXED: Updated endpoint
       const response = await api.get(`/menu/restaurant/${selectedRestaurant}`);
       setMenuItems(response.data || []);
     } catch (error) {
@@ -119,7 +120,6 @@ export default function OwnerMenuPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Determine which restaurant to use for new items
     let targetRestaurantId = selectedRestaurant;
     
     if (!editingItem) {
@@ -130,7 +130,6 @@ export default function OwnerMenuPage() {
       }
     }
     
-    // Validate all required fields for new items
     if (!editingItem) {
       if (!formData.name.trim()) {
         toast.error('Please enter item name');
@@ -149,7 +148,6 @@ export default function OwnerMenuPage() {
         return;
       }
     } else {
-      // For edits, validate only if fields are provided
       if (formData.name && !formData.name.trim()) {
         toast.error('Item name cannot be empty');
         return;
@@ -162,24 +160,20 @@ export default function OwnerMenuPage() {
     
     try {
       if (editingItem) {
-        // Build update data - only send fields that have changed
         const updateData: any = {};
         if (formData.name && formData.name !== editingItem.name) updateData.name = formData.name.trim();
         if (formData.description && formData.description !== editingItem.description) updateData.description = formData.description.trim();
         if (formData.price && parseFloat(formData.price) !== editingItem.price) updateData.price = parseFloat(formData.price);
         if (formData.category && formData.category !== editingItem.category) updateData.category = formData.category;
         
-        // Only make API call if something changed
         if (Object.keys(updateData).length === 0) {
           toast.error('No changes made');
           return;
         }
         
-        // FIXED: Updated endpoint for update
         await api.patch(`/menu/${editingItem.id}`, updateData);
         toast.success('Menu item updated');
       } else {
-        // Create new item - send all fields
         const data = {
           name: formData.name.trim(),
           description: formData.description.trim(),
@@ -187,7 +181,6 @@ export default function OwnerMenuPage() {
           category: formData.category,
           isAvailable: true,
         };
-        // FIXED: Updated endpoint for create
         await api.post(`/menu/restaurant/${targetRestaurantId}`, data);
         toast.success('Menu item added');
       }
@@ -215,7 +208,6 @@ export default function OwnerMenuPage() {
 
   const toggleAvailability = async (id: string, currentStatus: boolean) => {
     try {
-      // FIXED: Updated endpoint for toggle
       await api.patch(`/menu/${id}`, { isAvailable: !currentStatus });
       toast.success(`Item ${!currentStatus ? 'available' : 'unavailable'}`);
       fetchMenuItems();
@@ -235,7 +227,6 @@ export default function OwnerMenuPage() {
     
     setDeleting(true);
     try {
-      // FIXED: Updated endpoint for delete
       await api.delete(`/menu/${itemToDelete.id}`);
       toast.success('Menu item deleted');
       setShowDeleteModal(false);
@@ -272,7 +263,7 @@ export default function OwnerMenuPage() {
       description: item.description,
       price: item.price.toString(),
       category: item.category,
-      restaurantId: '', // Not used for editing
+      restaurantId: '',
     });
     setShowModal(true);
   };
@@ -293,7 +284,6 @@ export default function OwnerMenuPage() {
 
   return (
     <div className="p-6">
-      {/* Delete Confirmation Modal */}
       <DeleteConfirmationModal
         isOpen={showDeleteModal}
         onClose={() => {
@@ -307,7 +297,6 @@ export default function OwnerMenuPage() {
         loading={deleting}
       />
 
-      {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Menu Management</h1>
@@ -321,14 +310,12 @@ export default function OwnerMenuPage() {
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
               : 'bg-orange-500 text-white hover:bg-orange-600'
           }`}
-          title={restaurants.length === 0 ? 'Add a restaurant first' : 'Add new menu item'}
         >
           <Plus className="w-4 h-4" />
           Add Menu Item
         </button>
       </div>
 
-      {/* No Restaurant Warning */}
       {restaurants.length === 0 && (
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-amber-500" />
@@ -345,7 +332,6 @@ export default function OwnerMenuPage() {
         </div>
       )}
 
-      {/* Restaurant Selector */}
       {restaurants.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
           {restaurants.map((restaurant) => (
@@ -365,7 +351,6 @@ export default function OwnerMenuPage() {
         </div>
       )}
 
-      {/* Search and Category Filters */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -394,7 +379,6 @@ export default function OwnerMenuPage() {
         </div>
       </div>
 
-      {/* Menu Items Grid */}
       {selectedRestaurant && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredItems.map((item) => (
@@ -464,7 +448,6 @@ export default function OwnerMenuPage() {
         </div>
       )}
 
-      {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -477,7 +460,6 @@ export default function OwnerMenuPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
-              {/* Restaurant Selector - Only show for new items when multiple restaurants */}
               {!editingItem && restaurants.length > 1 && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Restaurant</label>
@@ -500,7 +482,6 @@ export default function OwnerMenuPage() {
                 </div>
               )}
               
-              {/* Show current restaurant for editing */}
               {editingItem && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Restaurant</label>
@@ -583,5 +564,18 @@ export default function OwnerMenuPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Main export with Suspense boundary
+export default function OwnerMenuPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+      </div>
+    }>
+      <OwnerMenuContent />
+    </Suspense>
   );
 }
