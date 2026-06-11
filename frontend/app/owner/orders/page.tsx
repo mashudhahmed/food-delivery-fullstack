@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { auth } from '@/lib/api';
@@ -27,7 +28,8 @@ interface Order {
   items?: any[];
 }
 
-export default function OwnerOrdersPage() {
+// Separate component that uses useSearchParams
+function OwnerOrdersContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const restaurantIdParam = searchParams.get('restaurant');
@@ -117,7 +119,6 @@ export default function OwnerOrdersPage() {
     }
   };
 
-  // ✅ UPDATED: 6-step status badges with on_the_way
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { color: string; icon: React.ReactNode; text: string }> = {
       pending: { color: 'bg-yellow-100 text-yellow-800', icon: <Clock className="w-3 h-3" />, text: 'Pending' },
@@ -138,7 +139,6 @@ export default function OwnerOrdersPage() {
     return matchesSearch && matchesStatus;
   });
 
-  // ✅ UPDATED: Added picked_up and on_the_way counts
   const statusCounts = {
     pending: orders.filter(o => o.status === 'pending').length,
     preparing: orders.filter(o => o.status === 'preparing').length,
@@ -180,7 +180,6 @@ export default function OwnerOrdersPage() {
         ))}
       </div>
 
-      {/* ✅ UPDATED: 6-step filter tabs */}
       <div className="flex flex-wrap gap-2 mb-6">
         {[
           { id: 'all', label: 'All', count: orders.length },
@@ -303,5 +302,18 @@ export default function OwnerOrdersPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main export with Suspense boundary
+export default function OwnerOrdersPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+      </div>
+    }>
+      <OwnerOrdersContent />
+    </Suspense>
   );
 }
