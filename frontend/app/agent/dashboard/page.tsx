@@ -106,7 +106,7 @@ export default function AgentDashboardPage() {
       const completedToday = assigned.filter(o => o.status === 'delivered').length;
       const totalEarnings = assigned
         .filter(o => o.status === 'delivered')
-        .reduce((sum, o) => sum + (o.deliveryFee || 50), 0);
+        .reduce((sum, o) => sum + Number(o.deliveryFee || 50), 0)
       const totalDeliveries = assigned.filter(o => o.status === 'delivered').length;
       
       setStats(prev => ({
