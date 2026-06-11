@@ -6,7 +6,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // ✅ FIX 1: Add global prefix for all API routes
+  // Add global prefix for all API routes
   app.setGlobalPrefix('api');
   
   app.useGlobalPipes(new ValidationPipe({
@@ -17,7 +17,7 @@ async function bootstrap() {
   
   app.enableCors();
   
-  // ✅ FIX 2: Change Swagger path to avoid conflict with API routes
+  // Change Swagger path to avoid conflict with API routes
   const config = new DocumentBuilder()
     .setTitle('QuickBite Food Delivery API')
     .setDescription('RESTful API for food ordering, restaurant management, and delivery tracking')
@@ -33,7 +33,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api-docs', app, document);  // Changed from 'api' to 'api-docs'
   
-  // ✅ FIX 3: Change default port to avoid conflict with Next.js (3001)
+  // Change default port to avoid conflict with Next.js (3001)
   const port = process.env.PORT || 3001;  // Changed from 3000 to 3001
   await app.listen(port);
   console.log(`✅ Application running on: http://localhost:${port}`);
