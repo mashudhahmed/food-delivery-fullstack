@@ -61,7 +61,7 @@ export default function AgentEarningsPage() {
     }
   };
 
-  const totalEarnings = deliveredOrders.reduce((sum, o) => sum + (o.deliveryFee || 50), 0);
+  const totalEarnings = deliveredOrders.reduce((sum, o) => sum + Number(o.deliveryFee || 50), 0);
   const totalDeliveries = deliveredOrders.length;
   const avgPerDelivery = totalDeliveries ? Math.round(totalEarnings / totalDeliveries) : 0;
 
