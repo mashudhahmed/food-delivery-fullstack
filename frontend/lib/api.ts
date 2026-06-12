@@ -6,6 +6,7 @@ console.log('🔗 API_URL:', API_URL); // temporary debug - remove later
 
 export const api = axios.create({
   baseURL: API_URL,
+  withCredentials: true, // ✅ IMPORTANT: Allows cookies and CORS credentials
   headers: {
     'Content-Type': 'application/json',
   },

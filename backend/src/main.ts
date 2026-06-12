@@ -7,7 +7,7 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   
   const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log', 'debug', 'verbose'], // Enable all logging in production
+    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
   
   // Add global prefix for all API routes
@@ -20,19 +20,54 @@ async function bootstrap() {
     forbidNonWhitelisted: true,
   }));
   
-  // Dynamic CORS configuration for production
-  const allowedOrigins = process.env.FRONTEND_URL 
-    ? [process.env.FRONTEND_URL, 'http://localhost:3000', 'http://localhost:3001']
-    : ['*']; // Allow all in development, but restrict in production
+  // Define allowed origins for CORS
+  const allowedOrigins = [
+    'https://projectquickbite.vercel.app',        // Your Vercel frontend
+    'https://quickbite-frontend.vercel.app',      // Alternative Vercel URL
+    'https://food-delivery-fullstack.vercel.app', // Another possible URL
+    'http://localhost:3000',                      // Local development
+    'http://localhost:3001',                      // Alternative local
+    'http://localhost:3002',                      // Another local option
+  ];
   
+  // Add FRONTEND_URL from environment if provided
+  if (process.env.FRONTEND_URL) {
+    allowedOrigins.push(process.env.FRONTEND_URL);
+  }
+  
+  // Configure CORS
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, Postman)
+      if (!origin) {
+        return callback(null, true);
+      }
+      
+      // Check if origin is allowed
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        logger.warn(`CORS blocked request from origin: ${origin}`);
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'Origin',
+      'X-Requested-With',
+    ],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
     maxAge: 3600, // Cache preflight requests for 1 hour
   });
+  
+  // Log allowed origins in production
+  if (process.env.NODE_ENV === 'production') {
+    logger.log(`✅ CORS configured for origins: ${allowedOrigins.join(', ')}`);
+  }
   
   // Only enable Swagger in non-production environments
   const isProduction = process.env.NODE_ENV === 'production';
@@ -60,10 +95,13 @@ async function bootstrap() {
   // Use PORT from environment (Render injects this)
   const port = process.env.PORT || 3001;
   
-  // Graceful shutdown for Render
-  const server = await app.listen(port, '0.0.0.0'); // Bind to all network interfaces
+  // Start server - bind to all network interfaces
+  const server = await app.listen(port, '0.0.0.0');
+  logger.log(`✅ Application running on: http://localhost:${port}`);
+  logger.log(`🔗 API endpoints available at: http://localhost:${port}/api`);
+  logger.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   
-  // Handle graceful shutdown
+  // Handle graceful shutdown for Render
   const signals = ['SIGTERM', 'SIGINT'];
   signals.forEach(signal => {
     process.on(signal, async () => {
@@ -81,10 +119,6 @@ async function bootstrap() {
       }, 10000);
     });
   });
-  
-  logger.log(`✅ Application running on: http://localhost:${port}`);
-  logger.log(`🔗 API endpoints available at: http://localhost:${port}/api`);
-  logger.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 }
 
 bootstrap();
