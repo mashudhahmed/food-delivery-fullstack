@@ -22,9 +22,8 @@ async function bootstrap() {
   
   // Define allowed origins for CORS
   const allowedOrigins = [
-    'https://projectquickbite.vercel.app',        // Your Vercel frontend
-    'https://quickbite-frontend.vercel.app',      // Alternative Vercel URL
-    'https://food-delivery-fullstack.vercel.app', // Another possible URL
+    'https://project-quickbite.vercel.app',        // Your Vercel frontend
+
     'http://localhost:3000',                      // Local development
     'http://localhost:3001',                      // Alternative local
     'http://localhost:3002',                      // Another local option
