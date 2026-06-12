@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '../lib/api';
@@ -10,7 +11,8 @@ import toast from 'react-hot-toast';
 import { Filter, X, Star, Clock, SlidersHorizontal, ChevronDown, ChevronUp, Search, MapPin } from 'lucide-react';
 import { useAddressStore } from '@/stores/addressStore';
 
-export default function HomePage() {
+// Separate component that uses useSearchParams
+function HomePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
@@ -544,5 +546,18 @@ export default function HomePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main export with Suspense boundary
+export default function HomePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+      </div>
+    }>
+      <HomePageContent />
+    </Suspense>
   );
 }
