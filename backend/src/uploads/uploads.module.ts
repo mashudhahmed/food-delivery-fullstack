@@ -1,34 +1,30 @@
 import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { memoryStorage } from 'multer';
 import { UploadsController } from './uploads.controller';
 import { UploadsService } from './uploads.service';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
   imports: [
+    CloudinaryModule,
     MulterModule.register({
-      storage: diskStorage({
-        destination: './uploads',
-        filename: (req, file, callback) => {
-          const uniqueName = `${uuidv4()}${extname(file.originalname)}`;
-          callback(null, uniqueName);
-        },
-      }),
+      storage: memoryStorage(),
       fileFilter: (req, file, callback) => {
         const allowedTypes = /jpeg|jpg|png|gif|webp/;
-        const isValidExt = allowedTypes.test(extname(file.originalname).toLowerCase());
-        const mimetype = allowedTypes.test(file.mimetype);
+        const isValidExt = allowedTypes.test(
+          file.originalname.split('.').pop().toLowerCase()
+        );
+        const isValidMime = allowedTypes.test(file.mimetype);
 
-        if (mimetype && isValidExt) {
-          return callback(null, true);
+        if (isValidMime && isValidExt) {
+          callback(null, true);
         } else {
           callback(new Error('Only image files are allowed'), false);
         }
       },
       limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB
+        fileSize: 5 * 1024 * 1024,
       },
     }),
   ],
