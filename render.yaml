@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: quickbite-backend
+    runtime: node
+    repo: https://github.com/mashudhahmed/food-delivery-fullstack
+    branch: main
+    buildCommand: cd backend && npm install && npm run build
+    startCommand: cd backend && npm run start:prod
+    publishDirectory: backend/dist
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: PORT
+        value: 3001
