@@ -29,22 +29,23 @@ npm install \
   --no-fund \
   --prefer-offline
 
-# Verify installation
+# Ensure NestJS CLI is installed (critical for build)
 echo "=========================================="
-echo "🔍 Verifying dependencies..."
+echo "🔍 Ensuring NestJS CLI is installed..."
 
-# Check if NestJS CLI is installed
-if [ -f "node_modules/.bin/nest" ]; then
-  echo "✅ NestJS CLI found at: node_modules/.bin/nest"
-  NEST_VERSION=$(node_modules/.bin/nest --version 2>/dev/null || echo "unknown")
-  echo "   Version: $NEST_VERSION"
-elif [ -f "node_modules/@nestjs/cli/bin/nest.js" ]; then
-  echo "✅ NestJS CLI found at: node_modules/@nestjs/cli/bin/nest.js"
-  NEST_VERSION=$(node node_modules/@nestjs/cli/bin/nest.js --version 2>/dev/null || echo "unknown")
-  echo "   Version: $NEST_VERSION"
-else
+# Check if NestJS CLI exists, install if missing
+if [ ! -f "node_modules/@nestjs/cli/bin/nest.js" ]; then
   echo "⚠️  NestJS CLI not found, installing explicitly..."
-  npm install --include=dev --legacy-peer-deps @nestjs/cli
+  npm install --save-dev @nestjs/cli --legacy-peer-deps
+fi
+
+# Verify NestJS CLI is now available
+if [ -f "node_modules/@nestjs/cli/bin/nest.js" ]; then
+  echo "✅ NestJS CLI installed successfully"
+  echo "   Version: $(node node_modules/@nestjs/cli/bin/nest.js --version 2>/dev/null || echo 'unknown')"
+else
+  echo "❌ NestJS CLI installation failed!"
+  exit 1
 fi
 
 # Show installed NestJS packages
@@ -55,17 +56,8 @@ npm list @nestjs/cli @nestjs/common @nestjs/core --depth=0 || true
 echo "=========================================="
 echo "🏗️ Building the application..."
 
-# Try multiple methods to build
-if command -v node_modules/.bin/nest &> /dev/null; then
-  echo "Method 1: Using node_modules/.bin/nest"
-  node_modules/.bin/nest build
-elif [ -f "node_modules/@nestjs/cli/bin/nest.js" ]; then
-  echo "Method 2: Using node_modules/@nestjs/cli/bin/nest.js"
-  node node_modules/@nestjs/cli/bin/nest.js build
-else
-  echo "Method 3: Using npx nest"
-  npx nest build
-fi
+# Build using the NestJS CLI
+node node_modules/@nestjs/cli/bin/nest.js build
 
 # Verify build succeeded
 echo "=========================================="
