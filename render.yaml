@@ -13,6 +13,8 @@ services:
         value: production
       - key: PORT
         value: 3001
+      - key: NODE_VERSION
+        value: 20.18.0
       - key: DB_HOST
         fromDatabase:
           name: quickbite-db
@@ -33,8 +35,16 @@ services:
         fromDatabase:
           name: quickbite-db
           property: database
+      - key: DB_POOL_SIZE
+        value: 20
+      - key: DB_IDLE_TIMEOUT
+        value: 30000
+      - key: DB_CONNECTION_TIMEOUT
+        value: 5000
       - key: JWT_SECRET
         sync: false
+      - key: JWT_EXPIRES_IN
+        value: 7d
       - key: MAIL_HOST
         sync: false
       - key: MAIL_PORT
@@ -61,8 +71,7 @@ services:
         sync: false
       - key: ADMIN_NAME
         sync: false
-
-  - type: redis
-    name: quickbite-redis
-    plan: starter
-    maxmemoryPolicy: noeviction
+      - key: MAX_FILE_SIZE
+        value: 5242880
+      - key: ALLOWED_FILE_TYPES
+        value: image/jpeg,image/png,image/jpg,image/webp

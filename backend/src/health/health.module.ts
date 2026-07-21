@@ -1,4 +1,3 @@
-// src/health/health.module.ts
 import { Module } from '@nestjs/common';
 import { TerminusModule } from '@nestjs/terminus';
 import { HttpModule } from '@nestjs/axios';
