@@ -4,21 +4,20 @@ import { Suspense } from 'react';
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '../lib/api';
-import { auth } from '../lib/api';
+import { auth } from '../lib/auth';
 import { Restaurant } from '../types';
 import RestaurantCard from '@/components/RestaurantCard';
 import toast from 'react-hot-toast';
-import { Filter, X, Star, Clock, SlidersHorizontal, ChevronDown, ChevronUp, Search, MapPin } from 'lucide-react';
+import { Filter, X, Star, Clock, SlidersHorizontal, ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { useAddressStore } from '@/stores/addressStore';
 
-// Separate component that uses useSearchParams
 function HomePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isFilterOpen, setIsFilterOpen] = useState(true);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [sortBy, setSortBy] = useState('relevance');
   const [cuisineSearchTerm, setCuisineSearchTerm] = useState('');
   const [showAllCuisines, setShowAllCuisines] = useState(false);
@@ -30,29 +29,21 @@ function HomePageContent() {
     price: '',
   });
 
-  // Address store for location
   const { selectedAddress, setIsLocationModalOpen } = useAddressStore();
-
-  // Get search query from URL
   const query = useSearchParams();
   const searchQuery = query.get('search') || '';
 
-  // All available cuisines
   const allCuisines = ['Italian', 'Chinese', 'Mexican', 'Indian', 'Japanese', 'Thai', 'American', 'Mediterranean', 'Vietnamese', 'Korean', 'French', 'Spanish', 'Greek', 'Turkish', 'Brazilian'];
-  
-  // Filtered cuisines based on search
   const filteredCuisines = allCuisines.filter(cuisine =>
     cuisine.toLowerCase().includes(cuisineSearchTerm.toLowerCase())
   );
 
-  // CHECK AUTH AND REDIRECT NON-CUSTOMERS
   useEffect(() => {
     const checkAuthAndRedirect = () => {
       const token = localStorage.getItem('token');
       const user = auth.getCurrentUser();
       
       if (token && user) {
-        // Redirect non-customers to their dashboards
         switch (user.role) {
           case 'admin':
             router.push('/admin/dashboard');
@@ -63,17 +54,11 @@ function HomePageContent() {
           case 'agent':
             router.push('/agent/dashboard');
             return;
-          case 'customer':
-            // Customer can stay on home page
-            setIsCheckingAuth(false);
-            break;
           default:
-            // Unknown role, treat as customer
             setIsCheckingAuth(false);
             break;
         }
       } else {
-        // Not logged in, show home page
         setIsCheckingAuth(false);
       }
     };
@@ -97,11 +82,15 @@ function HomePageContent() {
     try {
       setLoading(true);
       const response = await api.get('/restaurants');
-      setRestaurants(response.data);
-      setFilteredRestaurants(response.data);
+      const restaurantData = response.data || [];
+      const restaurantsArray = Array.isArray(restaurantData) 
+        ? restaurantData 
+        : (restaurantData.data || restaurantData.items || []);
+      setRestaurants(restaurantsArray);
+      setFilteredRestaurants(restaurantsArray);
     } catch (error) {
+      console.error('Failed to load restaurants:', error);
       toast.error('Failed to load restaurants');
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -110,7 +99,6 @@ function HomePageContent() {
   const applyFiltersAndSort = () => {
     let filtered = [...restaurants];
 
-    // Search filter
     if (searchQuery) {
       filtered = filtered.filter(
         (r) =>
@@ -120,31 +108,18 @@ function HomePageContent() {
       );
     }
 
-    // Cuisine filter
     if (filters.cuisineType) {
       filtered = filtered.filter((r) => r.cuisineType === filters.cuisineType);
     }
 
-    // Open status filter
     if (filters.isOpen === 'open') {
       filtered = filtered.filter((r) => r.isOpen === true);
     }
 
-    // Rating filter
     if (filters.minRating) {
       filtered = filtered.filter((r) => (r.rating || 0) >= parseFloat(filters.minRating));
     }
 
-    // Price filter
-    if (filters.price) {
-      filtered = filtered.filter((r) => {
-        const priceLevel = (r.name.length % 4) + 1;
-        const priceMap: Record<string, number> = { '$': 1, '$$': 2, '$$$': 3, '$$$$': 4 };
-        return priceLevel === priceMap[filters.price];
-      });
-    }
-
-    // Sort
     switch (sortBy) {
       case 'rating':
         filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
@@ -165,7 +140,6 @@ function HomePageContent() {
 
   const activeFilterCount = [filters.cuisineType, filters.isOpen, filters.minRating, filters.price].filter(Boolean).length;
 
-  // Show loading while checking auth
   if (isCheckingAuth) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -176,15 +150,11 @@ function HomePageContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-
       <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Main flex container with items-start for sticky to work properly */}
         <div className="flex gap-6 items-start">
-          
-          {/* Left Sidebar - Sticky (feels fixed but respects footer) */}
+          {/* Left Sidebar */}
           <aside className="hidden lg:block w-64 shrink-0 sticky top-40 self-start">
             <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-              {/* Filter Header */}
               <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-white z-10">
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal className="w-5 h-5 text-gray-600" />
@@ -202,7 +172,6 @@ function HomePageContent() {
                 )}
               </div>
 
-              {/* Scrollable Content Area */}
               <div className="max-h-[calc(100vh-240px)] overflow-y-auto overflow-x-hidden p-5 space-y-6">
                 {/* Sort By */}
                 <div>
@@ -265,13 +234,12 @@ function HomePageContent() {
                   </div>
                 </div>
 
-                {/* Cuisines with Search */}
+                {/* Cuisines */}
                 <div>
                   <div className="flex justify-between items-center mb-3">
                     <h3 className="font-semibold text-gray-800">Cuisines</h3>
                   </div>
                   
-                  {/* Cuisine Search Bar */}
                   <div className="relative mb-3">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
@@ -283,7 +251,6 @@ function HomePageContent() {
                     />
                   </div>
 
-                  {/* Filtered Cuisines List */}
                   <div className="space-y-2">
                     {filteredCuisines.slice(0, showAllCuisines ? undefined : 6).map((cuisine) => (
                       <label key={cuisine} className="flex items-center gap-3 cursor-pointer py-1 hover:bg-gray-50 rounded px-1 transition">
@@ -319,7 +286,7 @@ function HomePageContent() {
                   )}
                 </div>
 
-                {/* Rating Filter - Star Style */}
+                {/* Rating Filter */}
                 <div>
                   <h3 className="font-semibold text-gray-800 mb-3">Rating</h3>
                   <div className="space-y-2">
@@ -498,21 +465,17 @@ function HomePageContent() {
             </div>
           )}
 
-          {/* Right Content - Results */}
+          {/* Main Content */}
           <main className="flex-1">
-            {/* Results Info */}
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">
-                  All Restaurants
-                </h1>
+                <h1 className="text-2xl font-bold text-gray-800">All Restaurants</h1>
                 <p className="text-sm text-gray-500 mt-1">
                   {filteredRestaurants.length} restaurants found
                 </p>
               </div>
             </div>
 
-            {/* Restaurant Grid */}
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -537,7 +500,7 @@ function HomePageContent() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-                {filteredRestaurants.map((restaurant) => (
+                {Array.isArray(filteredRestaurants) && filteredRestaurants.map((restaurant) => (
                   <RestaurantCard key={restaurant.id} restaurant={restaurant} />
                 ))}
               </div>
@@ -549,7 +512,6 @@ function HomePageContent() {
   );
 }
 
-// Main export with Suspense boundary
 export default function HomePage() {
   return (
     <Suspense fallback={
