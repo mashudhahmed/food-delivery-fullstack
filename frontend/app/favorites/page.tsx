@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/api';
+import { auth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { Heart, ShoppingBag, Trash2, Star, MapPin } from 'lucide-react';
 import Image from 'next/image';
