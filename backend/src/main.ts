@@ -2,15 +2,25 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import compression from 'compression';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   
   const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+    logger: process.env.NODE_ENV === 'production' 
+      ? ['error', 'warn', 'log']
+      : ['error', 'warn', 'log', 'debug', 'verbose'],
   });
   
-  // Add global prefix for all API routes
+  // Security middleware
+  app.use(helmet());
+  app.use(compression());
+  
+  // Global prefix
   app.setGlobalPrefix('api');
   
   // Global validation pipe
@@ -18,60 +28,50 @@ async function bootstrap() {
     whitelist: true,
     transform: true,
     forbidNonWhitelisted: true,
+    transformOptions: {
+      enableImplicitConversion: true,
+    },
   }));
   
-  // Define allowed origins for CORS
+  // Global interceptors
+  app.useGlobalInterceptors(new ResponseInterceptor());
+  
+  // Global exception filter
+  app.useGlobalFilters(new HttpExceptionFilter());
+  
+  // CORS configuration
   const allowedOrigins = [
-    'https://project-quickbite.vercel.app',        // Your Vercel frontend
-
-    'http://localhost:3000',                      // Local development
-    'http://localhost:3001',                      // Alternative local
-    'http://localhost:3002',                      // Another local option
+    'https://project-quickbite.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
   ];
   
-  // Add FRONTEND_URL from environment if provided
   if (process.env.FRONTEND_URL) {
     allowedOrigins.push(process.env.FRONTEND_URL);
   }
   
-  // Configure CORS
   app.enableCors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, Postman)
-      if (!origin) {
-        return callback(null, true);
-      }
-      
-      // Check if origin is allowed
+      if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
+      } else if (process.env.NODE_ENV === 'development') {
+        callback(null, true);
       } else {
-        logger.warn(`CORS blocked request from origin: ${origin}`);
-        callback(new Error(`Origin ${origin} not allowed by CORS`));
+        logger.warn(`CORS blocked: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
       }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'Accept',
-      'Origin',
-      'X-Requested-With',
-    ],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
-    maxAge: 3600, // Cache preflight requests for 1 hour
+    maxAge: 3600,
   });
   
-  // Log allowed origins in production
-  if (process.env.NODE_ENV === 'production') {
-    logger.log(`✅ CORS configured for origins: ${allowedOrigins.join(', ')}`);
-  }
-  
-  // Only enable Swagger in non-production environments
-  const isProduction = process.env.NODE_ENV === 'production';
-  
-  if (!isProduction) {
+  // Swagger - only in development
+  if (process.env.NODE_ENV !== 'production') {
     const config = new DocumentBuilder()
       .setTitle('QuickBite Food Delivery API')
       .setDescription('RESTful API for food ordering, restaurant management, and delivery tracking')
@@ -82,40 +82,32 @@ async function bootstrap() {
       .addTag('menu', 'Menu item management')
       .addTag('orders', 'Order placement and tracking')
       .addTag('reviews', 'Customer reviews and ratings')
+      .addTag('admin', 'Admin management endpoints')
+      .addTag('uploads', 'File upload endpoints')
+      .addTag('notifications', 'Real-time notifications')
+      .addTag('favorites', 'Favorite restaurants')
       .build();
       
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api-docs', app, document);
     logger.log('📚 Swagger UI enabled at /api-docs');
-  } else {
-    logger.log('🔒 Swagger UI disabled in production');
   }
   
-  // Use PORT from environment (Render injects this)
+  // Start server
   const port = process.env.PORT || 3001;
+  await app.listen(port, '0.0.0.0');
   
-  // Start server - bind to all network interfaces
-  const server = await app.listen(port, '0.0.0.0');
   logger.log(`✅ Application running on: http://localhost:${port}`);
   logger.log(`🔗 API endpoints available at: http://localhost:${port}/api`);
   logger.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   
-  // Handle graceful shutdown for Render
+  // Graceful shutdown
   const signals = ['SIGTERM', 'SIGINT'];
   signals.forEach(signal => {
     process.on(signal, async () => {
       logger.log(`Received ${signal}, closing server gracefully...`);
       await app.close();
-      server.close(() => {
-        logger.log('Server closed successfully');
-        process.exit(0);
-      });
-      
-      // Force shutdown after 10 seconds
-      setTimeout(() => {
-        logger.error('Force shutdown after timeout');
-        process.exit(1);
-      }, 10000);
+      process.exit(0);
     });
   });
 }
