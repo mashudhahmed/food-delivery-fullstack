@@ -31,7 +31,7 @@ import {
   Star,
   TrendingUp
 } from 'lucide-react';
-import { auth } from '@/lib/api';
+import { auth } from '@/lib/auth';
 import { useCartStore } from '@/stores/cartStore';
 import { useAddressStore } from '@/stores/addressStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
@@ -74,7 +74,6 @@ export default function Navbar() {
       if (authenticated) {
         const currentUser = auth.getCurrentUser();
         setUser(currentUser);
-        // Load favorites for customers
         if (currentUser?.role === 'customer') {
           useFavoritesStore.getState().loadFavorites();
         }
@@ -112,8 +111,6 @@ export default function Navbar() {
     setIsAuthenticated(false);
     window.dispatchEvent(new Event('auth-change'));
     toast.success('Logged out successfully');
-    
-    // Always redirect to home page (not login page)
     window.location.href = '/';
   };
 
@@ -201,11 +198,11 @@ export default function Navbar() {
         <LogoutModal isOpen={isLogoutModalOpen} onClose={() => setIsLogoutModalOpen(false)} onConfirm={handleConfirmLogout} />
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} initialMode={authModalMode} />
 
-        <div className="bg-white shadow-sm sticky top-0 z-50">
+        <nav className="bg-white shadow-sm sticky top-0 z-50" role="navigation" aria-label="Main navigation">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex items-center justify-between h-16">
               {/* Logo */}
-              <Link href="/" className="shrink-0">
+              <Link href="/" className="shrink-0" aria-label="QuickBite Home">
                 <div className="flex items-center gap-2">
                   <Image src="/logo.png" alt="QuickBite" width={32} height={32} className="w-8 h-8 object-contain" />
                   <span className="text-xl font-bold text-orange-500">QuickBite</span>
@@ -213,11 +210,15 @@ export default function Navbar() {
               </Link>
 
               {/* Location Selector */}
-              <button onClick={() => setIsLocationModalOpen(true)} className="hidden lg:flex items-center gap-2 bg-gray-100 px-4 py-2.5 rounded-full hover:bg-gray-200 transition border border-gray-200">
-                <MapPin className="w-4 h-4 text-orange-500" />
+              <button 
+                onClick={() => setIsLocationModalOpen(true)} 
+                className="hidden lg:flex items-center gap-2 bg-gray-100 px-4 py-2.5 rounded-full hover:bg-gray-200 transition border border-gray-200"
+                aria-label="Select delivery location"
+              >
+                <MapPin className="w-4 h-4 text-orange-500" aria-hidden="true" />
                 <span className="text-sm font-medium text-gray-700">{selectedAddress ? selectedAddress.area || selectedAddress.name : 'New address'}</span>
                 <span className="text-sm text-gray-500">{selectedAddress ? selectedAddress.city : 'Select your address'}</span>
-                <ChevronDown className="w-4 h-4 text-gray-400" />
+                <ChevronDown className="w-4 h-4 text-gray-400" aria-hidden="true" />
               </button>
 
               {/* Right Side Icons */}
@@ -227,8 +228,8 @@ export default function Navbar() {
 
                 {/* Favorites (Heart) - For customers */}
                 {isAuthenticated && user?.role === 'customer' && (
-                  <Link href="/favorites" className="relative p-2 hover:bg-gray-100 rounded-full transition">
-                    <Heart className="w-5 h-5 text-gray-600" />
+                  <Link href="/favorites" className="relative p-2 hover:bg-gray-100 rounded-full transition" aria-label="View favorites">
+                    <Heart className="w-5 h-5 text-gray-600" aria-hidden="true" />
                     {favoritesCount > 0 && (
                       <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                         {favoritesCount > 9 ? '9+' : favoritesCount}
@@ -239,8 +240,8 @@ export default function Navbar() {
 
                 {/* Shopping Cart - For customers */}
                 {isAuthenticated && user?.role === 'customer' && (
-                  <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition">
-                    <ShoppingBag className="w-5 h-5 text-gray-600" />
+                  <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition" aria-label="View cart">
+                    <ShoppingBag className="w-5 h-5 text-gray-600" aria-hidden="true" />
                     {cartItemsCount > 0 && (
                       <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                         {cartItemsCount}
@@ -252,32 +253,53 @@ export default function Navbar() {
                 {/* User Profile / Auth */}
                 {isAuthenticated ? (
                   <div className="relative">
-                    <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-2 text-sm font-medium hover:text-orange-500 transition">
+                    <button 
+                      onClick={() => setIsProfileOpen(!isProfileOpen)} 
+                      className="flex items-center gap-2 text-sm font-medium hover:text-orange-500 transition"
+                      aria-label={isProfileOpen ? 'Close profile menu' : 'Open profile menu'}
+                      aria-expanded={isProfileOpen}
+                      aria-haspopup="true"
+                    >
                       <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                        <User className="w-4 h-4 text-orange-600" />
+                        <User className="w-4 h-4 text-orange-600" aria-hidden="true" />
                       </div>
                       <span className="hidden sm:inline">{user?.fullName?.split(' ')[0]}</span>
-                      <ChevronDown className="w-4 h-4" />
+                      <ChevronDown className="w-4 h-4" aria-hidden="true" />
                     </button>
                     {isProfileOpen && (
                       <>
-                        <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} />
-                        <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border py-2 z-50">
+                        <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} aria-hidden="true" />
+                        <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border py-2 z-50" role="menu">
                           <div className="px-4 py-2 border-b">
                             <p className="text-sm font-medium text-gray-800">{user?.fullName}</p>
                             <p className="text-xs text-gray-500">{user?.email}</p>
                           </div>
                           {roleBasedLinks.map((link) => (
-                            <Link key={link.href} href={link.href} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)}>
-                              <link.icon className="w-4 h-4" /> {link.label}
+                            <Link 
+                              key={link.href} 
+                              href={link.href} 
+                              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" 
+                              onClick={() => setIsProfileOpen(false)}
+                              role="menuitem"
+                            >
+                              <link.icon className="w-4 h-4" aria-hidden="true" /> {link.label}
                             </Link>
                           ))}
-                          <Link href="/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)}>
-                            <Settings className="w-4 h-4" /> Settings
+                          <Link 
+                            href="/settings" 
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" 
+                            onClick={() => setIsProfileOpen(false)}
+                            role="menuitem"
+                          >
+                            <Settings className="w-4 h-4" aria-hidden="true" /> Settings
                           </Link>
                           <hr className="my-1" />
-                          <button onClick={handleLogoutClick} className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50">
-                            <LogOut className="w-4 h-4" /> Logout
+                          <button 
+                            onClick={handleLogoutClick} 
+                            className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
+                            role="menuitem"
+                          >
+                            <LogOut className="w-4 h-4" aria-hidden="true" /> Logout
                           </button>
                         </div>
                       </>
@@ -285,57 +307,108 @@ export default function Navbar() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <button onClick={openLoginModal} className="text-sm font-medium text-gray-600 hover:text-orange-500">Log in</button>
-                    <button onClick={openSignupModal} className="bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-orange-600 transition">Sign up</button>
+                    <button 
+                      onClick={openLoginModal} 
+                      className="text-sm font-medium text-gray-600 hover:text-orange-500"
+                      aria-label="Log in"
+                    >
+                      Log in
+                    </button>
+                    <button 
+                      onClick={openSignupModal} 
+                      className="bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-orange-600 transition"
+                      aria-label="Sign up"
+                    >
+                      Sign up
+                    </button>
                   </div>
                 )}
 
                 {/* Language Selector */}
-                <button className="hidden md:flex items-center gap-1 text-sm font-medium text-gray-600 px-3 py-2 rounded-full hover:bg-gray-100 transition">
-                  <Globe className="w-4 h-4" /> EN <ChevronDown className="w-3 h-3" />
+                <button 
+                  className="hidden md:flex items-center gap-1 text-sm font-medium text-gray-600 px-3 py-2 rounded-full hover:bg-gray-100 transition"
+                  aria-label="Change language"
+                >
+                  <Globe className="w-4 h-4" aria-hidden="true" /> EN <ChevronDown className="w-3 h-3" aria-hidden="true" />
                 </button>
                 
                 {/* Mobile Menu Toggle */}
-                <button className="md:hidden p-2" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-                  {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                <button 
+                  className="md:hidden p-2" 
+                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                  aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+                  aria-expanded={isMobileMenuOpen}
+                >
+                  {isMobileMenuOpen ? <X className="w-5 h-5" aria-hidden="true" /> : <Menu className="w-5 h-5" aria-hidden="true" />}
                 </button>
               </div>
             </div>
 
             {/* Search Bar */}
             <div className="flex flex-col sm:flex-row items-center gap-4 py-3 border-t border-gray-200">
-              <div className="flex gap-1 bg-gray-100 rounded-full p-1 shrink-0">
-                <button onClick={() => setDeliveryType('delivery')} className={`px-5 py-2 rounded-full text-sm font-medium transition ${deliveryType === 'delivery' ? 'bg-white text-orange-500 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>Delivery</button>
-                <button onClick={() => setDeliveryType('pickup')} className={`px-5 py-2 rounded-full text-sm font-medium transition ${deliveryType === 'pickup' ? 'bg-white text-orange-500 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>Pick-up</button>
+              <div className="flex gap-1 bg-gray-100 rounded-full p-1 shrink-0" role="group" aria-label="Delivery type">
+                <button 
+                  onClick={() => setDeliveryType('delivery')} 
+                  className={`px-5 py-2 rounded-full text-sm font-medium transition ${deliveryType === 'delivery' ? 'bg-white text-orange-500 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}
+                  aria-pressed={deliveryType === 'delivery'}
+                >
+                  Delivery
+                </button>
+                <button 
+                  onClick={() => setDeliveryType('pickup')} 
+                  className={`px-5 py-2 rounded-full text-sm font-medium transition ${deliveryType === 'pickup' ? 'bg-white text-orange-500 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}
+                  aria-pressed={deliveryType === 'pickup'}
+                >
+                  Pick-up
+                </button>
               </div>
               <div className="flex-1 w-full">
-                <form onSubmit={handleSearch} className="relative">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input type="text" placeholder="Search for restaurants, cuisines, and dishes" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-2.5 text-gray-800 placeholder-gray-400 rounded-full border border-gray-200 focus:outline-none focus:border-orange-500 bg-gray-50 hover:bg-white transition" />
-                  {searchTerm && <button type="button" onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 transform -translate-y-1/2"><X className="w-4 h-4 text-gray-400 hover:text-gray-600" /></button>}
+                <form onSubmit={handleSearch} className="relative" role="search">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" aria-hidden="true" />
+                  <input 
+                    type="text" 
+                    placeholder="Search for restaurants, cuisines, and dishes" 
+                    value={searchTerm} 
+                    onChange={(e) => setSearchTerm(e.target.value)} 
+                    className="w-full pl-12 pr-4 py-2.5 text-gray-800 placeholder-gray-400 rounded-full border border-gray-200 focus:outline-none focus:border-orange-500 bg-gray-50 hover:bg-white transition"
+                    aria-label="Search for restaurants, cuisines, and dishes"
+                  />
+                  {searchTerm && (
+                    <button 
+                      type="button" 
+                      onClick={() => setSearchTerm('')} 
+                      className="absolute right-4 top-1/2 transform -translate-y-1/2"
+                      aria-label="Clear search"
+                    >
+                      <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                    </button>
+                  )}
                 </form>
               </div>
             </div>
           </div>
-        </div>
+        </nav>
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden fixed inset-0 top-34 bg-white z-40 overflow-auto border-t">
+          <div className="md:hidden fixed inset-0 top-34 bg-white z-40 overflow-auto border-t" role="dialog" aria-label="Mobile menu">
             <div className="p-4 space-y-4">
-              <button onClick={() => { setIsLocationModalOpen(true); setIsMobileMenuOpen(false); }} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 w-full">
-                <MapPin className="w-5 h-5 text-orange-500" />
+              <button 
+                onClick={() => { setIsLocationModalOpen(true); setIsMobileMenuOpen(false); }} 
+                className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 w-full"
+                aria-label="Select delivery location"
+              >
+                <MapPin className="w-5 h-5 text-orange-500" aria-hidden="true" />
                 <div className="text-left">
                   <p className="text-sm font-medium text-gray-800">{selectedAddress ? selectedAddress.area || selectedAddress.name : 'Select address'}</p>
                   <p className="text-xs text-gray-500">{selectedAddress ? selectedAddress.city : 'Choose delivery location'}</p>
                 </div>
-                <ChevronDown className="w-4 h-4 text-gray-400 ml-auto" />
+                <ChevronDown className="w-4 h-4 text-gray-400 ml-auto" aria-hidden="true" />
               </button>
               
-              {/* Favorites in mobile menu */}
               {isAuthenticated && user?.role === 'customer' && (
                 <Link href="/favorites" className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Heart className="w-5 h-5 text-gray-500" />
+                  <Heart className="w-5 h-5 text-gray-500" aria-hidden="true" />
                   <span className="text-gray-700">Favorites</span>
                   {favoritesCount > 0 && (
                     <span className="ml-auto bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full">{favoritesCount}</span>
@@ -344,17 +417,23 @@ export default function Navbar() {
               )}
               
               {roleBasedLinks.map((link) => (
-                <Link key={link.href} href={link.href} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50" onClick={() => setIsMobileMenuOpen(false)}>
-                  <link.icon className="w-5 h-5 text-gray-500" />
+                <Link 
+                  key={link.href} 
+                  href={link.href} 
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50" 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <link.icon className="w-5 h-5 text-gray-500" aria-hidden="true" />
                   <span className="text-gray-700">{link.label}</span>
                 </Link>
               ))}
               <Link href="/settings" className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50" onClick={() => setIsMobileMenuOpen(false)}>
-                <Settings className="w-5 h-5 text-gray-500" /> Settings
+                <Settings className="w-5 h-5 text-gray-500" aria-hidden="true" />
+                <span className="text-gray-700">Settings</span>
               </Link>
               <hr />
               <button onClick={handleLogoutClick} className="flex items-center gap-3 w-full p-3 rounded-lg text-red-600 hover:bg-red-50">
-                <LogOut className="w-5 h-5" /> Logout
+                <LogOut className="w-5 h-5" aria-hidden="true" /> Logout
               </button>
             </div>
           </div>
@@ -371,21 +450,19 @@ export default function Navbar() {
         <LogoutModal isOpen={isLogoutModalOpen} onClose={() => setIsLogoutModalOpen(false)} onConfirm={handleConfirmLogout} />
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} initialMode={authModalMode} />
 
-        <div className="bg-white shadow-sm sticky top-0 z-50">
+        <nav className="bg-white shadow-sm sticky top-0 z-50" role="navigation" aria-label="Main navigation">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex items-center justify-between h-16">
-              <Link href="/" className="flex items-center gap-2">
+              <Link href="/" className="flex items-center gap-2" aria-label="QuickBite Home">
                 <Image src="/logo.png" alt="QuickBite" width={32} height={32} className="w-8 h-8 object-contain" />
                 <span className="text-xl font-bold text-orange-500 hidden sm:block">QuickBite</span>
               </Link>
               <div className="flex items-center gap-3">
-                {/* Notification Bell for customers */}
                 {isAuthenticated && user?.role === 'customer' && <NotificationDropdown />}
 
-                {/* Favorites for customers */}
                 {isAuthenticated && user?.role === 'customer' && (
-                  <Link href="/favorites" className="relative p-2 hover:bg-gray-100 rounded-full transition">
-                    <Heart className="w-5 h-5 text-gray-600" />
+                  <Link href="/favorites" className="relative p-2 hover:bg-gray-100 rounded-full transition" aria-label="View favorites">
+                    <Heart className="w-5 h-5 text-gray-600" aria-hidden="true" />
                     {favoritesCount > 0 && (
                       <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                         {favoritesCount > 9 ? '9+' : favoritesCount}
@@ -394,55 +471,67 @@ export default function Navbar() {
                   </Link>
                 )}
 
-                {/* Cart for customers */}
                 {isAuthenticated && user?.role === 'customer' && (
-                  <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition">
-                    <ShoppingBag className="w-5 h-5 text-gray-600" />
-                    {cartItemsCount > 0 && <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{cartItemsCount}</span>}
+                  <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition" aria-label="View cart">
+                    <ShoppingBag className="w-5 h-5 text-gray-600" aria-hidden="true" />
+                    {cartItemsCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {cartItemsCount}
+                      </span>
+                    )}
                   </Link>
                 )}
 
-                {/* User Profile */}
                 {isAuthenticated ? (
                   <div className="relative">
-                    <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-2 text-sm font-medium hover:text-orange-500 transition">
-                      <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center"><User className="w-4 h-4 text-orange-600" /></div>
+                    <button 
+                      onClick={() => setIsProfileOpen(!isProfileOpen)} 
+                      className="flex items-center gap-2 text-sm font-medium hover:text-orange-500 transition"
+                      aria-label={isProfileOpen ? 'Close profile menu' : 'Open profile menu'}
+                      aria-expanded={isProfileOpen}
+                    >
+                      <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                        <User className="w-4 h-4 text-orange-600" aria-hidden="true" />
+                      </div>
                       <span className="hidden sm:inline">{user?.fullName?.split(' ')[0]}</span>
-                      <ChevronDown className="w-4 h-4" />
+                      <ChevronDown className="w-4 h-4" aria-hidden="true" />
                     </button>
                     {isProfileOpen && (
                       <>
-                        <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} />
-                        <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border py-2 z-50">
+                        <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} aria-hidden="true" />
+                        <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border py-2 z-50" role="menu">
                           {roleBasedLinks.map((link) => (
-                            <Link key={link.href} href={link.href} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)}>
-                              <link.icon className="w-4 h-4" /> {link.label}
+                            <Link key={link.href} href={link.href} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)} role="menuitem">
+                              <link.icon className="w-4 h-4" aria-hidden="true" /> {link.label}
                             </Link>
                           ))}
-                          <Link href="/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)}><Settings className="w-4 h-4" /> Settings</Link>
+                          <Link href="/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)} role="menuitem">
+                            <Settings className="w-4 h-4" aria-hidden="true" /> Settings
+                          </Link>
                           <hr className="my-1" />
-                          <button onClick={handleLogoutClick} className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"><LogOut className="w-4 h-4" /> Logout</button>
+                          <button onClick={handleLogoutClick} className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50" role="menuitem">
+                            <LogOut className="w-4 h-4" aria-hidden="true" /> Logout
+                          </button>
                         </div>
                       </>
                     )}
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <button onClick={openLoginModal} className="text-sm font-medium text-gray-600 hover:text-orange-500">Log in</button>
-                    <button onClick={openSignupModal} className="bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-orange-600 transition">Sign up</button>
+                    <button onClick={openLoginModal} className="text-sm font-medium text-gray-600 hover:text-orange-500" aria-label="Log in">Log in</button>
+                    <button onClick={openSignupModal} className="bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-orange-600 transition" aria-label="Sign up">Sign up</button>
                   </div>
                 )}
               </div>
             </div>
           </div>
-        </div>
+        </nav>
       </>
     );
   }
 
   // ========== DASHBOARD NAVBAR (Admin/Owner/Agent) ==========
   if (isDashboardPage) {
-    // Safe role fallback
     const userRole = user?.role || 'admin';
     const dashboardPath = `/${userRole}/dashboard`;
     
@@ -455,7 +544,6 @@ export default function Navbar() {
       }
     };
 
-    // Handle dashboard logo click - STAYS IN DASHBOARD
     const handleLogoClick = (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -467,15 +555,15 @@ export default function Navbar() {
         <LogoutModal isOpen={isLogoutModalOpen} onClose={() => setIsLogoutModalOpen(false)} onConfirm={handleConfirmLogout} />
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} initialMode={authModalMode} />
 
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <nav className="bg-white border-b border-gray-200 sticky top-0 z-40" role="navigation" aria-label="Dashboard navigation">
           <div className="px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-20">
-              {/* LEFT SIDE: Logo + Brand Name */}
               <div className="flex items-center gap-3">
                 <button 
                   onClick={handleLogoClick}
                   className="flex items-center gap-3 hover:opacity-80 transition group cursor-pointer"
                   type="button"
+                  aria-label="Go to dashboard"
                 >
                   <div className="relative">
                     <Image 
@@ -496,38 +584,35 @@ export default function Navbar() {
                 </button>
               </div>
 
-              {/* RIGHT SIDE: Global Actions */}
               <div className="flex items-center gap-1">
-                {/* Notifications Dropdown - Integrated */}
                 <NotificationDropdown />
 
-                {/* Help Button */}
-                <button className="p-2.5 hover:bg-gray-100 rounded-full transition">
-                  <HelpCircle className="w-5 h-5 text-gray-500" />
+                <button className="p-2.5 hover:bg-gray-100 rounded-full transition" aria-label="Help">
+                  <HelpCircle className="w-5 h-5 text-gray-500" aria-hidden="true" />
                 </button>
 
-                {/* Settings - Direct link */}
-                <Link href="/settings" className="p-2.5 hover:bg-gray-100 rounded-full transition">
-                  <Settings className="w-5 h-5 text-gray-500" />
+                <Link href="/settings" className="p-2.5 hover:bg-gray-100 rounded-full transition" aria-label="Settings">
+                  <Settings className="w-5 h-5 text-gray-500" aria-hidden="true" />
                 </Link>
 
-                {/* User Profile */}
                 <div className="relative ml-1">
                   <button 
                     onClick={() => setIsProfileOpen(!isProfileOpen)} 
                     className="flex items-center gap-2 text-sm font-medium hover:text-orange-500 transition pl-2"
+                    aria-label={isProfileOpen ? 'Close profile menu' : 'Open profile menu'}
+                    aria-expanded={isProfileOpen}
                   >
                     <div className="w-9 h-9 bg-orange-100 rounded-full flex items-center justify-center">
-                      <User className="w-5 h-5 text-orange-600" />
+                      <User className="w-5 h-5 text-orange-600" aria-hidden="true" />
                     </div>
                     <span className="hidden sm:inline text-gray-700 font-medium">{user?.fullName?.split(' ')[0] || 'User'}</span>
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                    <ChevronDown className="w-4 h-4 text-gray-400" aria-hidden="true" />
                   </button>
 
                   {isProfileOpen && (
                     <>
-                      <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} />
-                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border py-2 z-50">
+                      <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} aria-hidden="true" />
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border py-2 z-50" role="menu">
                         <div className="px-4 py-2 border-b">
                           <p className="text-sm font-medium text-gray-800">{user?.fullName || 'User'}</p>
                           <p className="text-xs text-gray-500">{user?.email || 'user@example.com'}</p>
@@ -536,15 +621,15 @@ export default function Navbar() {
                             <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full capitalize">{user?.role || 'admin'}</span>
                           </div>
                         </div>
-                        <Link href="/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)}>
-                          <User className="w-4 h-4" /> My Profile
+                        <Link href="/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)} role="menuitem">
+                          <User className="w-4 h-4" aria-hidden="true" /> My Profile
                         </Link>
-                        <Link href="/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)}>
-                          <Settings className="w-4 h-4" /> Account Settings
+                        <Link href="/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)} role="menuitem">
+                          <Settings className="w-4 h-4" aria-hidden="true" /> Account Settings
                         </Link>
                         <hr className="my-1" />
-                        <button onClick={handleLogoutClick} className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50">
-                          <LogOut className="w-4 h-4" /> Logout
+                        <button onClick={handleLogoutClick} className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50" role="menuitem">
+                          <LogOut className="w-4 h-4" aria-hidden="true" /> Logout
                         </button>
                       </div>
                     </>
@@ -553,7 +638,7 @@ export default function Navbar() {
               </div>
             </div>
           </div>
-        </div>
+        </nav>
       </>
     );
   }
@@ -565,69 +650,93 @@ export default function Navbar() {
       <LogoutModal isOpen={isLogoutModalOpen} onClose={() => setIsLogoutModalOpen(false)} onConfirm={handleConfirmLogout} />
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} initialMode={authModalMode} />
 
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
+      <nav className="bg-white border-b border-gray-200 sticky top-0 z-50" role="navigation" aria-label="Main navigation">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2" aria-label="QuickBite Home">
               <Image src="/logo.png" alt="QuickBite" width={32} height={32} className="w-8 h-8 object-contain" />
               <span className="text-xl font-bold text-orange-500 hidden sm:block">QuickBite</span>
             </Link>
             <div className="hidden md:flex items-center gap-6">
               {roleBasedLinks.map((link) => (
-                <Link key={link.href} href={link.href} className={`text-sm font-medium transition ${pathname === link.href ? 'text-orange-500 border-b-2 border-orange-500 pb-1' : 'text-gray-700 hover:text-orange-500'}`}>{link.label}</Link>
+                <Link 
+                  key={link.href} 
+                  href={link.href} 
+                  className={`text-sm font-medium transition ${pathname === link.href ? 'text-orange-500 border-b-2 border-orange-500 pb-1' : 'text-gray-700 hover:text-orange-500'}`}
+                >
+                  {link.label}
+                </Link>
               ))}
             </div>
             <div className="flex items-center gap-3">
               {isAuthenticated && user?.role === 'customer' && (
                 <>
-                  <Link href="/favorites" className="relative p-2 hover:bg-gray-100 rounded-full transition">
-                    <Heart className="w-5 h-5 text-gray-600" />
+                  <Link href="/favorites" className="relative p-2 hover:bg-gray-100 rounded-full transition" aria-label="View favorites">
+                    <Heart className="w-5 h-5 text-gray-600" aria-hidden="true" />
                     {favoritesCount > 0 && (
                       <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                         {favoritesCount > 9 ? '9+' : favoritesCount}
                       </span>
                     )}
                   </Link>
-                  <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition">
-                    <ShoppingBag className="w-5 h-5 text-gray-600" />
-                    {cartItemsCount > 0 && <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{cartItemsCount}</span>}
+                  <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition" aria-label="View cart">
+                    <ShoppingBag className="w-5 h-5 text-gray-600" aria-hidden="true" />
+                    {cartItemsCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {cartItemsCount}
+                      </span>
+                    )}
                   </Link>
                 </>
               )}
               {isAuthenticated ? (
                 <div className="relative">
-                  <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-2 text-sm font-medium hover:text-orange-500 transition">
-                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center"><User className="w-4 h-4 text-orange-600" /></div>
+                  <button 
+                    onClick={() => setIsProfileOpen(!isProfileOpen)} 
+                    className="flex items-center gap-2 text-sm font-medium hover:text-orange-500 transition"
+                    aria-label={isProfileOpen ? 'Close profile menu' : 'Open profile menu'}
+                    aria-expanded={isProfileOpen}
+                  >
+                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                      <User className="w-4 h-4 text-orange-600" aria-hidden="true" />
+                    </div>
                     <span className="hidden sm:inline">{user?.fullName?.split(' ')[0]}</span>
-                    <ChevronDown className="w-4 h-4" />
+                    <ChevronDown className="w-4 h-4" aria-hidden="true" />
                   </button>
                   {isProfileOpen && (
                     <>
-                      <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} />
-                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border py-2 z-50">
-                        <div className="px-4 py-2 border-b"><p className="text-sm font-medium text-gray-800">{user?.fullName}</p><p className="text-xs text-gray-500">{user?.email}</p></div>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} aria-hidden="true" />
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border py-2 z-50" role="menu">
+                        <div className="px-4 py-2 border-b">
+                          <p className="text-sm font-medium text-gray-800">{user?.fullName}</p>
+                          <p className="text-xs text-gray-500">{user?.email}</p>
+                        </div>
                         {roleBasedLinks.map((link) => (
-                          <Link key={link.href} href={link.href} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)}>
-                            <link.icon className="w-4 h-4" /> {link.label}
+                          <Link key={link.href} href={link.href} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)} role="menuitem">
+                            <link.icon className="w-4 h-4" aria-hidden="true" /> {link.label}
                           </Link>
                         ))}
-                        <Link href="/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)}><Settings className="w-4 h-4" /> Settings</Link>
+                        <Link href="/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setIsProfileOpen(false)} role="menuitem">
+                          <Settings className="w-4 h-4" aria-hidden="true" /> Settings
+                        </Link>
                         <hr className="my-1" />
-                        <button onClick={handleLogoutClick} className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"><LogOut className="w-4 h-4" /> Logout</button>
+                        <button onClick={handleLogoutClick} className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50" role="menuitem">
+                          <LogOut className="w-4 h-4" aria-hidden="true" /> Logout
+                        </button>
                       </div>
                     </>
                   )}
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <button onClick={openLoginModal} className="text-sm font-medium text-gray-600 hover:text-orange-500">Log in</button>
-                  <button onClick={openSignupModal} className="bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-orange-600 transition">Sign up</button>
+                  <button onClick={openLoginModal} className="text-sm font-medium text-gray-600 hover:text-orange-500" aria-label="Log in">Log in</button>
+                  <button onClick={openSignupModal} className="bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-orange-600 transition" aria-label="Sign up">Sign up</button>
                 </div>
               )}
             </div>
           </div>
         </div>
-      </div>
+      </nav>
     </>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { auth } from '@/lib/api';
+import { auth } from '@/lib/auth';
 import { wsService } from '@/lib/websocket';
 
 export default function NotificationInitializer() {

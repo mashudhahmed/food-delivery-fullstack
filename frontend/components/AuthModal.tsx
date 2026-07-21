@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Mail, Lock, User, Phone, Eye, EyeOff, ArrowLeft, Briefcase, Truck, AlertCircle } from 'lucide-react';
-import { auth } from '@/lib/api';
+import { auth } from '@/lib/auth';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { FaFacebook, FaGoogle, FaMapPin } from 'react-icons/fa';
@@ -201,14 +201,18 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     <div 
       className="fixed inset-0 bg-black/50 z-200 flex items-center justify-center p-4"
       onClick={handleBackdropClick}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="auth-modal-title"
     >
       <div className="bg-white rounded-2xl w-full max-w-md mx-auto overflow-hidden shadow-xl relative">
         {/* Close button */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-1 hover:bg-gray-100 rounded-full transition z-10"
+          aria-label="Close authentication modal"
         >
-          <X className="w-5 h-5 text-gray-400" />
+          <X className="w-5 h-5 text-gray-400" aria-hidden="true" />
         </button>
 
         {/* Back button for forgot/reset modes */}
@@ -216,15 +220,16 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
           <button
             onClick={() => setMode('login')}
             className="absolute top-4 left-4 p-1 hover:bg-gray-100 rounded-full transition z-10"
+            aria-label="Go back to login"
           >
-            <ArrowLeft className="w-5 h-5 text-gray-400" />
+            <ArrowLeft className="w-5 h-5 text-gray-400" aria-hidden="true" />
           </button>
         )}
 
         {/* Scrollable Content */}
         <div className="max-h-[85vh] overflow-y-auto">
           <div className="p-6 pt-8">
-            {/* Logo - Clean, Big, Visible, No Orange Box */}
+            {/* Logo */}
             <div className="text-center mb-6">
               <div className="flex justify-center mb-3">
                 <Image 
@@ -236,7 +241,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                   priority
                 />
               </div>
-              <div className="text-3xl font-bold text-orange-500">QuickBite</div>
+              <h1 id="auth-modal-title" className="text-3xl font-bold text-orange-500">QuickBite</h1>
               <p className="text-sm text-gray-500 mt-2">
                 {mode === 'login' && 'Welcome back! Sign in to continue'}
                 {mode === 'signup' && 'Create your account to get started'}
@@ -247,7 +252,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
 
             {/* Mode Toggle - Only for login/signup */}
             {(mode === 'login' || mode === 'signup') && (
-              <div className="flex gap-2 bg-gray-100 rounded-full p-1 mb-6">
+              <div className="flex gap-2 bg-gray-100 rounded-full p-1 mb-6" role="tablist">
                 <button
                   onClick={() => setMode('login')}
                   className={`flex-1 py-2 rounded-full text-sm font-medium transition ${
@@ -255,6 +260,10 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                       ? 'bg-white text-orange-500 shadow-sm'
                       : 'text-gray-600 hover:text-gray-800'
                   }`}
+                  role="tab"
+                  aria-selected={mode === 'login'}
+                  aria-controls="login-panel"
+                  id="login-tab"
                 >
                   Log in
                 </button>
@@ -265,6 +274,10 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                       ? 'bg-white text-orange-500 shadow-sm'
                       : 'text-gray-600 hover:text-gray-800'
                   }`}
+                  role="tab"
+                  aria-selected={mode === 'signup'}
+                  aria-controls="signup-panel"
+                  id="signup-tab"
                 >
                   Sign up
                 </button>
@@ -273,37 +286,54 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
 
             {/* Login Form */}
             {mode === 'login' && (
-              <form onSubmit={handleLogin} className="space-y-4">
+              <form onSubmit={handleLogin} className="space-y-4" id="login-panel" role="tabpanel" aria-labelledby="login-tab">
                 <div>
+                  <label htmlFor="login-email" className="block text-sm font-medium text-gray-700 mb-1">
+                    Email Address <span className="text-red-500" aria-hidden="true">*</span>
+                  </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
                     <input
+                      id="login-email"
                       type="email"
                       required
-                      placeholder="Email address"
+                      placeholder="Enter your email"
                       className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                       value={loginData.email}
                       onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                      aria-required="true"
+                      autoComplete="email"
                     />
                   </div>
                 </div>
                 <div>
+                  <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 mb-1">
+                    Password <span className="text-red-500" aria-hidden="true">*</span>
+                  </label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
                     <input
+                      id="login-password"
                       type={showPassword ? 'text' : 'password'}
                       required
-                      placeholder="Password"
+                      placeholder="Enter your password"
                       className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                       value={loginData.password}
                       onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                      aria-required="true"
+                      autoComplete="current-password"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4 text-gray-400" aria-hidden="true" />
+                      ) : (
+                        <Eye className="w-4 h-4 text-gray-400" aria-hidden="true" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -311,6 +341,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                   type="button"
                   onClick={() => setMode('forgot')}
                   className="text-sm text-orange-500 hover:text-orange-600 text-right w-full"
+                  aria-label="Forgot password"
                 >
                   Forgot password?
                 </button>
@@ -318,6 +349,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                   type="submit"
                   disabled={loading}
                   className="w-full bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition disabled:opacity-50"
+                  aria-busy={loading}
                 >
                   {loading ? 'Logging in...' : 'Log in'}
                 </button>
@@ -326,67 +358,112 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
 
             {/* Signup Form with Role Selection */}
             {mode === 'signup' && (
-              <form onSubmit={handleSignup} className="space-y-3">
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    required
-                    placeholder="Full Name"
-                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-                    value={signupData.fullName}
-                    onChange={(e) => setSignupData({ ...signupData, fullName: e.target.value })}
-                  />
+              <form onSubmit={handleSignup} className="space-y-3" id="signup-panel" role="tabpanel" aria-labelledby="signup-tab">
+                <div>
+                  <label htmlFor="signup-name" className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name <span className="text-red-500" aria-hidden="true">*</span>
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
+                    <input
+                      id="signup-name"
+                      type="text"
+                      required
+                      placeholder="Enter your full name"
+                      className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                      value={signupData.fullName}
+                      onChange={(e) => setSignupData({ ...signupData, fullName: e.target.value })}
+                      aria-required="true"
+                      autoComplete="name"
+                    />
+                  </div>
                 </div>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="email"
-                    required
-                    placeholder="Email address"
-                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-                    value={signupData.email}
-                    onChange={(e) => setSignupData({ ...signupData, email: e.target.value })}
-                  />
+                <div>
+                  <label htmlFor="signup-email" className="block text-sm font-medium text-gray-700 mb-1">
+                    Email Address <span className="text-red-500" aria-hidden="true">*</span>
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
+                    <input
+                      id="signup-email"
+                      type="email"
+                      required
+                      placeholder="Enter your email"
+                      className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                      value={signupData.email}
+                      onChange={(e) => setSignupData({ ...signupData, email: e.target.value })}
+                      aria-required="true"
+                      autoComplete="email"
+                    />
+                  </div>
                 </div>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    placeholder="Password"
-                    className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-                    value={signupData.password}
-                    onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
-                  </button>
+                <div>
+                  <label htmlFor="signup-password" className="block text-sm font-medium text-gray-700 mb-1">
+                    Password <span className="text-red-500" aria-hidden="true">*</span>
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
+                    <input
+                      id="signup-password"
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      placeholder="Create a password"
+                      className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                      value={signupData.password}
+                      onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
+                      aria-required="true"
+                      autoComplete="new-password"
+                      minLength={6}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4 text-gray-400" aria-hidden="true" />
+                      ) : (
+                        <Eye className="w-4 h-4 text-gray-400" aria-hidden="true" />
+                      )}
+                    </button>
+                  </div>
                 </div>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="tel"
-                    required
-                    placeholder="Phone Number"
-                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-                    value={signupData.phone}
-                    onChange={(e) => setSignupData({ ...signupData, phone: e.target.value })}
-                  />
+                <div>
+                  <label htmlFor="signup-phone" className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number <span className="text-red-500" aria-hidden="true">*</span>
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
+                    <input
+                      id="signup-phone"
+                      type="tel"
+                      required
+                      placeholder="Enter your phone number"
+                      className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                      value={signupData.phone}
+                      onChange={(e) => setSignupData({ ...signupData, phone: e.target.value })}
+                      aria-required="true"
+                      autoComplete="tel"
+                    />
+                  </div>
                 </div>
-                <div className="relative">
-                  <FaMapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Address (optional)"
-                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-                    value={signupData.address}
-                    onChange={(e) => setSignupData({ ...signupData, address: e.target.value })}
-                  />
+                <div>
+                  <label htmlFor="signup-address" className="block text-sm font-medium text-gray-700 mb-1">
+                    Address
+                  </label>
+                  <div className="relative">
+                    <FaMapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
+                    <input
+                      id="signup-address"
+                      type="text"
+                      placeholder="Enter your address (optional)"
+                      className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                      value={signupData.address}
+                      onChange={(e) => setSignupData({ ...signupData, address: e.target.value })}
+                      autoComplete="street-address"
+                    />
+                  </div>
                 </div>
 
                 {/* Role Selection */}
@@ -394,7 +471,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                   <label className="block text-sm font-medium text-gray-700">
                     I want to:
                   </label>
-                  <div className="space-y-2">
+                  <div className="space-y-2" role="radiogroup" aria-label="Account type">
                     <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-orange-50 transition">
                       <input
                         type="radio"
@@ -406,12 +483,13 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                           setSignupData({ ...signupData, role: 'customer' });
                         }}
                         className="w-4 h-4 text-orange-500"
+                        aria-label="Order Food"
                       />
                       <div className="flex-1">
                         <p className="font-medium text-gray-800">Order Food</p>
                         <p className="text-xs text-gray-500">Browse and order from restaurants</p>
                       </div>
-                      <span className="text-2xl">🍔</span>
+                      <span className="text-2xl" aria-hidden="true">🍔</span>
                     </label>
 
                     <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-orange-50 transition">
@@ -425,12 +503,13 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                           setSignupData({ ...signupData, role: 'owner' });
                         }}
                         className="w-4 h-4 text-orange-500"
+                        aria-label="Partner with us"
                       />
                       <div className="flex-1">
                         <p className="font-medium text-gray-800">Partner with us</p>
                         <p className="text-xs text-gray-500">List your restaurant and reach more customers</p>
                       </div>
-                      <span className="text-2xl">🏪</span>
+                      <span className="text-2xl" aria-hidden="true">🏪</span>
                     </label>
 
                     <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-orange-50 transition">
@@ -444,12 +523,13 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                           setSignupData({ ...signupData, role: 'agent' });
                         }}
                         className="w-4 h-4 text-orange-500"
+                        aria-label="Become a Delivery Partner"
                       />
                       <div className="flex-1">
                         <p className="font-medium text-gray-800">Become a Delivery Partner</p>
                         <p className="text-xs text-gray-500">Earn money by delivering food</p>
                       </div>
-                      <span className="text-2xl">🛵</span>
+                      <span className="text-2xl" aria-hidden="true">🛵</span>
                     </label>
                   </div>
                 </div>
@@ -458,34 +538,54 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                 {selectedRole === 'owner' && (
                   <div className="space-y-3 border-t pt-3">
                     <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-                      <Briefcase className="w-4 h-4 text-orange-500" />
+                      <Briefcase className="w-4 h-4 text-orange-500" aria-hidden="true" />
                       Restaurant Information
                     </h3>
-                    <input
-                      type="text"
-                      required
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                      placeholder="Restaurant/Business Name"
-                      value={signupData.businessName}
-                      onChange={(e) => setSignupData({ ...signupData, businessName: e.target.value })}
-                    />
-                    <input
-                      type="text"
-                      required
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                      placeholder="Restaurant Address"
-                      value={signupData.businessAddress}
-                      onChange={(e) => setSignupData({ ...signupData, businessAddress: e.target.value })}
-                    />
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                      placeholder="Tax ID (optional)"
-                      value={signupData.taxId}
-                      onChange={(e) => setSignupData({ ...signupData, taxId: e.target.value })}
-                    />
+                    <div>
+                      <label htmlFor="owner-business-name" className="block text-sm font-medium text-gray-700 mb-1">
+                        Restaurant/Business Name <span className="text-red-500" aria-hidden="true">*</span>
+                      </label>
+                      <input
+                        id="owner-business-name"
+                        type="text"
+                        required
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                        placeholder="Enter restaurant name"
+                        value={signupData.businessName}
+                        onChange={(e) => setSignupData({ ...signupData, businessName: e.target.value })}
+                        aria-required="true"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="owner-business-address" className="block text-sm font-medium text-gray-700 mb-1">
+                        Restaurant Address <span className="text-red-500" aria-hidden="true">*</span>
+                      </label>
+                      <input
+                        id="owner-business-address"
+                        type="text"
+                        required
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                        placeholder="Enter restaurant address"
+                        value={signupData.businessAddress}
+                        onChange={(e) => setSignupData({ ...signupData, businessAddress: e.target.value })}
+                        aria-required="true"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="owner-tax-id" className="block text-sm font-medium text-gray-700 mb-1">
+                        Tax ID (optional)
+                      </label>
+                      <input
+                        id="owner-tax-id"
+                        type="text"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                        placeholder="Enter tax ID"
+                        value={signupData.taxId}
+                        onChange={(e) => setSignupData({ ...signupData, taxId: e.target.value })}
+                      />
+                    </div>
                     <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
-                      <AlertCircle className="w-4 h-4" />
+                      <AlertCircle className="w-4 h-4" aria-hidden="true" />
                       <span>Your application will be reviewed within 2-3 business days</span>
                     </div>
                   </div>
@@ -495,46 +595,74 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                 {selectedRole === 'agent' && (
                   <div className="space-y-3 border-t pt-3">
                     <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-                      <Truck className="w-4 h-4 text-orange-500" />
+                      <Truck className="w-4 h-4 text-orange-500" aria-hidden="true" />
                       Delivery Partner Information
                     </h3>
-                    <input
-                      type="text"
-                      required
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                      placeholder="NID Number"
-                      value={signupData.nidNumber}
-                      onChange={(e) => setSignupData({ ...signupData, nidNumber: e.target.value })}
-                    />
-                    <select
-                      required
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                      value={signupData.vehicleType}
-                      onChange={(e) => setSignupData({ ...signupData, vehicleType: e.target.value })}
-                    >
-                      <option value="">Select Vehicle Type</option>
-                      <option value="bike">Motorcycle</option>
-                      <option value="scooter">Scooter</option>
-                      <option value="car">Car</option>
-                    </select>
-                    <input
-                      type="text"
-                      required
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                      placeholder="Vehicle Number Plate"
-                      value={signupData.vehicleNumber}
-                      onChange={(e) => setSignupData({ ...signupData, vehicleNumber: e.target.value })}
-                    />
-                    <input
-                      type="text"
-                      required
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                      placeholder="Driving License Number"
-                      value={signupData.drivingLicense}
-                      onChange={(e) => setSignupData({ ...signupData, drivingLicense: e.target.value })}
-                    />
+                    <div>
+                      <label htmlFor="agent-nid" className="block text-sm font-medium text-gray-700 mb-1">
+                        NID Number <span className="text-red-500" aria-hidden="true">*</span>
+                      </label>
+                      <input
+                        id="agent-nid"
+                        type="text"
+                        required
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                        placeholder="Enter NID number"
+                        value={signupData.nidNumber}
+                        onChange={(e) => setSignupData({ ...signupData, nidNumber: e.target.value })}
+                        aria-required="true"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="agent-vehicle-type" className="block text-sm font-medium text-gray-700 mb-1">
+                        Vehicle Type <span className="text-red-500" aria-hidden="true">*</span>
+                      </label>
+                      <select
+                        id="agent-vehicle-type"
+                        required
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                        value={signupData.vehicleType}
+                        onChange={(e) => setSignupData({ ...signupData, vehicleType: e.target.value })}
+                        aria-required="true"
+                      >
+                        <option value="">Select Vehicle Type</option>
+                        <option value="bike">Motorcycle</option>
+                        <option value="scooter">Scooter</option>
+                        <option value="car">Car</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="agent-vehicle-number" className="block text-sm font-medium text-gray-700 mb-1">
+                        Vehicle Number Plate <span className="text-red-500" aria-hidden="true">*</span>
+                      </label>
+                      <input
+                        id="agent-vehicle-number"
+                        type="text"
+                        required
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                        placeholder="Enter vehicle number"
+                        value={signupData.vehicleNumber}
+                        onChange={(e) => setSignupData({ ...signupData, vehicleNumber: e.target.value })}
+                        aria-required="true"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="agent-license" className="block text-sm font-medium text-gray-700 mb-1">
+                        Driving License Number <span className="text-red-500" aria-hidden="true">*</span>
+                      </label>
+                      <input
+                        id="agent-license"
+                        type="text"
+                        required
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                        placeholder="Enter driving license number"
+                        value={signupData.drivingLicense}
+                        onChange={(e) => setSignupData({ ...signupData, drivingLicense: e.target.value })}
+                        aria-required="true"
+                      />
+                    </div>
                     <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
-                      <AlertCircle className="w-4 h-4" />
+                      <AlertCircle className="w-4 h-4" aria-hidden="true" />
                       <span>Your application will be verified within 3-5 business days</span>
                     </div>
                   </div>
@@ -544,6 +672,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                   type="submit"
                   disabled={loading}
                   className="w-full bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition disabled:opacity-50"
+                  aria-busy={loading}
                 >
                   {loading ? 'Creating account...' : 
                     (selectedRole === 'customer' ? 'Sign up' : 
@@ -559,15 +688,21 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                   Enter your email address and we'll send you a link to reset your password.
                 </p>
                 <div>
+                  <label htmlFor="forgot-email" className="block text-sm font-medium text-gray-700 mb-1">
+                    Email Address <span className="text-red-500" aria-hidden="true">*</span>
+                  </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
                     <input
+                      id="forgot-email"
                       type="email"
                       required
-                      placeholder="Email address"
+                      placeholder="Enter your email"
                       className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
+                      aria-required="true"
+                      autoComplete="email"
                     />
                   </div>
                 </div>
@@ -575,6 +710,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                   type="submit"
                   disabled={loading}
                   className="w-full bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition disabled:opacity-50"
+                  aria-busy={loading}
                 >
                   {loading ? 'Sending...' : 'Send Reset Link'}
                 </button>
@@ -588,48 +724,71 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                   Create a new password for your account.
                 </p>
                 <div>
+                  <label htmlFor="reset-token" className="block text-sm font-medium text-gray-700 mb-1">
+                    Reset Token <span className="text-red-500" aria-hidden="true">*</span>
+                  </label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
                     <input
+                      id="reset-token"
                       type="text"
                       required
-                      placeholder="Reset Token"
+                      placeholder="Enter reset token"
                       className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                       value={resetData.token}
                       onChange={(e) => setResetData({ ...resetData, token: e.target.value })}
+                      aria-required="true"
                     />
                   </div>
                 </div>
                 <div>
+                  <label htmlFor="reset-new-password" className="block text-sm font-medium text-gray-700 mb-1">
+                    New Password <span className="text-red-500" aria-hidden="true">*</span>
+                  </label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
                     <input
+                      id="reset-new-password"
                       type={showPassword ? 'text' : 'password'}
                       required
-                      placeholder="New Password"
+                      placeholder="Enter new password"
                       className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                       value={resetData.newPassword}
                       onChange={(e) => setResetData({ ...resetData, newPassword: e.target.value })}
+                      aria-required="true"
+                      autoComplete="new-password"
+                      minLength={6}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4 text-gray-400" aria-hidden="true" />
+                      ) : (
+                        <Eye className="w-4 h-4 text-gray-400" aria-hidden="true" />
+                      )}
                     </button>
                   </div>
                 </div>
                 <div>
+                  <label htmlFor="reset-confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirm New Password <span className="text-red-500" aria-hidden="true">*</span>
+                  </label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
                     <input
+                      id="reset-confirm-password"
                       type={showPassword ? 'text' : 'password'}
                       required
-                      placeholder="Confirm New Password"
+                      placeholder="Confirm new password"
                       className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                       value={resetData.confirmPassword}
                       onChange={(e) => setResetData({ ...resetData, confirmPassword: e.target.value })}
+                      aria-required="true"
+                      autoComplete="new-password"
                     />
                   </div>
                 </div>
@@ -637,6 +796,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                   type="submit"
                   disabled={loading}
                   className="w-full bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition disabled:opacity-50"
+                  aria-busy={loading}
                 >
                   {loading ? 'Resetting...' : 'Reset Password'}
                 </button>
@@ -655,29 +815,32 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                   </div>
                 </div>
 
-                {/* Social Login - Industry Standard Logos */}
+                {/* Social Login */}
                 <div className="space-y-2">
                   <button 
                     onClick={() => handleSocialLogin('Google')}
                     className="w-full flex items-center justify-center gap-3 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition group"
+                    aria-label="Continue with Google"
                   >
-                    <FaGoogle className="w-5 h-5 text-red-500" />
+                    <FaGoogle className="w-5 h-5 text-red-500" aria-hidden="true" />
                     <span className="text-sm font-medium text-gray-700">Continue with Google</span>
                   </button>
                   
                   <button 
                     onClick={() => handleSocialLogin('Facebook')}
                     className="w-full flex items-center justify-center gap-3 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition group"
+                    aria-label="Continue with Facebook"
                   >
-                    <FaFacebook className="w-5 h-5 text-blue-600" />
+                    <FaFacebook className="w-5 h-5 text-blue-600" aria-hidden="true" />
                     <span className="text-sm font-medium text-gray-700">Continue with Facebook</span>
                   </button>
                   
                   <button 
                     onClick={() => handleSocialLogin('Apple')}
                     className="w-full flex items-center justify-center gap-3 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition group"
+                    aria-label="Continue with Apple"
                   >
-                    <SiApple className="w-5 h-5 text-gray-800" />
+                    <SiApple className="w-5 h-5 text-gray-800" aria-hidden="true" />
                     <span className="text-sm font-medium text-gray-700">Continue with Apple</span>
                   </button>
                 </div>
@@ -688,9 +851,9 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
             {(mode === 'login' || mode === 'signup') && (
               <p className="text-center text-xs text-gray-400 mt-6">
                 By continuing, you agree to our{' '}
-                <a href="#" className="text-orange-500 hover:underline">Terms of Service</a>{' '}
+                <a href="#" className="text-orange-500 hover:underline" aria-label="Terms of Service">Terms of Service</a>{' '}
                 and{' '}
-                <a href="#" className="text-orange-500 hover:underline">Privacy Policy</a>
+                <a href="#" className="text-orange-500 hover:underline" aria-label="Privacy Policy">Privacy Policy</a>
               </p>
             )}
           </div>

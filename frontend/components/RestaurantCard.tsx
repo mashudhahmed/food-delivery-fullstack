@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import { Restaurant } from '@/types';
 import { Star, Heart } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { auth } from '@/lib/api';
+import { auth } from '@/lib/auth';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import toast from 'react-hot-toast';
+import Image from 'next/image';
 
 interface Props {
   restaurant: Restaurant;
@@ -58,19 +59,15 @@ export default function RestaurantCard({ restaurant }: Props) {
 
     try {
       if (isFavorited) {
-        // Remove from favorites - this will update the store
         await removeFavorite(restaurant.id);
-        // Force a reload of favorites to ensure sync
         await loadFavorites();
       } else {
-        // Add to favorites
         await addFavorite(
           restaurant.id,
           restaurant.name,
           restaurant.imageUrl,
           restaurant.cuisineType
         );
-        // Force a reload of favorites to ensure sync
         await loadFavorites();
       }
     } catch (error: any) {
@@ -88,10 +85,12 @@ export default function RestaurantCard({ restaurant }: Props) {
       <div className="group bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden">
         <div className="relative h-40 overflow-hidden bg-linear-to-br from-orange-400 to-red-500">
           {restaurant.imageUrl ? (
-            <img
+            <Image
               src={restaurant.imageUrl}
-              alt={restaurant.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              alt={`${restaurant.name} restaurant`}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-300"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -99,13 +98,14 @@ export default function RestaurantCard({ restaurant }: Props) {
             </div>
           )}
           
-          {/* Heart button - now synced with store */}
+          {/* Heart button with ARIA label */}
           <button 
             className={`absolute top-2 right-2 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center transition-all ${
               isLoading ? 'opacity-50 cursor-wait' : 'hover:bg-white'
             }`}
             onClick={handleFavoriteClick}
             disabled={isLoading}
+            aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
           >
             <Heart 
               className={`w-4 h-4 transition-colors ${
