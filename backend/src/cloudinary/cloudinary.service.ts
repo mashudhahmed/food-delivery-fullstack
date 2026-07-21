@@ -1,6 +1,8 @@
+// src/cloudinary/cloudinary.service.ts
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { v2 as cloudinary, UploadApiOptions, UploadApiResponse } from 'cloudinary';
 import * as stream from 'stream';
+import { Express } from 'express';
 
 export interface CloudinaryUploadResult {
   publicId: string;

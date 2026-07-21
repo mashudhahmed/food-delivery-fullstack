@@ -1,3 +1,4 @@
+// src/uploads/uploads.controller.ts
 import {
   Controller,
   Post,
@@ -18,6 +19,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { ApiTags, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { CloudinaryUploadResult } from '../cloudinary/cloudinary.service';
+import { Express } from 'express';
 
 @ApiTags('uploads')
 @Controller('uploads')

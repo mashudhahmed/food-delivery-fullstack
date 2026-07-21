@@ -1,5 +1,7 @@
+// src/uploads/uploads.service.ts
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { CloudinaryService, CloudinaryUploadResult } from '../cloudinary/cloudinary.service';
+import { Express } from 'express';
 
 @Injectable()
 export class UploadsService {
