@@ -31,11 +31,10 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
-import { auth } from '@/lib/api';
+import { auth } from '@/lib/auth';
 import { useAddressStore } from '@/stores/addressStore';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
-import Image from 'next/image';
 
 export default function SettingsPage() {
   const router = useRouter();

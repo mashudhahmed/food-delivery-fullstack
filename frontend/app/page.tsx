@@ -40,25 +40,30 @@ function HomePageContent() {
 
   useEffect(() => {
     const checkAuthAndRedirect = () => {
-      const token = localStorage.getItem('token');
-      const user = auth.getCurrentUser();
-      
-      if (token && user) {
-        switch (user.role) {
-          case 'admin':
-            router.push('/admin/dashboard');
-            return;
-          case 'owner':
-            router.push('/owner/dashboard');
-            return;
-          case 'agent':
-            router.push('/agent/dashboard');
-            return;
-          default:
-            setIsCheckingAuth(false);
-            break;
+      try {
+        const token = localStorage.getItem('token');
+        const user = auth.getCurrentUser();
+        
+        if (token && user) {
+          switch (user.role) {
+            case 'admin':
+              router.push('/admin/dashboard');
+              return;
+            case 'owner':
+              router.push('/owner/dashboard');
+              return;
+            case 'agent':
+              router.push('/agent/dashboard');
+              return;
+            default:
+              setIsCheckingAuth(false);
+              break;
+          }
+        } else {
+          setIsCheckingAuth(false);
         }
-      } else {
+      } catch (error) {
+        console.error('Auth check failed:', error);
         setIsCheckingAuth(false);
       }
     };
