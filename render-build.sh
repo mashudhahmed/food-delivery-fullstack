@@ -7,7 +7,7 @@ echo "🚀 Starting Render build process..."
 export NODE_ENV=development
 
 echo "📦 Installing dependencies..."
-npm ci --include=dev
+npm install --include=dev
 
 echo "🏗️ Building the application..."
 npx nest build
