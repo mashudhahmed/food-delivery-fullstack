@@ -31,9 +31,15 @@ logs/
 *.db
 
 # Uploads
-backend/uploads/
-frontend/public/uploads/
-uploads/
+backend/src/uploads/*.jpg
+backend/src/uploads/*.jpeg
+backend/src/uploads/*.png
+backend/src/uploads/*.gif
+backend/src/uploads/*.webp
+backend/src/uploads/*.mp4
+backend/src/uploads/*.pdf
+backend/src/uploads/*.doc
+backend/src/uploads/*.docx
 
 # IDE
 .vscode/
