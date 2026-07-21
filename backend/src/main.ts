@@ -1,3 +1,4 @@
+// src/main.ts
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, Logger } from '@nestjs/common';
@@ -10,10 +11,17 @@ import helmet from 'helmet';
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   
+  // Determine log levels based on environment - use mutable array
+  let logLevels: ('error' | 'warn' | 'log' | 'debug' | 'verbose')[];
+  
+  if (process.env.NODE_ENV === 'production') {
+    logLevels = ['error', 'warn', 'log'];
+  } else {
+    logLevels = ['error', 'warn', 'log', 'debug', 'verbose'];
+  }
+  
   const app = await NestFactory.create(AppModule, {
-    logger: process.env.NODE_ENV === 'production' 
-      ? ['error', 'warn', 'log']
-      : ['error', 'warn', 'log', 'debug', 'verbose'],
+    logger: logLevels,
   });
   
   // Security middleware
@@ -53,10 +61,13 @@ async function bootstrap() {
   
   app.enableCors({
     origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, etc.)
       if (!origin) return callback(null, true);
+      
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else if (process.env.NODE_ENV === 'development') {
+        // Allow all origins in development
         callback(null, true);
       } else {
         logger.warn(`CORS blocked: ${origin}`);
@@ -95,21 +106,39 @@ async function bootstrap() {
   
   // Start server
   const port = process.env.PORT || 3001;
+  
+  // Graceful shutdown
+  const signals: NodeJS.Signals[] = ['SIGTERM', 'SIGINT'];
+  signals.forEach(signal => {
+    process.on(signal, async () => {
+      logger.log(`Received ${signal}, closing server gracefully...`);
+      await app.close();
+      logger.log('Server closed successfully');
+      process.exit(0);
+    });
+  });
+  
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (error) => {
+    logger.error('Uncaught Exception:', error);
+    // Don't exit immediately, let the process handle it
+  });
+  
+  // Handle unhandled rejections
+  process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  });
+  
   await app.listen(port, '0.0.0.0');
   
   logger.log(`✅ Application running on: http://localhost:${port}`);
   logger.log(`🔗 API endpoints available at: http://localhost:${port}/api`);
   logger.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.log(`📊 Health check: http://localhost:${port}/api/health`);
   
-  // Graceful shutdown
-  const signals = ['SIGTERM', 'SIGINT'];
-  signals.forEach(signal => {
-    process.on(signal, async () => {
-      logger.log(`Received ${signal}, closing server gracefully...`);
-      await app.close();
-      process.exit(0);
-    });
-  });
+  if (process.env.NODE_ENV !== 'production') {
+    logger.log(`📚 API Docs: http://localhost:${port}/api-docs`);
+  }
 }
 
 bootstrap();
