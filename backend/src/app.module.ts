@@ -15,21 +15,28 @@ import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { FavoritesModule } from './favorites/favorites.module';
+import { HealthModule } from './health/health.module';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
 
 @Module({
   imports: [
-    // Load different .env file based on NODE_ENV
+    // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: process.env.NODE_ENV === 'neon' ? '.env.neon' : '.env.local',
+      envFilePath: process.env.NODE_ENV === 'production' 
+        ? '.env.production' 
+        : process.env.NODE_ENV === 'neon' 
+          ? '.env.neon' 
+          : '.env.local',
     }),
     
-    // Database configuration with dual support
+    // Database with production-safe settings
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
         const host = configService.get('DB_HOST');
         const isNeon = host?.includes('neon.tech');
+        const isProduction = configService.get('NODE_ENV') === 'production';
         
         const baseConfig = {
           type: 'postgres' as const,
@@ -39,11 +46,17 @@ import { FavoritesModule } from './favorites/favorites.module';
           password: configService.get('DB_PASSWORD'),
           database: configService.get('DB_DATABASE'),
           entities: [__dirname + '/**/*.entity{.ts,.js}'],
-          synchronize: true,  // Set to false in production
-          logging: true,
+          synchronize: false, // ⚠️ ALWAYS false in production
+          logging: !isProduction,
+          maxQueryExecutionTime: 1000,
+          poolSize: configService.get('DB_POOL_SIZE', 20),
+          extra: {
+            max: configService.get('DB_POOL_SIZE', 20),
+            idleTimeoutMillis: configService.get('DB_IDLE_TIMEOUT', 30000),
+            connectionTimeoutMillis: configService.get('DB_CONNECTION_TIMEOUT', 5000),
+          },
         };
 
-        // Add SSL only for Neon
         if (isNeon) {
           return {
             ...baseConfig,
@@ -58,11 +71,17 @@ import { FavoritesModule } from './favorites/favorites.module';
       inject: [ConfigService],
     }),
     
-    ThrottlerModule.forRoot([{
-      ttl: 60,
-      limit: 10,
-    }]),
+    // Rate limiting
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60,
+        limit: 100,
+      },
+    ]),
     
+    // Feature modules
+    CloudinaryModule,
+    HealthModule,
     AuthModule,
     UsersModule,
     RestaurantsModule,
@@ -73,7 +92,7 @@ import { FavoritesModule } from './favorites/favorites.module';
     UploadsModule,
     AdminModule,
     NotificationsModule,
-    FavoritesModule
+    FavoritesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
