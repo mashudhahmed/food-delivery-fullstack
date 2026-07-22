@@ -1,3 +1,4 @@
+// app/page.tsx
 'use client';
 
 import { Suspense } from 'react';
@@ -44,24 +45,33 @@ function HomePageContent() {
         const token = localStorage.getItem('token');
         const user = auth.getCurrentUser();
         
+        console.log('🔵 Home page auth check - token:', !!token, 'user:', !!user);
+        
+        // ✅ Only redirect if user is NOT a customer
         if (token && user) {
-          switch (user.role) {
-            case 'admin':
-              router.push('/admin/dashboard');
-              return;
-            case 'owner':
-              router.push('/owner/dashboard');
-              return;
-            case 'agent':
-              router.push('/agent/dashboard');
-              return;
-            default:
-              setIsCheckingAuth(false);
-              break;
+          // ✅ Don't redirect customers - they stay on home page
+          if (user.role !== 'customer') {
+            console.log('🔵 Redirecting non-customer user to:', user.role);
+            switch (user.role) {
+              case 'admin':
+                router.replace('/admin/dashboard');
+                return;
+              case 'owner':
+                router.replace('/owner/dashboard');
+                return;
+              case 'agent':
+                router.replace('/agent/dashboard');
+                return;
+              default:
+                break;
+            }
+          } else {
+            console.log('🔵 Customer user - staying on home page');
           }
         } else {
-          setIsCheckingAuth(false);
+          console.log('🔵 No user found - showing home page');
         }
+        setIsCheckingAuth(false);
       } catch (error) {
         console.error('Auth check failed:', error);
         setIsCheckingAuth(false);

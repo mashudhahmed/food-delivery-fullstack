@@ -1,8 +1,8 @@
+// next.config.ts
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    // ✅ FIXED: Use remotePatterns instead of deprecated domains
     remotePatterns: [
       {
         protocol: 'https',
@@ -25,6 +25,11 @@ const nextConfig: NextConfig = {
         hostname: '*.vercel.app',
         pathname: '**',
       },
+      {
+        protocol: 'https',
+        hostname: 'quickbite-backend-mzon.onrender.com',
+        pathname: '**',
+      },
     ],
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
@@ -34,18 +39,25 @@ const nextConfig: NextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:3001/api/:path*',
-      },
-    ];
+    // ✅ Only use rewrites in development
+    if (process.env.NODE_ENV === 'development') {
+      return [
+        {
+          source: '/api/:path*',
+          destination: 'http://localhost:3001/api/:path*',
+        },
+      ];
+    }
+    // In production, let the frontend call the API directly
+    return [];
   },
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
-  // ✅ Add this to help with development
   reactStrictMode: true,
+  poweredByHeader: false,
+  // ✅ Add this for better production builds
+  output: 'standalone',
 };
 
 export default nextConfig;

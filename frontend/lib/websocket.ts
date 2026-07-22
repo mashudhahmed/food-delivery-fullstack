@@ -1,12 +1,25 @@
+// lib/websocket.ts
 import { io, Socket } from 'socket.io-client';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { Notification } from '@/types/notification';
 import { api } from './api';
 
+// ✅ Helper to ensure we always have an array
+const ensureArray = (data: any): any[] => {
+  if (Array.isArray(data)) return data;
+  if (data?.data && Array.isArray(data.data)) return data.data;
+  if (data?.items && Array.isArray(data.items)) return data.items;
+  if (data?.notifications && Array.isArray(data.notifications)) return data.notifications;
+  if (data?.results && Array.isArray(data.results)) return data.results;
+  console.warn('⚠️ Unexpected data format in ensureArray:', typeof data, data);
+  return [];
+};
+
 class WebSocketService {
   private socket: Socket | null = null;
   private userId: string | null = null;
   private pollingInterval: NodeJS.Timeout | null = null;
+  private isPolling: boolean = false;
 
   connect(userId: string) {
     this.userId = userId;
@@ -17,12 +30,18 @@ class WebSocketService {
     
     // 2. Try WebSocket connection
     try {
-      this.socket = io('http://localhost:3001/notifications', {
+      // ✅ Use environment variable for WebSocket URL
+      const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001';
+      const wsPath = process.env.NEXT_PUBLIC_WS_PATH || '/notifications';
+      
+      this.socket = io(WS_URL, {
+        path: wsPath,
         query: { userId },
         transports: ['websocket'],
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
+        withCredentials: true,
       });
 
       this.socket.on('connect', () => {
@@ -37,17 +56,18 @@ class WebSocketService {
         console.log('🔔 INSTANT notification received via WebSocket!', data);
         
         const notification: Notification = {
-          id: data.id,
-          type: data.type,
-          title: data.title,
-          message: data.message,
+          id: data.id || Date.now().toString(),
+          type: data.type || 'system_alert',
+          title: data.title || 'New Notification',
+          message: data.message || '',
           read: data.read || false,
-          createdAt: data.createdAt || new Date(),
-          data: data.data,
+          createdAt: data.createdAt || new Date().toISOString(),
+          data: data.data || {},
         };
         
         // Add to store and show toast
-        useNotificationStore.getState().addNotification(notification);
+        const store = useNotificationStore.getState();
+        store.addNotification(notification);
       });
 
       this.socket.on('disconnect', (reason) => {
@@ -63,6 +83,10 @@ class WebSocketService {
   }
 
   private startPolling() {
+    // ✅ Prevent multiple polling intervals
+    if (this.isPolling) return;
+    this.isPolling = true;
+    
     // Poll every 10 seconds as fallback
     this.fetchNotifications();
     this.pollingInterval = setInterval(() => {
@@ -73,26 +97,42 @@ class WebSocketService {
   private async fetchNotifications() {
     try {
       const response = await api.get('/notifications');
-      const notifications = response.data || [];
+      
+      // ✅ Get the data and ensure it's an array
+      const rawData = response.data;
+      let notifications: any[] = ensureArray(rawData);
+      
+      console.log('🔵 Polling: Fetched notifications:', notifications.length);
+      
+      // Calculate unread count
       const unreadCount = notifications.filter((n: any) => !n.read).length;
       
+      // Update store
       const store = useNotificationStore.getState();
       store.notifications = notifications;
       store.unreadCount = unreadCount;
+      
     } catch (error) {
-      // Silent fail
+      // ✅ Silent fail - don't spam console with errors
+      if (error instanceof Error && !error.message.includes('401')) {
+        console.debug('Polling fetch failed:', error.message);
+      }
     }
   }
 
   disconnect() {
+    this.isPolling = false;
+    
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
     }
+    
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
       this.pollingInterval = null;
     }
+    
     console.log('WebSocket disconnected');
   }
 }

@@ -1,8 +1,9 @@
+// app/owner/dashboard/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/api';
+import { auth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { 
   DollarSign, 
@@ -69,11 +70,20 @@ const parseAmount = (amount: any): number => {
   return 0;
 };
 
+// ✅ Helper function to ensure array
+const ensureArray = (data: any): any[] => {
+  if (Array.isArray(data)) return data;
+  if (data?.data && Array.isArray(data.data)) return data.data;
+  if (data?.items && Array.isArray(data.items)) return data.items;
+  if (data?.orders && Array.isArray(data.orders)) return data.orders;
+  console.warn('⚠️ Data is not an array:', data);
+  return [];
+};
+
 const StatCard = ({ title, value, icon: Icon, trend, color }: any) => {
   // Format the display value
   const getDisplayValue = () => {
     if (title === 'Total Revenue') {
-      // For revenue, value might already include ৳ symbol
       if (typeof value === 'string' && value.startsWith('৳')) {
         return value;
       }
@@ -87,16 +97,6 @@ const StatCard = ({ title, value, icon: Icon, trend, color }: any) => {
       return value;
     }
     return formatSafeNumber(value);
-  };
-
-  // Get numeric value for trend calculation
-  const getNumericValue = (): number => {
-    if (typeof value === 'number') return value;
-    if (typeof value === 'string') {
-      const num = parseFloat(value.replace(/[^0-9.-]/g, ''));
-      return isNaN(num) ? 0 : num;
-    }
-    return 0;
   };
 
   return (
@@ -186,44 +186,46 @@ export default function OwnerDashboardPage() {
       
       // Fetch restaurants owned by this owner
       const restaurantsRes = await api.get(`/restaurants?ownerId=${currentUser?.id}`);
-      const ownerRestaurants = restaurantsRes.data || [];
+      const ownerRestaurants = ensureArray(restaurantsRes.data);
       setRestaurants(ownerRestaurants);
       
       // Fetch orders for owner's restaurants
       let allOrders: any[] = [];
       try {
         const ordersRes = await api.get('/orders/my-restaurant');
-        allOrders = ordersRes.data || [];
+        allOrders = ensureArray(ordersRes.data);
       } catch (err) {
         if (ownerRestaurants.length > 0) {
           const allOrdersRes = await api.get('/orders');
-          const allOrdersData = allOrdersRes.data || [];
+          const allOrdersData = ensureArray(allOrdersRes.data);
           const restaurantIds = ownerRestaurants.map((r: any) => r.id);
           allOrders = allOrdersData.filter((order: any) => 
             restaurantIds.includes(order.restaurantId)
           );
         }
       }
-      setOrders(allOrders);
       
-      // ✅ FIXED: Calculate real stats with proper number conversion
-      const completedOrders = allOrders.filter((o: any) => o.status === 'delivered');
+      // ✅ Ensure allOrders is an array
+      const safeOrders = ensureArray(allOrders);
+      setOrders(safeOrders);
       
-      // Convert string to number before summing
+      // Calculate real stats
+      const completedOrders = safeOrders.filter((o: any) => o.status === 'delivered');
+      
       const totalRevenue = completedOrders.reduce((sum: number, o: any) => {
         return sum + parseAmount(o.totalAmount);
       }, 0);
       
-      const totalOrders = allOrders.length;
+      const totalOrders = safeOrders.length;
       
-      // Calculate growth rates (compare with previous period)
+      // Calculate growth rates
       const now = new Date();
       const currentMonth = now.getMonth();
-      const currentYearOrders = allOrders.filter(o => {
+      const currentYearOrders = safeOrders.filter(o => {
         const date = new Date(o.placedAt);
         return date.getMonth() === currentMonth;
       });
-      const previousMonthOrders = allOrders.filter(o => {
+      const previousMonthOrders = safeOrders.filter(o => {
         const date = new Date(o.placedAt);
         return date.getMonth() === currentMonth - 1;
       });
@@ -232,7 +234,6 @@ export default function OwnerDashboardPage() {
         ? ((currentYearOrders.length - previousMonthOrders.length) / previousMonthOrders.length) * 100 
         : 0;
       
-      // ✅ FIXED: Convert to numbers for revenue growth calculation
       const currentMonthRevenue = completedOrders
         .filter(o => {
           const date = new Date(o.placedAt);
@@ -251,13 +252,13 @@ export default function OwnerDashboardPage() {
         ? ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100 
         : 0;
       
-      // ✅ FIXED: Calculate monthly data with proper number conversion
+      // Calculate monthly data
       const monthlyData = [];
       for (let i = 5; i >= 0; i--) {
         const date = new Date();
         date.setMonth(date.getMonth() - i);
         const monthName = date.toLocaleString('default', { month: 'short' });
-        const monthOrders = allOrders.filter(o => {
+        const monthOrders = safeOrders.filter(o => {
           const orderDate = new Date(o.placedAt);
           return orderDate.getMonth() === date.getMonth() && 
                  orderDate.getFullYear() === date.getFullYear();
@@ -274,13 +275,13 @@ export default function OwnerDashboardPage() {
       }
       setRevenueData(monthlyData);
       
-      // Calculate status distribution for chart
+      // Calculate status distribution
       const last6Months = [];
       for (let i = 5; i >= 0; i--) {
         const date = new Date();
         date.setMonth(date.getMonth() - i);
         const monthName = date.toLocaleString('default', { month: 'short' });
-        const monthOrders = allOrders.filter(o => {
+        const monthOrders = safeOrders.filter(o => {
           const orderDate = new Date(o.placedAt);
           return orderDate.getMonth() === date.getMonth() && 
                  orderDate.getFullYear() === date.getFullYear();
@@ -297,15 +298,15 @@ export default function OwnerDashboardPage() {
       
       setStats({
         totalRestaurants: ownerRestaurants.length,
-        totalOrders: allOrders.length,
+        totalOrders: safeOrders.length,
         totalRevenue,
-        pendingOrders: allOrders.filter((o: any) => o.status === 'pending').length,
-        preparingOrders: allOrders.filter((o: any) => o.status === 'preparing').length,
-        readyOrders: allOrders.filter((o: any) => o.status === 'ready').length,
-        pickedUpOrders: allOrders.filter((o: any) => o.status === 'picked_up').length,
-        onTheWayOrders: allOrders.filter((o: any) => o.status === 'on_the_way').length,
+        pendingOrders: safeOrders.filter((o: any) => o.status === 'pending').length,
+        preparingOrders: safeOrders.filter((o: any) => o.status === 'preparing').length,
+        readyOrders: safeOrders.filter((o: any) => o.status === 'ready').length,
+        pickedUpOrders: safeOrders.filter((o: any) => o.status === 'picked_up').length,
+        onTheWayOrders: safeOrders.filter((o: any) => o.status === 'on_the_way').length,
         completedOrders: completedOrders.length,
-        cancelledOrders: allOrders.filter((o: any) => o.status === 'cancelled').length,
+        cancelledOrders: safeOrders.filter((o: any) => o.status === 'cancelled').length,
         avgRating: 4.5,
         revenueGrowth: Math.round(revenueGrowth * 10) / 10,
         orderGrowth: Math.round(orderGrowth * 10) / 10,
@@ -337,11 +338,15 @@ export default function OwnerDashboardPage() {
     try {
       await api.patch(`/orders/${orderId}/status`, { status });
       toast.success(`Order status updated to ${status}`);
-      fetchOwnerData(); // Reload data instead of page refresh
+      fetchOwnerData();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to update status');
     }
   };
+
+  // ✅ Safely get orders for rendering
+  const safeOrders = ensureArray(orders);
+  const recentOrders = safeOrders.slice(0, 10);
 
   if (loading) {
     return (
@@ -475,66 +480,67 @@ export default function OwnerDashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {orders.slice(0, 10).map((order) => {
-                const statusInfo = getStatusBadge(order.status);
-                return (
-                  <tr key={order.id} className="hover:bg-gray-50 transition">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-800">
-                      #{order.id.slice(-8).toUpperCase()}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {order.restaurant?.name || 'Restaurant'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {order.customerName || 'Customer'}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-semibold text-orange-600">
-                      ৳{formatSafeNumber(parseAmount(order.totalAmount))}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
-                        {statusInfo.text}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {order.placedAt ? new Date(order.placedAt).toLocaleDateString() : 'N/A'}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-2">
-                        {order.status === 'pending' && (
-                          <button
-                            onClick={() => updateOrderStatus(order.id, 'preparing')}
-                            className="text-xs bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600"
-                          >
-                            Accept
-                          </button>
-                        )}
-                        {order.status === 'preparing' && (
-                          <button
-                            onClick={() => updateOrderStatus(order.id, 'ready')}
-                            className="text-xs bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600"
-                          >
-                            Ready
-                          </button>
-                        )}
-                        <button
-                          onClick={() => router.push(`/orders/${order.id}`)}
-                          className="text-xs border border-gray-200 px-3 py-1 rounded-lg hover:bg-gray-50"
-                        >
-                          View
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {orders.length === 0 && (
+              {recentOrders.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-gray-500">
                     <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                     No orders yet
                   </td>
                 </tr>
+              ) : (
+                recentOrders.map((order) => {
+                  const statusInfo = getStatusBadge(order.status);
+                  return (
+                    <tr key={order.id} className="hover:bg-gray-50 transition">
+                      <td className="px-6 py-4 text-sm font-medium text-gray-800">
+                        #{order.id?.slice(-8).toUpperCase() || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {order.restaurant?.name || 'Restaurant'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {order.customerName || 'Customer'}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-semibold text-orange-600">
+                        ৳{formatSafeNumber(parseAmount(order.totalAmount))}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
+                          {statusInfo.text}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {order.placedAt ? new Date(order.placedAt).toLocaleDateString() : 'N/A'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex gap-2">
+                          {order.status === 'pending' && (
+                            <button
+                              onClick={() => updateOrderStatus(order.id, 'preparing')}
+                              className="text-xs bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600"
+                            >
+                              Accept
+                            </button>
+                          )}
+                          {order.status === 'preparing' && (
+                            <button
+                              onClick={() => updateOrderStatus(order.id, 'ready')}
+                              className="text-xs bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600"
+                            >
+                              Ready
+                            </button>
+                          )}
+                          <button
+                            onClick={() => router.push(`/orders/${order.id}`)}
+                            className="text-xs border border-gray-200 px-3 py-1 rounded-lg hover:bg-gray-50"
+                          >
+                            View
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

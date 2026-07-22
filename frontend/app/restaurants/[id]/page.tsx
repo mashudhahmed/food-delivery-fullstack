@@ -1,3 +1,4 @@
+// app/restaurants/[id]/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -45,10 +46,23 @@ export default function RestaurantDetailPage() {
         api.get(`/restaurants/${id}`),
         api.get(`/menu/restaurant/${id}`),
       ]);
+      
       setRestaurant(restaurantRes.data);
-      setMenuItems(menuRes.data);
+      
+      // ✅ Fix: Ensure menuItems is always an array
+      const menuData = menuRes.data;
+      const menuItemsArray = Array.isArray(menuData) 
+        ? menuData 
+        : (menuData?.data || menuData?.items || []);
+      
+      console.log('🔵 Menu items received:', menuItemsArray);
+      console.log('🔵 Menu data type:', typeof menuData);
+      
+      setMenuItems(menuItemsArray);
     } catch (error) {
+      console.error('Failed to load restaurant details:', error);
       toast.error('Failed to load restaurant details');
+      setMenuItems([]); // ✅ Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -97,8 +111,11 @@ export default function RestaurantDetailPage() {
   const deliveryFee = items.length > 0 ? 50 : 0;
   const total = subtotal + platformFee + deliveryFee;
 
+  // ✅ Safe: Ensure menuItems is an array before grouping
+  const safeMenuItems = Array.isArray(menuItems) ? menuItems : [];
+  
   // Group menu items by category
-  const groupedItems = menuItems.reduce((acc, item) => {
+  const groupedItems = safeMenuItems.reduce((acc, item) => {
     if (!acc[item.category]) acc[item.category] = [];
     acc[item.category].push(item);
     return acc;
@@ -108,7 +125,7 @@ export default function RestaurantDetailPage() {
   const categories = ['all', ...Object.keys(groupedItems)];
   
   // Filter menu items based on selected category and search term
-  const filteredItems = menuItems.filter(item => {
+  const filteredItems = safeMenuItems.filter(item => {
     const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           item.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -117,7 +134,7 @@ export default function RestaurantDetailPage() {
 
   // Get item count for each category
   const getCategoryCount = (category: string) => {
-    if (category === 'all') return menuItems.length;
+    if (category === 'all') return safeMenuItems.length;
     return groupedItems[category]?.length || 0;
   };
 

@@ -1,8 +1,9 @@
+// app/owner/restaurants/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/api';
+import { auth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { 
   Store, 
@@ -30,6 +31,16 @@ interface Restaurant {
   rating: number;
   imageUrl?: string;
 }
+
+// ✅ Helper to ensure array
+const ensureArray = (data: any): any[] => {
+  if (Array.isArray(data)) return data;
+  if (data?.data && Array.isArray(data.data)) return data.data;
+  if (data?.items && Array.isArray(data.items)) return data.items;
+  if (data?.restaurants && Array.isArray(data.restaurants)) return data.restaurants;
+  console.warn('⚠️ Unexpected data format for restaurants:', typeof data, data);
+  return [];
+};
 
 export default function OwnerRestaurantsPage() {
   const router = useRouter();
@@ -63,12 +74,21 @@ export default function OwnerRestaurantsPage() {
   }, []);
 
   const fetchRestaurants = async () => {
+    setLoading(true);
     try {
       const currentUser = auth.getCurrentUser();
       const response = await api.get(`/restaurants?ownerId=${currentUser?.id}`);
-      setRestaurants(response.data || []);
+      
+      // ✅ Ensure we have an array
+      const data = response.data;
+      const restaurantsArray = ensureArray(data);
+      
+      console.log('🔵 Fetched restaurants:', restaurantsArray.length);
+      setRestaurants(restaurantsArray);
     } catch (error) {
+      console.error('Failed to load restaurants:', error);
       toast.error('Failed to load restaurants');
+      setRestaurants([]); // ✅ Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -103,7 +123,6 @@ export default function OwnerRestaurantsPage() {
     }
   };
 
-  // Updated delete function with modal
   const openDeleteModal = (restaurant: Restaurant) => {
     setRestaurantToDelete(restaurant);
     setShowDeleteModal(true);
@@ -137,9 +156,12 @@ export default function OwnerRestaurantsPage() {
     }
   };
 
-  const filteredRestaurants = restaurants.filter(r =>
-    r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.cuisineType.toLowerCase().includes(searchTerm.toLowerCase())
+  // ✅ Safe filter - ensure restaurants is an array
+  const safeRestaurants = Array.isArray(restaurants) ? restaurants : [];
+  
+  const filteredRestaurants = safeRestaurants.filter(r =>
+    r.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.cuisineType?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -198,103 +220,107 @@ export default function OwnerRestaurantsPage() {
       </div>
 
       {/* Restaurants Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredRestaurants.map((restaurant) => (
-          <div key={restaurant.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition">
-            <div className="relative h-48 bg-gray-100">
-              {restaurant.imageUrl ? (
-                <Image src={restaurant.imageUrl} alt={restaurant.name} fill className="object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-6xl">🍔</div>
-              )}
-              <div className="absolute top-3 right-3 flex gap-2">
-                <button
-                  onClick={() => toggleRestaurantStatus(restaurant.id, restaurant.isOpen)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    restaurant.isOpen ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-                  }`}
-                >
-                  {restaurant.isOpen ? 'Open' : 'Closed'}
-                </button>
+      {filteredRestaurants.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-100">
+          <Store className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500">
+            {searchTerm ? 'No restaurants found matching your search' : 'No restaurants found'}
+          </p>
+          {!searchTerm && (
+            <button
+              onClick={() => setShowModal(true)}
+              className="mt-4 text-orange-500 hover:text-orange-600"
+            >
+              Add your first restaurant
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {filteredRestaurants.map((restaurant) => (
+            <div key={restaurant.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition">
+              <div className="relative h-48 bg-gray-100">
+                {restaurant.imageUrl ? (
+                  <Image src={restaurant.imageUrl} alt={restaurant.name} fill className="object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-6xl">🍔</div>
+                )}
+                <div className="absolute top-3 right-3 flex gap-2">
+                  <button
+                    onClick={() => toggleRestaurantStatus(restaurant.id, restaurant.isOpen)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      restaurant.isOpen ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                    }`}
+                  >
+                    {restaurant.isOpen ? 'Open' : 'Closed'}
+                  </button>
+                </div>
               </div>
-            </div>
-            
-            <div className="p-5">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-800">{restaurant.name}</h3>
-                  <div className="flex items-center gap-1 mt-1">
-                    <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                    <span className="text-sm text-gray-600">{restaurant.rating || 'New'}</span>
-                    <span className="text-xs text-gray-400 ml-2">{restaurant.cuisineType}</span>
+              
+              <div className="p-5">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">{restaurant.name}</h3>
+                    <div className="flex items-center gap-1 mt-1">
+                      <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                      <span className="text-sm text-gray-600">{restaurant.rating || 'New'}</span>
+                      <span className="text-xs text-gray-400 ml-2">{restaurant.cuisineType}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingRestaurant(restaurant);
+                        setFormData({
+                          name: restaurant.name,
+                          description: restaurant.description || '',
+                          address: restaurant.address,
+                          phone: restaurant.phone,
+                          cuisineType: restaurant.cuisineType,
+                        });
+                        setShowModal(true);
+                      }}
+                      className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50"
+                    >
+                      <Edit className="w-4 h-4 text-gray-500" />
+                    </button>
+                    <button
+                      onClick={() => openDeleteModal(restaurant)}
+                      className="p-2 border border-gray-200 rounded-lg hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </button>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-start gap-2 text-sm text-gray-500">
+                    <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span>{restaurant.address}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Phone className="w-4 h-4" />
+                    <span>{restaurant.phone}</span>
+                  </div>
+                </div>
+                
+                <div className="mt-4 pt-4 border-t border-gray-100 flex gap-3">
                   <button
-                    onClick={() => {
-                      setEditingRestaurant(restaurant);
-                      setFormData({
-                        name: restaurant.name,
-                        description: restaurant.description || '',
-                        address: restaurant.address,
-                        phone: restaurant.phone,
-                        cuisineType: restaurant.cuisineType,
-                      });
-                      setShowModal(true);
-                    }}
-                    className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50"
+                    onClick={() => router.push(`/owner/menu?restaurant=${restaurant.id}`)}
+                    className="flex-1 px-4 py-2 bg-orange-50 text-orange-600 rounded-lg text-sm font-medium hover:bg-orange-100 transition"
                   >
-                    <Edit className="w-4 h-4 text-gray-500" />
+                    Manage Menu
                   </button>
                   <button
-                    onClick={() => openDeleteModal(restaurant)}
-                    className="p-2 border border-gray-200 rounded-lg hover:bg-red-50"
+                    onClick={() => router.push(`/owner/orders?restaurant=${restaurant.id}`)}
+                    className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
                   >
-                    <Trash2 className="w-4 h-4 text-red-500" />
+                    View Orders
                   </button>
                 </div>
-              </div>
-              
-              <div className="mt-4 space-y-2">
-                <div className="flex items-start gap-2 text-sm text-gray-500">
-                  <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
-                  <span>{restaurant.address}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Phone className="w-4 h-4" />
-                  <span>{restaurant.phone}</span>
-                </div>
-              </div>
-              
-              <div className="mt-4 pt-4 border-t border-gray-100 flex gap-3">
-                <button
-                  onClick={() => router.push(`/owner/menu?restaurant=${restaurant.id}`)}
-                  className="flex-1 px-4 py-2 bg-orange-50 text-orange-600 rounded-lg text-sm font-medium hover:bg-orange-100 transition"
-                >
-                  Manage Menu
-                </button>
-                <button
-                  onClick={() => router.push(`/owner/orders?restaurant=${restaurant.id}`)}
-                  className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
-                >
-                  View Orders
-                </button>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
-
-      {filteredRestaurants.length === 0 && (
-        <div className="text-center py-16 bg-white rounded-xl">
-          <Store className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500">No restaurants found</p>
-          <button
-            onClick={() => setShowModal(true)}
-            className="mt-4 text-orange-500 hover:text-orange-600"
-          >
-            Add your first restaurant
-          </button>
+          ))}
         </div>
       )}
 
@@ -367,6 +393,13 @@ export default function OwnerRestaurantsPage() {
                   <option value="Thai">Thai</option>
                   <option value="American">American</option>
                   <option value="Mediterranean">Mediterranean</option>
+                  <option value="Vietnamese">Vietnamese</option>
+                  <option value="Korean">Korean</option>
+                  <option value="French">French</option>
+                  <option value="Spanish">Spanish</option>
+                  <option value="Greek">Greek</option>
+                  <option value="Turkish">Turkish</option>
+                  <option value="Brazilian">Brazilian</option>
                 </select>
               </div>
               <div className="flex gap-3 pt-4">

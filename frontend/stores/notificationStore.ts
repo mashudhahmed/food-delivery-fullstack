@@ -1,9 +1,17 @@
-// frontend/app/stores/notificationStore.ts
-
+// stores/notificationStore.ts
 import { create } from 'zustand';
 import { Notification } from '@/types/notification';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
+
+// ✅ Helper to ensure array
+const ensureArray = (data: any): any[] => {
+  if (Array.isArray(data)) return data;
+  if (data?.data && Array.isArray(data.data)) return data.data;
+  if (data?.items && Array.isArray(data.items)) return data.items;
+  if (data?.notifications && Array.isArray(data.notifications)) return data.notifications;
+  return [];
+};
 
 interface NotificationStore {
   notifications: Notification[];
@@ -25,8 +33,13 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     set({ loading: true });
     try {
       const response = await api.get('/notifications');
-      const notifications = response.data || [];
-      console.log('📥 Fetched notifications:', notifications.length);
+      
+      // ✅ Ensure we have an array
+      const rawData = response.data;
+      const notifications = ensureArray(rawData);
+      
+      console.log('📥 Fetched notifications from store:', notifications.length);
+      
       set({
         notifications,
         unreadCount: notifications.filter((n: Notification) => !n.read).length,
@@ -34,7 +47,8 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       });
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
-      set({ loading: false });
+      // ✅ Set empty array on error to prevent crashes
+      set({ notifications: [], unreadCount: 0, loading: false });
     }
   },
 
@@ -45,7 +59,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         notifications: state.notifications.map((n) =>
           n.id === id ? { ...n, read: true } : n
         ),
-        unreadCount: state.unreadCount - 1,
+        unreadCount: Math.max(0, state.unreadCount - 1),
       }));
     } catch (error) {
       console.error('Failed to mark as read:', error);
@@ -66,8 +80,6 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
   addNotification: (notification: Notification) => {
     console.log('🔔🔔🔔 NEW NOTIFICATION RECEIVED:', notification);
-    console.log('Title:', notification.title);
-    console.log('Message:', notification.message);
     
     set((state) => ({
       notifications: [notification, ...state.notifications],
