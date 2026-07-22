@@ -5,21 +5,15 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { auth } from '@/lib/auth';
-import { 
-  LayoutDashboard, 
-  Store, 
-  Package, 
+import {
+  LayoutDashboard,
+  Store,
+  Package,
   Menu,
   BarChart3,
-  Settings,
-  Shield,
   Menu as MenuIcon,
   X,
-  Users,
-  TrendingUp,
-  Clock
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 
 // Navigation ONLY for Owner - NO settings, NO logout in sidebar
 const navItems = [
@@ -46,70 +40,105 @@ export default function OwnerLayout({
       router.push('/login');
       return;
     }
-    
+
     if (currentUser.role !== 'owner') {
       router.push('/');
       return;
     }
-    
+
     setUser(currentUser);
   }, [router]);
+
+  const initials = (user?.name || 'Owner')
+    .split(' ')
+    .map((p: string) => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile Sidebar Toggle */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-white rounded-xl shadow-md shadow-black/5 border border-gray-100 active:scale-95 transition-transform"
+        aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
       >
-        {sidebarOpen ? <X className="w-5 h-5" /> : <MenuIcon className="w-5 h-5" />}
+        {sidebarOpen ? <X className="w-5 h-5 text-gray-700" /> : <MenuIcon className="w-5 h-5 text-gray-700" />}
       </button>
 
       {/* Sidebar - Navigation ONLY (NO settings, NO logout) */}
-      <aside className={`fixed top-0 left-0 h-full bg-white shadow-xl z-40 transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-0 lg:w-20'} overflow-hidden`}>
+      <aside
+        className={`fixed top-0 left-0 h-full bg-white border-r border-gray-100 z-40 transition-[width] duration-300 ease-out flex flex-col ${
+          sidebarOpen ? 'w-64' : 'w-0 lg:w-20'
+        } overflow-hidden`}
+      >
         {/* Sidebar Header: Logo + Brand */}
         <div className="p-5 border-b border-gray-100">
           <div className="flex items-center gap-3">
-            {/* QuickBite Logo */}
-            <div className="shrink-0">
-              <Image 
-                src="/logo.png" 
-                alt="QuickBite" 
-                width={40} 
-                height={40} 
+            <div className="shrink-0 relative">
+              <Image
+                src="/logo.png"
+                alt="QuickBite"
+                width={40}
+                height={40}
                 className="w-10 h-10 object-contain"
                 priority
               />
+              {/* live status pulse */}
+              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-white flex items-center justify-center">
+                <span className="relative flex h-2 h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+              </span>
             </div>
             {sidebarOpen && (
-              <div className="flex flex-col">
+              <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-gray-800 text-xl">QuickBite</span>
-                  <Store className="w-4 h-4 text-orange-500" />
+                  <span className="font-bold text-gray-800 text-xl tracking-tight truncate">QuickBite</span>
                 </div>
-                <p className="text-xs text-gray-500 mt-0.5">Owner Portal</p>
+                <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1.5">
+                  Owner Portal
+                  <span className="w-1 h-1 rounded-full bg-gray-300" />
+                  <span className="text-emerald-600 font-medium">Live</span>
+                </p>
               </div>
             )}
           </div>
         </div>
 
         {/* Navigation Links ONLY - NO Settings or Logout here */}
-        <nav className="p-4 space-y-1">
+        <nav className="p-3 space-y-0.5 flex-1 overflow-y-auto">
+          {sidebarOpen && (
+            <p className="px-3 pt-2 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+              Menu
+            </p>
+          )}
           {navItems.map((item) => {
             const isActive = pathname === item.path;
             return (
               <Link
                 key={item.id}
                 href={item.path}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+                className={`group relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 ${
                   isActive
-                    ? 'bg-orange-50 text-orange-600 border-r-2 border-orange-500'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-orange-50 text-orange-600'
+                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <item.icon className="w-5 h-5 shrink-0" />
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-orange-500" />
+                )}
+                <span
+                  className={`flex items-center justify-center w-9 h-9 rounded-lg shrink-0 transition-colors ${
+                    isActive ? 'bg-orange-500 text-white shadow-sm shadow-orange-200' : 'bg-gray-100 text-gray-500 group-hover:bg-white group-hover:text-gray-700'
+                  }`}
+                >
+                  <item.icon className="w-[18px] h-[18px]" />
+                </span>
                 {sidebarOpen && (
-                  <span className="flex-1 text-left text-sm font-medium">
+                  <span className="flex-1 text-left text-sm font-medium truncate">
                     {item.label}
                   </span>
                 )}
@@ -118,14 +147,29 @@ export default function OwnerLayout({
           })}
         </nav>
 
-        {/* NO Logout button here - Logout is only in top navbar profile dropdown */}
+        {/* Quiet profile footer - display only, NO logout here by design */}
+        <div className="p-3 border-t border-gray-100">
+          <div className={`flex items-center gap-3 rounded-xl px-2 py-2 ${sidebarOpen ? '' : 'justify-center'}`}>
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 text-white text-xs font-semibold flex items-center justify-center shrink-0">
+              {initials}
+            </div>
+            {sidebarOpen && (
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-800 truncate">{user?.name || 'Owner'}</p>
+                <p className="text-xs text-gray-400 truncate">{user?.email || 'Restaurant Owner'}</p>
+              </div>
+            )}
+          </div>
+        </div>
       </aside>
 
       {/* Main Content */}
-      <main className={`transition-all duration-300 min-h-screen ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'}`}>
-        <div className="p-6">
-          {children}
-        </div>
+      <main
+        className={`transition-[margin] duration-300 ease-out min-h-screen ${
+          sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
+        }`}
+      >
+        <div className="p-6">{children}</div>
       </main>
     </div>
   );

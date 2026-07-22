@@ -5,19 +5,15 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { api } from '@/lib/api';
-import { 
-  DollarSign, 
-  ShoppingBag, 
+import {
+  DollarSign,
+  ShoppingBag,
   CheckCircle,
   TrendingUp,
   TrendingDown,
   Star,
-  Store,
   Package,
-  Clock,
-  Truck,
-  Navigation,
-  XCircle
+  Eye,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -42,9 +38,9 @@ interface OwnerStats {
 // Helper function to safely format numbers
 const formatSafeNumber = (value: any): string => {
   if (value === undefined || value === null) return '0';
-  
+
   let numValue: number;
-  
+
   if (typeof value === 'number') {
     numValue = value;
   } else if (typeof value === 'string') {
@@ -53,9 +49,9 @@ const formatSafeNumber = (value: any): string => {
   } else {
     numValue = 0;
   }
-  
+
   if (isNaN(numValue)) return '0';
-  
+
   return Math.round(numValue).toLocaleString();
 };
 
@@ -80,8 +76,17 @@ const ensureArray = (data: any): any[] => {
   return [];
 };
 
-const StatCard = ({ title, value, icon: Icon, trend, color }: any) => {
-  // Format the display value
+const STATUS_META: Record<string, { color: string; ring: string; text: string; dot: string }> = {
+  pending: { color: 'bg-amber-50 text-amber-700', ring: 'ring-amber-200', text: 'Pending', dot: 'bg-amber-500' },
+  preparing: { color: 'bg-blue-50 text-blue-700', ring: 'ring-blue-200', text: 'Preparing', dot: 'bg-blue-500' },
+  ready: { color: 'bg-emerald-50 text-emerald-700', ring: 'ring-emerald-200', text: 'Ready', dot: 'bg-emerald-500' },
+  picked_up: { color: 'bg-purple-50 text-purple-700', ring: 'ring-purple-200', text: 'Picked Up', dot: 'bg-purple-500' },
+  on_the_way: { color: 'bg-indigo-50 text-indigo-700', ring: 'ring-indigo-200', text: 'On the Way', dot: 'bg-indigo-500' },
+  delivered: { color: 'bg-gray-100 text-gray-600', ring: 'ring-gray-200', text: 'Delivered', dot: 'bg-gray-400' },
+  cancelled: { color: 'bg-red-50 text-red-700', ring: 'ring-red-200', text: 'Cancelled', dot: 'bg-red-500' },
+};
+
+const StatCard = ({ title, value, icon: Icon, trend, tint }: any) => {
   const getDisplayValue = () => {
     if (title === 'Total Revenue') {
       if (typeof value === 'string' && value.startsWith('৳')) {
@@ -100,30 +105,27 @@ const StatCard = ({ title, value, icon: Icon, trend, color }: any) => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-200">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-500 font-medium">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-2">
-            {getDisplayValue()}
-          </p>
-          {trend !== undefined && trend !== null && !isNaN(trend) && (
-            <div className="flex items-center gap-1 mt-2">
-              {trend >= 0 ? (
-                <TrendingUp className="w-3 h-3 text-green-500" />
-              ) : (
-                <TrendingDown className="w-3 h-3 text-red-500" />
-              )}
-              <span className={`text-xs font-medium ${trend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {Math.abs(Math.round(trend * 10) / 10)}% from last month
-              </span>
-            </div>
-          )}
-        </div>
-        <div className={`w-12 h-12 ${color} rounded-xl flex items-center justify-center`}>
-          <Icon className="w-6 h-6 text-white" />
-        </div>
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-5 hover:shadow-md hover:shadow-black/[0.04] transition-shadow">
+      <div className="flex items-center justify-between mb-4">
+        <span className={`flex items-center justify-center w-10 h-10 rounded-xl ${tint}`}>
+          <Icon className="w-5 h-5" />
+        </span>
+        {trend !== undefined && trend !== null && !isNaN(trend) && (
+          <span
+            className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${
+              trend >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+            }`}
+          >
+            {trend >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+            {Math.abs(Math.round(trend * 10) / 10)}%
+          </span>
+        )}
       </div>
+      <p className="text-2xl font-bold text-gray-900 tabular-nums">{getDisplayValue()}</p>
+      <p className="text-sm text-gray-400 mt-1">{title}</p>
+      {trend !== undefined && trend !== null && !isNaN(trend) && (
+        <p className="text-[11px] text-gray-300 mt-0.5">vs. last month</p>
+      )}
     </div>
   );
 };
@@ -150,7 +152,7 @@ export default function OwnerDashboardPage() {
     orderGrowth: 0,
     completionRate: 0,
   });
-  
+
   const [revenueData, setRevenueData] = useState([
     { name: 'Jan', revenue: 0, orders: 0 },
     { name: 'Feb', revenue: 0, orders: 0 },
@@ -183,12 +185,12 @@ export default function OwnerDashboardPage() {
     setLoading(true);
     try {
       const currentUser = auth.getCurrentUser();
-      
+
       // Fetch restaurants owned by this owner
       const restaurantsRes = await api.get(`/restaurants?ownerId=${currentUser?.id}`);
       const ownerRestaurants = ensureArray(restaurantsRes.data);
       setRestaurants(ownerRestaurants);
-      
+
       // Fetch orders for owner's restaurants
       let allOrders: any[] = [];
       try {
@@ -199,74 +201,71 @@ export default function OwnerDashboardPage() {
           const allOrdersRes = await api.get('/orders');
           const allOrdersData = ensureArray(allOrdersRes.data);
           const restaurantIds = ownerRestaurants.map((r: any) => r.id);
-          allOrders = allOrdersData.filter((order: any) => 
-            restaurantIds.includes(order.restaurantId)
-          );
+          allOrders = allOrdersData.filter((order: any) => restaurantIds.includes(order.restaurantId));
         }
       }
-      
+
       // ✅ Ensure allOrders is an array
       const safeOrders = ensureArray(allOrders);
       setOrders(safeOrders);
-      
+
       // Calculate real stats
       const completedOrders = safeOrders.filter((o: any) => o.status === 'delivered');
-      
+
       const totalRevenue = completedOrders.reduce((sum: number, o: any) => {
         return sum + parseAmount(o.totalAmount);
       }, 0);
-      
+
       const totalOrders = safeOrders.length;
-      
+
       // Calculate growth rates
       const now = new Date();
       const currentMonth = now.getMonth();
-      const currentYearOrders = safeOrders.filter(o => {
+      const currentYearOrders = safeOrders.filter((o) => {
         const date = new Date(o.placedAt);
         return date.getMonth() === currentMonth;
       });
-      const previousMonthOrders = safeOrders.filter(o => {
+      const previousMonthOrders = safeOrders.filter((o) => {
         const date = new Date(o.placedAt);
         return date.getMonth() === currentMonth - 1;
       });
-      
-      const orderGrowth = previousMonthOrders.length 
-        ? ((currentYearOrders.length - previousMonthOrders.length) / previousMonthOrders.length) * 100 
+
+      const orderGrowth = previousMonthOrders.length
+        ? ((currentYearOrders.length - previousMonthOrders.length) / previousMonthOrders.length) * 100
         : 0;
-      
+
       const currentMonthRevenue = completedOrders
-        .filter(o => {
+        .filter((o) => {
           const date = new Date(o.placedAt);
           return date.getMonth() === currentMonth;
         })
         .reduce((sum, o) => sum + parseAmount(o.totalAmount), 0);
-        
+
       const previousMonthRevenue = completedOrders
-        .filter(o => {
+        .filter((o) => {
           const date = new Date(o.placedAt);
           return date.getMonth() === currentMonth - 1;
         })
         .reduce((sum, o) => sum + parseAmount(o.totalAmount), 0);
-      
-      const revenueGrowth = previousMonthRevenue 
-        ? ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100 
+
+      const revenueGrowth = previousMonthRevenue
+        ? ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100
         : 0;
-      
+
       // Calculate monthly data
       const monthlyData = [];
       for (let i = 5; i >= 0; i--) {
         const date = new Date();
         date.setMonth(date.getMonth() - i);
         const monthName = date.toLocaleString('default', { month: 'short' });
-        const monthOrders = safeOrders.filter(o => {
+        const monthOrders = safeOrders.filter((o) => {
           const orderDate = new Date(o.placedAt);
-          return orderDate.getMonth() === date.getMonth() && 
-                 orderDate.getFullYear() === date.getFullYear();
+          return orderDate.getMonth() === date.getMonth() && orderDate.getFullYear() === date.getFullYear();
         });
         const monthRevenue = monthOrders
-          .filter(o => o.status === 'delivered')
+          .filter((o) => o.status === 'delivered')
           .reduce((sum, o) => sum + parseAmount(o.totalAmount), 0);
-        
+
         monthlyData.push({
           name: monthName,
           revenue: monthRevenue,
@@ -274,28 +273,27 @@ export default function OwnerDashboardPage() {
         });
       }
       setRevenueData(monthlyData);
-      
+
       // Calculate status distribution
       const last6Months = [];
       for (let i = 5; i >= 0; i--) {
         const date = new Date();
         date.setMonth(date.getMonth() - i);
         const monthName = date.toLocaleString('default', { month: 'short' });
-        const monthOrders = safeOrders.filter(o => {
+        const monthOrders = safeOrders.filter((o) => {
           const orderDate = new Date(o.placedAt);
-          return orderDate.getMonth() === date.getMonth() && 
-                 orderDate.getFullYear() === date.getFullYear();
+          return orderDate.getMonth() === date.getMonth() && orderDate.getFullYear() === date.getFullYear();
         });
-        
+
         last6Months.push({
           month: monthName,
-          pending: monthOrders.filter(o => o.status === 'pending').length,
-          preparing: monthOrders.filter(o => o.status === 'preparing').length,
-          delivered: monthOrders.filter(o => o.status === 'delivered').length,
+          pending: monthOrders.filter((o) => o.status === 'pending').length,
+          preparing: monthOrders.filter((o) => o.status === 'preparing').length,
+          delivered: monthOrders.filter((o) => o.status === 'delivered').length,
         });
       }
       setStatusData(last6Months);
-      
+
       setStats({
         totalRestaurants: ownerRestaurants.length,
         totalOrders: safeOrders.length,
@@ -312,7 +310,6 @@ export default function OwnerDashboardPage() {
         orderGrowth: Math.round(orderGrowth * 10) / 10,
         completionRate: totalOrders ? Math.round((completedOrders.length / totalOrders) * 100) : 0,
       });
-      
     } catch (error) {
       console.error('Failed to fetch owner data:', error);
       toast.error('Failed to load dashboard data');
@@ -321,18 +318,7 @@ export default function OwnerDashboardPage() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const badges: Record<string, { color: string; text: string }> = {
-      pending: { color: 'bg-yellow-100 text-yellow-800', text: 'Pending' },
-      preparing: { color: 'bg-blue-100 text-blue-800', text: 'Preparing' },
-      ready: { color: 'bg-green-100 text-green-800', text: 'Ready' },
-      picked_up: { color: 'bg-purple-100 text-purple-800', text: 'Picked Up' },
-      on_the_way: { color: 'bg-indigo-100 text-indigo-800', text: 'On the Way' },
-      delivered: { color: 'bg-gray-100 text-gray-800', text: 'Delivered' },
-      cancelled: { color: 'bg-red-100 text-red-800', text: 'Cancelled' },
-    };
-    return badges[status] || { color: 'bg-gray-100 text-gray-800', text: status };
-  };
+  const getStatusBadge = (status: string) => STATUS_META[status] || STATUS_META.pending;
 
   const updateOrderStatus = async (orderId: string, status: string) => {
     try {
@@ -350,174 +336,151 @@ export default function OwnerDashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+      <div className="space-y-6 animate-pulse">
+        <div className="h-8 w-56 bg-gray-200 rounded-lg" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-28 bg-gray-100 rounded-2xl border border-gray-100" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="h-80 bg-gray-100 rounded-2xl border border-gray-100" />
+          <div className="h-80 bg-gray-100 rounded-2xl border border-gray-100" />
+        </div>
       </div>
     );
   }
 
+  const statusTiles = [
+    { key: 'totalOrders', label: 'Total', value: stats.totalOrders, meta: null },
+    { key: 'pendingOrders', label: 'Pending', value: stats.pendingOrders, meta: STATUS_META.pending },
+    { key: 'preparingOrders', label: 'Preparing', value: stats.preparingOrders, meta: STATUS_META.preparing },
+    { key: 'readyOrders', label: 'Ready', value: stats.readyOrders, meta: STATUS_META.ready },
+    { key: 'pickedUpOrders', label: 'Picked Up', value: stats.pickedUpOrders, meta: STATUS_META.picked_up },
+    { key: 'onTheWayOrders', label: 'On the Way', value: stats.onTheWayOrders, meta: STATUS_META.on_the_way },
+    { key: 'completedOrders', label: 'Delivered', value: stats.completedOrders, meta: STATUS_META.delivered },
+  ];
+
   return (
-    <div className="p-6">
+    <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Dashboard Overview</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
         <p className="text-sm text-gray-500 mt-1">Welcome back, {user?.fullName?.split(' ')[0] || 'Owner'}</p>
       </div>
-      
-      {/* Main Stats Cards - 4 cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard
-          title="Total Revenue"
-          value={stats.totalRevenue}
-          icon={DollarSign}
-          trend={stats.revenueGrowth}
-          color="bg-gradient-to-r from-green-500 to-green-600"
-        />
-        <StatCard
-          title="Total Orders"
-          value={stats.totalOrders}
-          icon={ShoppingBag}
-          trend={stats.orderGrowth}
-          color="bg-gradient-to-r from-blue-500 to-blue-600"
-        />
-        <StatCard
-          title="Completion Rate"
-          value={`${stats.completionRate}%`}
-          icon={CheckCircle}
-          color="bg-gradient-to-r from-orange-500 to-orange-600"
-        />
-        <StatCard
-          title="Avg Rating"
-          value={stats.avgRating}
-          icon={Star}
-          color="bg-gradient-to-r from-purple-500 to-purple-600"
-        />
+
+      {/* Main Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard title="Total Revenue" value={stats.totalRevenue} icon={DollarSign} trend={stats.revenueGrowth} tint="bg-emerald-50 text-emerald-600" />
+        <StatCard title="Total Orders" value={stats.totalOrders} icon={ShoppingBag} trend={stats.orderGrowth} tint="bg-blue-50 text-blue-600" />
+        <StatCard title="Completion Rate" value={`${stats.completionRate}%`} icon={CheckCircle} tint="bg-orange-50 text-orange-600" />
+        <StatCard title="Avg Rating" value={stats.avgRating} icon={Star} tint="bg-purple-50 text-purple-600" />
       </div>
 
       {/* Secondary Stats - Order Status Breakdown */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 mb-8">
-        <div className="bg-white rounded-lg p-3 border border-gray-100 text-center">
-          <p className="text-xs text-gray-500">Total</p>
-          <p className="text-xl font-bold">{stats.totalOrders}</p>
-        </div>
-        <div className="bg-white rounded-lg p-3 border border-gray-100 text-center">
-          <p className="text-xs text-gray-500">Pending</p>
-          <p className="text-xl font-bold text-yellow-600">{stats.pendingOrders}</p>
-        </div>
-        <div className="bg-white rounded-lg p-3 border border-gray-100 text-center">
-          <p className="text-xs text-gray-500">Preparing</p>
-          <p className="text-xl font-bold text-blue-600">{stats.preparingOrders}</p>
-        </div>
-        <div className="bg-white rounded-lg p-3 border border-gray-100 text-center">
-          <p className="text-xs text-gray-500">Ready</p>
-          <p className="text-xl font-bold text-green-600">{stats.readyOrders}</p>
-        </div>
-        <div className="bg-white rounded-lg p-3 border border-gray-100 text-center">
-          <p className="text-xs text-gray-500">Picked Up</p>
-          <p className="text-xl font-bold text-purple-600">{stats.pickedUpOrders}</p>
-        </div>
-        <div className="bg-white rounded-lg p-3 border border-gray-100 text-center">
-          <p className="text-xs text-gray-500">On the Way</p>
-          <p className="text-xl font-bold text-indigo-600">{stats.onTheWayOrders}</p>
-        </div>
-        <div className="bg-white rounded-lg p-3 border border-gray-100 text-center">
-          <p className="text-xs text-gray-500">Delivered</p>
-          <p className="text-xl font-bold text-emerald-600">{stats.completedOrders}</p>
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
+        {statusTiles.map((tile) => (
+          <div key={tile.key} className="bg-white rounded-xl border border-gray-100 shadow-sm shadow-black/[0.02] p-3 text-center">
+            <div className="flex items-center justify-center gap-1.5 mb-1">
+              {tile.meta && <span className={`w-1.5 h-1.5 rounded-full ${tile.meta.dot}`} />}
+              <p className="text-xs text-gray-400">{tile.label}</p>
+            </div>
+            <p className="text-xl font-bold text-gray-900 tabular-nums">{tile.value}</p>
+          </div>
+        ))}
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-6">
           <h3 className="font-semibold text-gray-800 mb-4">Revenue & Orders Trend</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={revenueData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis yAxisId="left" />
-              <YAxis yAxisId="right" orientation="right" />
-              <Tooltip />
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+              <YAxis yAxisId="left" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+              <YAxis yAxisId="right" orientation="right" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #f1f5f9', fontSize: 13 }} />
               <Legend />
-              <Line yAxisId="left" type="monotone" dataKey="revenue" stroke="#f97316" strokeWidth={2} name="Revenue (৳)" />
-              <Line yAxisId="right" type="monotone" dataKey="orders" stroke="#3b82f6" strokeWidth={2} name="Orders" />
+              <Line yAxisId="left" type="monotone" dataKey="revenue" stroke="#f97316" strokeWidth={2.5} dot={false} name="Revenue (৳)" />
+              <Line yAxisId="right" type="monotone" dataKey="orders" stroke="#3b82f6" strokeWidth={2.5} dot={false} name="Orders" />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-6">
           <h3 className="font-semibold text-gray-800 mb-4">Order Status Trends</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={statusData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="month" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+              <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #f1f5f9', fontSize: 13 }} />
               <Legend />
-              <Bar dataKey="pending" fill="#eab308" name="Pending" />
-              <Bar dataKey="preparing" fill="#3b82f6" name="Preparing" />
-              <Bar dataKey="delivered" fill="#10b981" name="Delivered" />
+              <Bar dataKey="pending" fill="#eab308" name="Pending" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="preparing" fill="#3b82f6" name="Preparing" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="delivered" fill="#10b981" name="Delivered" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       {/* Recent Orders Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
           <h3 className="font-semibold text-gray-800">Recent Orders</h3>
           <p className="text-sm text-gray-500 mt-1">Track and manage incoming orders</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-100">
+            <thead className="bg-gray-50/80 border-b border-gray-100">
               <tr>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Order ID</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Restaurant</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Customer</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Amount</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Placed At</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="text-left px-6 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Order</th>
+                <th className="text-left px-6 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Restaurant</th>
+                <th className="text-left px-6 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Customer</th>
+                <th className="text-left px-6 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Amount</th>
+                <th className="text-left px-6 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                <th className="text-left px-6 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Placed</th>
+                <th className="text-right px-6 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-50">
               {recentOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-gray-500">
-                    <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    No orders yet
+                  <td colSpan={7} className="text-center py-16">
+                    <Package className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-gray-600">No orders yet</p>
+                    <p className="text-xs text-gray-400 mt-1">New orders will show up here as they come in.</p>
                   </td>
                 </tr>
               ) : (
                 recentOrders.map((order) => {
                   const statusInfo = getStatusBadge(order.status);
                   return (
-                    <tr key={order.id} className="hover:bg-gray-50 transition">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-800">
+                    <tr key={order.id} className="hover:bg-gray-50/60 transition-colors">
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-800">
                         #{order.id?.slice(-8).toUpperCase() || 'N/A'}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {order.restaurant?.name || 'Restaurant'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {order.customerName || 'Customer'}
-                      </td>
-                      <td className="px-6 py-4 text-sm font-semibold text-orange-600">
+                      <td className="px-6 py-4 text-sm text-gray-600">{order.restaurant?.name || 'Restaurant'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{order.customerName || 'Customer'}</td>
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-900 tabular-nums">
                         ৳{formatSafeNumber(parseAmount(order.totalAmount))}
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ring-1 ring-inset ${statusInfo.color} ${statusInfo.ring}`}
+                        >
                           {statusInfo.text}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-6 py-4 text-sm text-gray-400">
                         {order.placedAt ? new Date(order.placedAt).toLocaleDateString() : 'N/A'}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 justify-end">
                           {order.status === 'pending' && (
                             <button
                               onClick={() => updateOrderStatus(order.id, 'preparing')}
-                              className="text-xs bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600"
+                              className="text-xs font-medium bg-blue-500 text-white px-3 py-1.5 rounded-lg hover:bg-blue-600 transition"
                             >
                               Accept
                             </button>
@@ -525,15 +488,16 @@ export default function OwnerDashboardPage() {
                           {order.status === 'preparing' && (
                             <button
                               onClick={() => updateOrderStatus(order.id, 'ready')}
-                              className="text-xs bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600"
+                              className="text-xs font-medium bg-emerald-500 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-600 transition"
                             >
-                              Ready
+                              Mark Ready
                             </button>
                           )}
                           <button
                             onClick={() => router.push(`/orders/${order.id}`)}
-                            className="text-xs border border-gray-200 px-3 py-1 rounded-lg hover:bg-gray-50"
+                            className="text-xs font-medium text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 hover:text-gray-800 flex items-center gap-1.5 transition"
                           >
+                            <Eye className="w-3.5 h-3.5" />
                             View
                           </button>
                         </div>
