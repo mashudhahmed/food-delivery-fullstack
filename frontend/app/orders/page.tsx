@@ -6,17 +6,36 @@ import { api } from '../../lib/api';
 import { Order } from '../../types';
 import toast from 'react-hot-toast';
 import CancelOrderModal from '@/components/CancelOrderModal';
-import { 
-  Package, 
-  Clock, 
-  ChevronRight, 
-  Calendar, 
-  CreditCard, 
+import {
+  Package,
+  Clock,
+  ChevronRight,
+  Calendar,
+  CreditCard,
   Search,
   XCircle,
   AlertCircle,
-  Wallet
+  Wallet,
 } from 'lucide-react';
+
+const STATUS_META: Record<string, { text: string; color: string; ring: string; dot: string }> = {
+  pending: { text: 'Order Placed', color: 'bg-amber-50 text-amber-700', ring: 'ring-amber-200', dot: 'bg-amber-500' },
+  preparing: { text: 'Being Prepared', color: 'bg-blue-50 text-blue-700', ring: 'ring-blue-200', dot: 'bg-blue-500' },
+  ready: { text: 'Ready for Pickup', color: 'bg-purple-50 text-purple-700', ring: 'ring-purple-200', dot: 'bg-purple-500' },
+  picked_up: { text: 'On the Way', color: 'bg-indigo-50 text-indigo-700', ring: 'ring-indigo-200', dot: 'bg-indigo-500' },
+  delivered: { text: 'Delivered', color: 'bg-emerald-50 text-emerald-700', ring: 'ring-emerald-200', dot: 'bg-emerald-500' },
+  cancelled: { text: 'Cancelled', color: 'bg-red-50 text-red-700', ring: 'ring-red-200', dot: 'bg-red-500' },
+};
+
+// ✅ Helper to ensure array, in case the API wraps the list in an object
+const ensureArray = (data: any): any[] => {
+  if (Array.isArray(data)) return data;
+  if (data?.data && Array.isArray(data.data)) return data.data;
+  if (data?.items && Array.isArray(data.items)) return data.items;
+  if (data?.orders && Array.isArray(data.orders)) return data.orders;
+  console.warn('⚠️ Unexpected data format for orders:', typeof data, data);
+  return [];
+};
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -51,14 +70,14 @@ export default function OrdersPage() {
   useEffect(() => {
     const interval = setInterval(() => {
       const newTimers: Record<string, { minutes: number; seconds: number }> = {};
-      
-      orders.forEach(order => {
+
+      orders.forEach((order) => {
         if (order.status === 'pending') {
           const orderTime = new Date(order.placedAt).getTime();
           const currentTime = new Date().getTime();
           const secondsPassed = (currentTime - orderTime) / 1000;
           const secondsRemaining = Math.max(0, 300 - secondsPassed);
-          
+
           if (secondsRemaining > 0) {
             const minutes = Math.floor(secondsRemaining / 60);
             const seconds = Math.floor(secondsRemaining % 60);
@@ -66,7 +85,7 @@ export default function OrdersPage() {
           }
         }
       });
-      
+
       setTimers(newTimers);
     }, 1000);
 
@@ -77,8 +96,9 @@ export default function OrdersPage() {
     try {
       setLoading(true);
       const response = await api.get('/orders/my');
-      setOrders(response.data);
-      setFilteredOrders(response.data);
+      const safeOrders = ensureArray(response.data);
+      setOrders(safeOrders);
+      setFilteredOrders(safeOrders);
     } catch (error) {
       toast.error('Failed to load orders');
     } finally {
@@ -90,65 +110,32 @@ export default function OrdersPage() {
     let filtered = [...orders];
 
     if (activeFilter !== 'all') {
-      filtered = filtered.filter(order => order.status === activeFilter);
+      filtered = filtered.filter((order) => order.status === activeFilter);
     }
 
     if (searchTerm) {
-      filtered = filtered.filter(order => 
-        order.restaurant?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.id.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(
+        (order) =>
+          order.restaurant?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.id.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     setFilteredOrders(filtered);
   };
 
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      preparing: 'bg-blue-100 text-blue-800 border-blue-200',
-      ready: 'bg-purple-100 text-purple-800 border-purple-200',
-      picked_up: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-      delivered: 'bg-green-100 text-green-800 border-green-200',
-      cancelled: 'bg-red-100 text-red-800 border-red-200',
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200';
-  };
-
-  const getStatusText = (status: string) => {
-    const texts: Record<string, string> = {
-      pending: 'Order Placed',
-      preparing: 'Being Prepared',
-      ready: 'Ready for Pickup',
-      picked_up: 'On the Way',
-      delivered: 'Delivered',
-      cancelled: 'Cancelled',
-    };
-    return texts[status] || status.replace('_', ' ');
-  };
+  const getStatusMeta = (status: string) => STATUS_META[status] || STATUS_META.pending;
 
   const getPaymentMethodDisplay = (method: string) => {
-    const methods: Record<string, { label: string; icon: JSX.Element; color: string }> = {
-      cash: { 
-        label: 'Cash on Delivery', 
-        icon: <Wallet className="w-3.5 h-3.5" />,
-        color: 'bg-green-100 text-green-700 border-green-200'
-      },
-      card: { 
-        label: 'Credit/Debit Card', 
-        icon: <CreditCard className="w-3.5 h-3.5" />,
-        color: 'bg-blue-100 text-blue-700 border-blue-200'
-      },
-      bkash: { 
-        label: 'bKash', 
-        icon: <CreditCard className="w-3.5 h-3.5" />,
-        color: 'bg-pink-100 text-pink-700 border-pink-200'
-      },
+    const methods: Record<string, { label: string; icon: JSX.Element; tint: string }> = {
+      cash: { label: 'Cash on Delivery', icon: <Wallet className="w-3.5 h-3.5" />, tint: 'bg-emerald-50 text-emerald-700' },
+      card: { label: 'Credit/Debit Card', icon: <CreditCard className="w-3.5 h-3.5" />, tint: 'bg-blue-50 text-blue-700' },
+      bkash: { label: 'bKash', icon: <CreditCard className="w-3.5 h-3.5" />, tint: 'bg-pink-50 text-pink-700' },
     };
-    const defaultMethod = { 
-      label: method || 'Cash on Delivery', 
+    const defaultMethod = {
+      label: method || 'Cash on Delivery',
       icon: <Wallet className="w-3.5 h-3.5" />,
-      color: 'bg-gray-100 text-gray-700 border-gray-200'
+      tint: 'bg-gray-100 text-gray-600',
     };
     return methods[method] || defaultMethod;
   };
@@ -185,10 +172,18 @@ export default function OrdersPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-gray-500">Loading your orders...</p>
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-6xl mx-auto px-4 space-y-6 animate-pulse">
+          <div className="h-8 w-40 bg-gray-200 rounded-lg" />
+          <div className="h-10 w-72 bg-gray-100 rounded-xl" />
+          <div className="flex gap-2">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-9 w-24 bg-gray-100 rounded-full" />
+            ))}
+          </div>
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-32 bg-white rounded-2xl border border-gray-100" />
+          ))}
         </div>
       </div>
     );
@@ -198,27 +193,27 @@ export default function OrdersPage() {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
-          <p className="text-gray-500 mt-1">Track and manage your orders</p>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">My Orders</h1>
+          <p className="text-sm text-gray-500 mt-1">Track and manage your orders</p>
         </div>
 
         {/* Search Bar */}
         <div className="mb-6">
           <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
               type="text"
               placeholder="Search by restaurant or order ID"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+              className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition"
             />
           </div>
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex flex-wrap gap-2 mb-8 overflow-x-auto pb-2">
+        <div className="flex flex-wrap gap-2 mb-6 overflow-x-auto pb-1">
           {filters.map((filter) => (
             <button
               key={filter.value}
@@ -226,17 +221,13 @@ export default function OrdersPage() {
               className={`px-4 py-2 rounded-full text-sm font-medium transition whitespace-nowrap ${
                 activeFilter === filter.value
                   ? 'bg-orange-500 text-white shadow-sm'
-                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
               }`}
             >
               {filter.label}
               {filter.value !== 'all' && (
-                <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${
-                  activeFilter === filter.value
-                    ? 'bg-white/20 text-white'
-                    : 'bg-gray-200 text-gray-600'
-                }`}>
-                  {orders.filter(o => o.status === filter.value).length}
+                <span className={`ml-2 ${activeFilter === filter.value ? 'text-white/80' : 'text-gray-400'}`}>
+                  {orders.filter((o) => o.status === filter.value).length}
                 </span>
               )}
             </button>
@@ -244,27 +235,21 @@ export default function OrdersPage() {
         </div>
 
         {/* Results Summary */}
-        <div className="flex justify-between items-center mb-4">
-          <p className="text-sm text-gray-500">
-            {filteredOrders.length} order{filteredOrders.length !== 1 ? 's' : ''} found
-          </p>
-        </div>
+        <p className="text-sm text-gray-400 mb-4">
+          {filteredOrders.length} order{filteredOrders.length !== 1 ? 's' : ''} found
+        </p>
 
         {/* Orders List */}
         {filteredOrders.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
-            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Package className="w-10 h-10 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">No orders found</h3>
-            <p className="text-gray-500 mb-6">
-              {searchTerm || activeFilter !== 'all' 
-                ? "Try adjusting your filters or search term"
-                : "You haven't placed any orders yet"}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-14 text-center">
+            <Package className="w-12 h-12 text-gray-200 mx-auto mb-4" />
+            <h3 className="text-sm font-semibold text-gray-700 mb-1">No orders found</h3>
+            <p className="text-sm text-gray-400 mb-6">
+              {searchTerm || activeFilter !== 'all' ? 'Try adjusting your filters or search term' : "You haven't placed any orders yet"}
             </p>
-            <Link 
-              href="/" 
-              className="inline-flex items-center gap-2 bg-orange-500 text-white px-6 py-2 rounded-lg font-medium hover:bg-orange-600 transition"
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 bg-orange-500 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-orange-600 transition shadow-sm shadow-orange-200"
             >
               Browse Restaurants
               <ChevronRight className="w-4 h-4" />
@@ -275,33 +260,38 @@ export default function OrdersPage() {
             {filteredOrders.map((order) => {
               const cancelable = canCancelOrder(order);
               const timer = timers[order.id];
+              const statusMeta = getStatusMeta(order.status);
               const paymentInfo = getPaymentMethodDisplay(order.paymentMethod || 'cash');
-              
+
               return (
-                <div key={order.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all duration-200">
-                  <Link href={`/orders/${order.id}`} className="block">
+                <div
+                  key={order.id}
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 overflow-hidden hover:shadow-md hover:shadow-black/4 transition-shadow"
+                >
+                  <Link href={`/orders/${order.id}`} className="block group">
                     <div className="p-5">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         {/* Left Section */}
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)}`}>
-                              {getStatusText(order.status)}
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ring-1 ring-inset ${statusMeta.color} ${statusMeta.ring}`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dot}`} />
+                              {statusMeta.text}
                             </span>
-                            <span className="text-xs text-gray-400">
-                              #{order.id.slice(-8).toUpperCase()}
-                            </span>
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${paymentInfo.color}`}>
+                            <span className="text-xs text-gray-400">#{order.id?.slice(-8).toUpperCase() || 'N/A'}</span>
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${paymentInfo.tint}`}>
                               {paymentInfo.icon}
                               {paymentInfo.label}
                             </span>
                           </div>
-                          
-                          <h3 className="font-semibold text-gray-800 text-lg mb-1 group-hover:text-orange-500 transition">
+
+                          <h3 className="font-semibold text-gray-900 text-base mb-1.5 group-hover:text-orange-600 transition truncate">
                             {order.restaurant?.name}
                           </h3>
-                          
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
+
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400">
                             <span className="flex items-center gap-1">
                               <Calendar className="w-3.5 h-3.5" />
                               {new Date(order.placedAt).toLocaleDateString()}
@@ -318,22 +308,22 @@ export default function OrdersPage() {
                         </div>
 
                         {/* Right Section */}
-                        <div className="flex items-center justify-between sm:justify-end gap-6">
+                        <div className="flex items-center justify-between sm:justify-end gap-6 shrink-0">
                           <div className="text-right">
-                            <p className="text-sm text-gray-500">Total Amount</p>
-                            <p className="text-xl font-bold text-orange-600">৳{order.totalAmount}</p>
-                            <p className="text-xs text-gray-400 mt-1">Incl. all fees & tax</p>
+                            <p className="text-xs text-gray-400">Total Amount</p>
+                            <p className="text-xl font-bold text-orange-600 tabular-nums">৳{order.totalAmount}</p>
+                            <p className="text-[11px] text-gray-300 mt-0.5">Incl. all fees & tax</p>
                           </div>
-                          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-orange-500 transition" />
+                          <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-orange-500 transition" />
                         </div>
                       </div>
                     </div>
                   </Link>
-                  
+
                   {/* Cancel Order Button - Opens Modal */}
                   {cancelable && timer && (
                     <div className="px-5 pb-5 pt-0 border-t border-gray-50 bg-gray-50/30">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between pt-4">
                         <div className="flex items-center gap-2 text-sm text-amber-600">
                           <AlertCircle className="w-4 h-4" />
                           <span>
@@ -346,7 +336,7 @@ export default function OrdersPage() {
                             openCancelModal(order);
                           }}
                           disabled={cancellingOrderId === order.id}
-                          className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition disabled:opacity-50"
+                          className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-medium transition disabled:opacity-50"
                         >
                           <XCircle className="w-4 h-4" />
                           Cancel Order

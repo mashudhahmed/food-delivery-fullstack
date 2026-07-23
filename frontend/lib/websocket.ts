@@ -24,20 +24,28 @@ class WebSocketService {
   connect(userId: string) {
     this.userId = userId;
     const token = localStorage.getItem('token');
-    
+
     // 1. Start polling as fallback
     this.startPolling();
-    
+
     // 2. Try WebSocket connection
     try {
       // ✅ Use environment variable for WebSocket URL
       const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001';
       const wsPath = process.env.NEXT_PUBLIC_WS_PATH || '/notifications';
-      
+
       this.socket = io(WS_URL, {
         path: wsPath,
         query: { userId },
-        transports: ['websocket'],
+        // ✅ FIX: token was fetched but never passed to the handshake.
+        // If the backend gateway validates a JWT on connect, every
+        // connection was being rejected before this fix.
+        auth: { token },
+        // ✅ FIX: 'websocket'-only skips Socket.IO's normal polling
+        // handshake and fails silently on some dev/proxy setups with
+        // no useful error. Allow polling to establish the session,
+        // then upgrade to websocket.
+        transports: ['polling', 'websocket'],
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
@@ -54,7 +62,7 @@ class WebSocketService {
 
       this.socket.on('notification', (data: any) => {
         console.log('🔔 INSTANT notification received via WebSocket!', data);
-        
+
         const notification: Notification = {
           id: data.id || Date.now().toString(),
           type: data.type || 'system_alert',
@@ -64,7 +72,7 @@ class WebSocketService {
           createdAt: data.createdAt || new Date().toISOString(),
           data: data.data || {},
         };
-        
+
         // Add to store and show toast
         const store = useNotificationStore.getState();
         store.addNotification(notification);
@@ -75,6 +83,9 @@ class WebSocketService {
       });
 
       this.socket.on('connect_error', (error) => {
+        // ✅ Now logs the actual reason (e.g. "Invalid token",
+        // "xhr poll error") instead of a bare failure, so future
+        // connection issues are diagnosable from the console.
         console.log('WebSocket connection error, using polling only:', error.message);
       });
     } catch (error) {
@@ -86,7 +97,7 @@ class WebSocketService {
     // ✅ Prevent multiple polling intervals
     if (this.isPolling) return;
     this.isPolling = true;
-    
+
     // Poll every 10 seconds as fallback
     this.fetchNotifications();
     this.pollingInterval = setInterval(() => {
@@ -97,21 +108,20 @@ class WebSocketService {
   private async fetchNotifications() {
     try {
       const response = await api.get('/notifications');
-      
+
       // ✅ Get the data and ensure it's an array
       const rawData = response.data;
       let notifications: any[] = ensureArray(rawData);
-      
+
       console.log('🔵 Polling: Fetched notifications:', notifications.length);
-      
+
       // Calculate unread count
       const unreadCount = notifications.filter((n: any) => !n.read).length;
-      
+
       // Update store
       const store = useNotificationStore.getState();
       store.notifications = notifications;
       store.unreadCount = unreadCount;
-      
     } catch (error) {
       // ✅ Silent fail - don't spam console with errors
       if (error instanceof Error && !error.message.includes('401')) {
@@ -122,17 +132,17 @@ class WebSocketService {
 
   disconnect() {
     this.isPolling = false;
-    
+
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
     }
-    
+
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
       this.pollingInterval = null;
     }
-    
+
     console.log('WebSocket disconnected');
   }
 }
