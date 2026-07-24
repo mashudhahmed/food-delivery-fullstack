@@ -186,8 +186,8 @@ export class AdminController {
   }
 
   @Get('charts/orders')
-  async getOrderChartData() {
-    return this.adminService.getOrderChartData();
+  async getOrderChartData(@Query('days') days?: string) {
+    return this.adminService.getOrderChartData(days ? parseInt(days, 10) : 30);
   }
 
   @Get('charts/users')
