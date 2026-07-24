@@ -173,7 +173,7 @@ export default function AgentAvailablePage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="relative bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-4">
+        <div className="relative bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-4">
           <div className="flex items-center justify-between mb-3">
             <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-orange-50 text-orange-600">
               <Package className="w-4 h-4" />
@@ -188,21 +188,21 @@ export default function AgentAvailablePage() {
           <p className="text-2xl font-bold text-gray-900 tabular-nums">{availableOrders.length}</p>
           <p className="text-xs text-gray-500 mt-0.5">Available orders</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-4">
           <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-blue-50 text-blue-600 mb-3">
             <Truck className="w-4 h-4" />
           </span>
           <p className="text-2xl font-bold text-gray-900 tabular-nums">৳50</p>
           <p className="text-xs text-gray-500 mt-0.5">Avg delivery fee</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-4">
           <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 mb-3">
             <Navigation className="w-4 h-4" />
           </span>
           <p className="text-2xl font-bold text-gray-900 tabular-nums">৳{availableOrders.length * 50}</p>
           <p className="text-xs text-gray-500 mt-0.5">Potential earnings</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-4">
           <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-purple-50 text-purple-600 mb-3">
             <Clock className="w-4 h-4" />
           </span>
@@ -225,7 +225,7 @@ export default function AgentAvailablePage() {
 
       {/* Orders Cards */}
       {filteredOrders.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02]">
+        <div className="text-center py-16 bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2">
           <Package className="w-12 h-12 text-gray-200 mx-auto mb-3" />
           <p className="text-sm font-medium text-gray-600">No available orders</p>
           <p className="text-xs text-gray-400 mt-1 mb-4">Check back later for new delivery opportunities.</p>
@@ -242,7 +242,7 @@ export default function AgentAvailablePage() {
           {filteredOrders.map((order) => (
             <div
               key={order.id}
-              className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] overflow-hidden hover:shadow-md hover:shadow-black/[0.04] transition-shadow"
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 overflow-hidden hover:shadow-md hover:shadow-black/4 transition-shadow"
             >
               <div className="p-5">
                 <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">

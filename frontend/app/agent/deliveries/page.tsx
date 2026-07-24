@@ -238,7 +238,7 @@ export default function AgentDeliveriesPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-4">
           <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-blue-50 text-blue-600 mb-3">
             <Navigation className="w-4 h-4" />
           </span>
@@ -247,21 +247,21 @@ export default function AgentDeliveriesPage() {
           </p>
           <p className="text-xs text-gray-500 mt-0.5">Active deliveries</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-4">
           <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 mb-3">
             <CheckCircle className="w-4 h-4" />
           </span>
           <p className="text-2xl font-bold text-gray-900 tabular-nums">{statusCounts.delivered}</p>
           <p className="text-xs text-gray-500 mt-0.5">Completed</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-4">
           <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-orange-50 text-orange-600 mb-3">
             <DollarSign className="w-4 h-4" />
           </span>
           <p className="text-2xl font-bold text-gray-900 tabular-nums">৳{formatCurrency(statusCounts.totalEarnings)}</p>
           <p className="text-xs text-gray-500 mt-0.5">Total earnings</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-4">
           <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-purple-50 text-purple-600 mb-3">
             <Star className="w-4 h-4" />
           </span>
@@ -300,7 +300,7 @@ export default function AgentDeliveriesPage() {
 
       {/* Deliveries Cards */}
       {filteredOrders.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02]">
+        <div className="text-center py-16 bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2">
           <Package className="w-12 h-12 text-gray-200 mx-auto mb-3" />
           <p className="text-sm font-medium text-gray-600">No deliveries found</p>
           <p className="text-xs text-gray-400 mt-1 mb-4">
@@ -326,7 +326,7 @@ export default function AgentDeliveriesPage() {
             return (
               <div
                 key={order.id}
-                className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] overflow-hidden hover:shadow-md hover:shadow-black/[0.04] transition-shadow"
+                className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 overflow-hidden hover:shadow-md hover:shadow-black/4 transition-shadow"
               >
                 <div className="p-5">
                   <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">

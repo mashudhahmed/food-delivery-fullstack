@@ -98,7 +98,7 @@ export default function AgentEarningsPage() {
 
       {/* Earnings Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-5">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-5">
           <div className="flex items-center justify-between mb-4">
             <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600">
               <DollarSign className="w-5 h-5" />
@@ -107,7 +107,7 @@ export default function AgentEarningsPage() {
           <p className="text-2xl font-bold text-gray-900 tabular-nums">৳{totalEarnings}</p>
           <p className="text-sm text-gray-400 mt-1">Total Earnings</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-5">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-5">
           <div className="flex items-center justify-between mb-4">
             <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 text-blue-600">
               <TrendingUp className="w-5 h-5" />
@@ -116,7 +116,7 @@ export default function AgentEarningsPage() {
           <p className="text-2xl font-bold text-gray-900 tabular-nums">{totalDeliveries}</p>
           <p className="text-sm text-gray-400 mt-1">Total Deliveries</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-5">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-5">
           <div className="flex items-center justify-between mb-4">
             <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-orange-50 text-orange-600">
               <DollarSign className="w-5 h-5" />
@@ -143,7 +143,7 @@ export default function AgentEarningsPage() {
       </div>
 
       {/* Earnings Chart */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-6 mb-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-6 mb-6">
         <h3 className="font-semibold text-gray-800 mb-4">Earnings Breakdown</h3>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={earningsData}>
@@ -160,7 +160,7 @@ export default function AgentEarningsPage() {
       </div>
 
       {/* Earnings History Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
           <h3 className="font-semibold text-gray-800">Earnings History</h3>
           <p className="text-sm text-gray-500 mt-1">Recent delivery earnings</p>
