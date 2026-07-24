@@ -3,23 +3,24 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { auth } from '@/lib/auth';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Store, 
-  Package, 
+import {
+  LayoutDashboard,
+  Users,
+  Store,
+  Package,
   Truck,
   ClipboardList,
   BarChart3,
-  Shield,
   Menu,
-  X
+  X,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 
-// Navigation ONLY - NO settings, NO logout in sidebar
+// Navigation ONLY - the logo, portal title, notifications, profile menu and
+// logout all live in the global Navbar's "dashboard" bar (Navbar.tsx,
+// isDashboardPage branch) — this sidebar used to duplicate that branding
+// with its own logo header + bottom user-avatar block, which is why it's
+// gone from here now. Keeping it in exactly one place.
 const navItems = [
   { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, path: '/admin/dashboard' },
   { id: 'applications', label: 'Applications', icon: ClipboardList, path: '/admin/applications' },
@@ -29,6 +30,11 @@ const navItems = [
   { id: 'delivery-agents', label: 'Delivery Agents', icon: Truck, path: '/admin/delivery-agents' },
   { id: 'analytics', label: 'Analytics', icon: BarChart3, path: '/admin/analytics' },
 ];
+
+// Height of the global dashboard Navbar (Navbar.tsx uses h-20 = 5rem in its
+// isDashboardPage branch). The sidebar and its mobile toggle are offset by
+// this so they sit below it instead of overlapping it.
+const NAVBAR_HEIGHT = '5rem';
 
 export default function AdminLayout({
   children,
@@ -51,59 +57,55 @@ export default function AdminLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile Sidebar Toggle */}
+      {/* Mobile Sidebar Toggle — offset below the Navbar instead of top-4,
+          which used to sit inside the Navbar's own header band */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md"
+        style={{ top: `calc(${NAVBAR_HEIGHT} + 1rem)` }}
+        className="lg:hidden fixed left-4 z-40 p-2.5 bg-white rounded-xl shadow-md shadow-black/5 border border-gray-100 active:scale-95 transition-transform"
+        aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
       >
-        {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        {sidebarOpen ? <X className="w-5 h-5 text-gray-700" /> : <Menu className="w-5 h-5 text-gray-700" />}
       </button>
 
-      {/* Sidebar - Navigation ONLY (NO settings, NO logout) */}
-      <aside className={`fixed top-0 left-0 h-full bg-white shadow-xl z-40 transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-0 lg:w-20'} overflow-hidden`}>
-        {/* Sidebar Header: Logo + Brand */}
-        <div className="p-5 border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            {/* QuickBite Logo - No orange box, just the image */}
-            <div className="shrink-0">
-              <Image 
-                src="/logo.png" 
-                alt="QuickBite" 
-                width={40} 
-                height={40} 
-                className="w-10 h-10 object-contain"
-                priority
-              />
-            </div>
-            {sidebarOpen && (
-              <div className="flex flex-col">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-gray-800 text-xl">QuickBite</span>
-                  <Shield className="w-4 h-4 text-orange-500" />
-                </div>
-                <p className="text-xs text-gray-500 mt-0.5">Admin Panel</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Navigation Links ONLY - NO Settings or Logout here */}
-        <nav className="p-4 space-y-1">
+      {/* Sidebar - Navigation ONLY. Starts below the global Navbar
+          (top: NAVBAR_HEIGHT, not top-0) so it no longer overlaps it. */}
+      <aside
+        style={{ top: NAVBAR_HEIGHT, height: `calc(100vh - ${NAVBAR_HEIGHT})` }}
+        className={`fixed left-0 bg-white border-r border-gray-100 z-30 transition-[width] duration-300 ease-out flex flex-col ${
+          sidebarOpen ? 'w-64' : 'w-0 lg:w-20'
+        } overflow-hidden`}
+      >
+        <nav className="p-3 space-y-0.5 flex-1 overflow-y-auto">
+          {sidebarOpen && (
+            <p className="px-3 pt-3 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+              Menu
+            </p>
+          )}
           {navItems.map((item) => {
             const isActive = pathname === item.path;
             return (
               <Link
                 key={item.id}
                 href={item.path}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+                className={`group relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 ${
                   isActive
-                    ? 'bg-orange-50 text-orange-600 border-r-2 border-orange-500'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-purple-50 text-purple-600'
+                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <item.icon className="w-5 h-5 shrink-0" />
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-purple-500" />
+                )}
+                <span
+                  className={`flex items-center justify-center w-9 h-9 rounded-lg shrink-0 transition-colors ${
+                    isActive ? 'bg-purple-500 text-white shadow-sm shadow-purple-200' : 'bg-gray-100 text-gray-500 group-hover:bg-white group-hover:text-gray-700'
+                  }`}
+                >
+                  <item.icon className="w-4.5 h-4.5" />
+                </span>
                 {sidebarOpen && (
-                  <span className="flex-1 text-left text-sm font-medium">
+                  <span className="flex-1 text-left text-sm font-medium truncate">
                     {item.label}
                   </span>
                 )}
@@ -111,15 +113,15 @@ export default function AdminLayout({
             );
           })}
         </nav>
-
-        {/* NO Logout button here - removed entirely. Logout is only in top navbar profile dropdown */}
       </aside>
 
       {/* Main Content */}
-      <main className={`transition-all duration-300 min-h-screen ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'}`}>
-        <div className="p-6">
-          {children}
-        </div>
+      <main
+        className={`transition-[margin] duration-300 ease-out min-h-screen ${
+          sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
+        }`}
+      >
+        <div className="p-6">{children}</div>
       </main>
     </div>
   );
