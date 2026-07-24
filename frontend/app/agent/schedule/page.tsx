@@ -108,7 +108,7 @@ export default function AgentSchedulePage() {
       </div>
 
       {/* Calendar */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 overflow-hidden mb-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] overflow-hidden mb-6">
         <div className="flex justify-between items-center px-5 py-4 border-b border-gray-100">
           <button onClick={prevMonth} className="p-2 hover:bg-gray-50 rounded-lg transition">
             <ChevronLeft className="w-4 h-4 text-gray-500" />
@@ -161,7 +161,7 @@ export default function AgentSchedulePage() {
       </div>
 
       {/* Upcoming Shifts */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
           <h3 className="font-semibold text-gray-800">Upcoming Shifts</h3>
           <p className="text-sm text-gray-500 mt-1">Your scheduled delivery times</p>

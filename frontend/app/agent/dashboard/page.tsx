@@ -38,7 +38,7 @@ interface DashboardStats {
 }
 
 const StatCard = ({ title, value, icon: Icon, trend, tint }: any) => (
-  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-5 hover:shadow-md hover:shadow-black/4 transition-shadow">
+  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-5 hover:shadow-md hover:shadow-black/[0.04] transition-shadow">
     <div className="flex items-center justify-between mb-4">
       <span className={`flex items-center justify-center w-10 h-10 rounded-xl ${tint}`}>
         <Icon className="w-5 h-5" />
@@ -181,7 +181,7 @@ export default function AgentDashboardPage() {
       {/* Secondary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {secondaryTiles.map((tile) => (
-          <div key={tile.label} className="bg-white rounded-xl border border-gray-100 shadow-sm shadow-black/2 p-3.5">
+          <div key={tile.label} className="bg-white rounded-xl border border-gray-100 shadow-sm shadow-black/[0.02] p-3.5">
             <p className="text-xs text-gray-400">{tile.label}</p>
             <p className={`text-xl font-bold tabular-nums mt-0.5 ${tile.accent}`}>{tile.value}</p>
           </div>
@@ -189,7 +189,7 @@ export default function AgentDashboardPage() {
       </div>
 
       {/* Chart */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-6">
         <h3 className="font-semibold text-gray-800 mb-4">Earnings Overview (Last 7 Days)</h3>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={earningsData}>
