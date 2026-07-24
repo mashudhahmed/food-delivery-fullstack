@@ -344,19 +344,19 @@ function OwnerMenuContent() {
       {/* Quick stats */}
       {selectedRestaurant && menuItems.length > 0 && (
         <div className="flex flex-wrap gap-3 mb-6">
-          <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm shadow-black/[0.02]">
+          <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm shadow-black/2">
             <MenuIcon className="w-4 h-4 text-gray-400" />
             <span className="text-sm text-gray-600">
               <span className="font-semibold text-gray-900">{menuItems.length}</span> items
             </span>
           </div>
-          <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm shadow-black/[0.02]">
+          <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm shadow-black/2">
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
             <span className="text-sm text-gray-600">
               <span className="font-semibold text-gray-900">{availableCount}</span> available
             </span>
           </div>
-          <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm shadow-black/[0.02]">
+          <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm shadow-black/2">
             <span className="w-2 h-2 rounded-full bg-gray-300" />
             <span className="text-sm text-gray-600">
               <span className="font-semibold text-gray-900">{menuItems.length - availableCount}</span> unavailable
@@ -417,13 +417,13 @@ function OwnerMenuContent() {
           {filteredItems.map((item) => (
             <div
               key={item.id}
-              className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] overflow-hidden hover:shadow-md hover:shadow-black/[0.04] transition-shadow"
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 overflow-hidden hover:shadow-md hover:shadow-black/4 transition-shadow"
             >
               <div className="relative h-40 bg-gray-100">
                 {item.imageUrl ? (
                   <Image src={item.imageUrl} alt={item.name} fill className="object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-4xl bg-gradient-to-br from-gray-50 to-gray-100">
+                  <div className="w-full h-full flex items-center justify-center text-4xl bg-linear-to-br from-gray-50 to-gray-100">
                     🍽️
                   </div>
                 )}
@@ -475,7 +475,7 @@ function OwnerMenuContent() {
       )}
 
       {selectedRestaurant && filteredItems.length === 0 && (
-        <div className="text-center py-16 bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02]">
+        <div className="text-center py-16 bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2">
           <MenuIcon className="w-12 h-12 text-gray-200 mx-auto mb-3" />
           <p className="text-sm font-medium text-gray-600">No menu items found</p>
           <p className="text-xs text-gray-400 mt-1 mb-4">Add a dish to start filling out this restaurant's menu.</p>

@@ -380,7 +380,7 @@ export default function OwnerAnalyticsPage() {
         {statCards.map((stat) => (
           <div
             key={stat.label}
-            className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-5"
+            className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-5"
           >
             <div className="flex items-center justify-between mb-4">
               <span className={`flex items-center justify-center w-10 h-10 rounded-xl ${stat.tint}`}>
@@ -404,7 +404,7 @@ export default function OwnerAnalyticsPage() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-6">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-6">
           <h3 className="font-semibold text-gray-800 mb-4">Revenue & Orders Trend</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={analytics.revenueTrend}>
@@ -428,7 +428,7 @@ export default function OwnerAnalyticsPage() {
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-6">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-6">
           <h3 className="font-semibold text-gray-800 mb-4">Popular Items by Category</h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
@@ -456,7 +456,7 @@ export default function OwnerAnalyticsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-6">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-6">
           <h3 className="font-semibold text-gray-800 mb-4">Order Status Distribution</h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
@@ -482,7 +482,7 @@ export default function OwnerAnalyticsPage() {
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-6">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-6">
           <h3 className="font-semibold text-gray-800 mb-4">Top Performing Items</h3>
           <div className="space-y-2">
             {analytics.popularItems.map((item, idx) => (

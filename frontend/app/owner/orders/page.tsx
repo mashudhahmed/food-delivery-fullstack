@@ -234,7 +234,7 @@ function OwnerOrdersContent() {
         {heroStats.map((stat) => (
           <div
             key={stat.id}
-            className="relative bg-white rounded-2xl border border-gray-100 p-4 shadow-sm shadow-black/[0.02]"
+            className="relative bg-white rounded-2xl border border-gray-100 p-4 shadow-sm shadow-black/2"
           >
             <div className="flex items-center justify-between mb-3">
               <span className={`flex items-center justify-center w-9 h-9 rounded-xl ${stat.meta.color}`}>
@@ -324,7 +324,7 @@ function OwnerOrdersContent() {
       </div>
 
       {/* Orders Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50/80 border-b border-gray-100">

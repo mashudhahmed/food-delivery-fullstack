@@ -105,7 +105,7 @@ const StatCard = ({ title, value, icon: Icon, trend, tint }: any) => {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-5 hover:shadow-md hover:shadow-black/[0.04] transition-shadow">
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-5 hover:shadow-md hover:shadow-black/4 transition-shadow">
       <div className="flex items-center justify-between mb-4">
         <span className={`flex items-center justify-center w-10 h-10 rounded-xl ${tint}`}>
           <Icon className="w-5 h-5" />
@@ -379,7 +379,7 @@ export default function OwnerDashboardPage() {
       {/* Secondary Stats - Order Status Breakdown */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
         {statusTiles.map((tile) => (
-          <div key={tile.key} className="bg-white rounded-xl border border-gray-100 shadow-sm shadow-black/[0.02] p-3 text-center">
+          <div key={tile.key} className="bg-white rounded-xl border border-gray-100 shadow-sm shadow-black/2 p-3 text-center">
             <div className="flex items-center justify-center gap-1.5 mb-1">
               {tile.meta && <span className={`w-1.5 h-1.5 rounded-full ${tile.meta.dot}`} />}
               <p className="text-xs text-gray-400">{tile.label}</p>
@@ -391,7 +391,7 @@ export default function OwnerDashboardPage() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-6">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-6">
           <h3 className="font-semibold text-gray-800 mb-4">Revenue & Orders Trend</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={revenueData}>
@@ -407,7 +407,7 @@ export default function OwnerDashboardPage() {
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] p-6">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-6">
           <h3 className="font-semibold text-gray-800 mb-4">Order Status Trends</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={statusData}>
@@ -425,7 +425,7 @@ export default function OwnerDashboardPage() {
       </div>
 
       {/* Recent Orders Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
           <h3 className="font-semibold text-gray-800">Recent Orders</h3>
           <p className="text-sm text-gray-500 mt-1">Track and manage incoming orders</p>

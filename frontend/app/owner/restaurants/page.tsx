@@ -226,19 +226,19 @@ export default function OwnerRestaurantsPage() {
       {/* Quick stats */}
       {safeRestaurants.length > 0 && (
         <div className="flex flex-wrap gap-3 mb-6">
-          <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm shadow-black/[0.02]">
+          <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm shadow-black/2">
             <Store className="w-4 h-4 text-gray-400" />
             <span className="text-sm text-gray-600">
               <span className="font-semibold text-gray-900">{safeRestaurants.length}</span> total
             </span>
           </div>
-          <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm shadow-black/[0.02]">
+          <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm shadow-black/2">
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             <span className="text-sm text-gray-600">
               <span className="font-semibold text-gray-900">{openCount}</span> open
             </span>
           </div>
-          <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm shadow-black/[0.02]">
+          <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm shadow-black/2">
             <PauseCircle className="w-4 h-4 text-gray-400" />
             <span className="text-sm text-gray-600">
               <span className="font-semibold text-gray-900">{closedCount}</span> closed
@@ -261,7 +261,7 @@ export default function OwnerRestaurantsPage() {
 
       {/* Restaurants Grid */}
       {filteredRestaurants.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02]">
+        <div className="text-center py-16 bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2">
           <Store className="w-12 h-12 text-gray-200 mx-auto mb-3" />
           <p className="text-sm font-medium text-gray-600">
             {searchTerm ? 'No restaurants found matching your search' : 'No restaurants yet'}
@@ -283,13 +283,13 @@ export default function OwnerRestaurantsPage() {
           {filteredRestaurants.map((restaurant) => (
             <div
               key={restaurant.id}
-              className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/[0.02] overflow-hidden hover:shadow-md hover:shadow-black/[0.04] transition-shadow"
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 overflow-hidden hover:shadow-md hover:shadow-black/4 transition-shadow"
             >
               <div className="relative h-44 bg-gray-100">
                 {restaurant.imageUrl ? (
                   <Image src={restaurant.imageUrl} alt={restaurant.name} fill className="object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-6xl bg-gradient-to-br from-gray-50 to-gray-100">
+                  <div className="w-full h-full flex items-center justify-center text-6xl bg-linear-to-br from-gray-50 to-gray-100">
                     🍔
                   </div>
                 )}

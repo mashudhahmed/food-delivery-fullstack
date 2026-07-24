@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { auth } from '@/lib/auth';
 import {
   LayoutDashboard,
@@ -15,7 +14,11 @@ import {
   X,
 } from 'lucide-react';
 
-// Navigation ONLY for Owner - NO settings, NO logout in sidebar
+// Navigation ONLY - the logo, portal title, notifications, profile menu and
+// logout all live in the global Navbar's "dashboard" bar (Navbar.tsx,
+// isDashboardPage branch) — this sidebar used to duplicate that branding
+// with its own logo header + bottom user-avatar block, which is why it's
+// gone from here now. Keeping it in exactly one place.
 const navItems = [
   { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, path: '/owner/dashboard' },
   { id: 'restaurants', label: 'My Restaurants', icon: Store, path: '/owner/restaurants' },
@@ -23,6 +26,11 @@ const navItems = [
   { id: 'orders', label: 'Orders', icon: Package, path: '/owner/orders' },
   { id: 'analytics', label: 'Analytics', icon: BarChart3, path: '/owner/analytics' },
 ];
+
+// Height of the global dashboard Navbar (Navbar.tsx uses h-20 = 5rem in its
+// isDashboardPage branch). The sidebar and its mobile toggle are offset by
+// this so they sit below it instead of overlapping it.
+const NAVBAR_HEIGHT = '5rem';
 
 export default function OwnerLayout({
   children,
@@ -49,69 +57,31 @@ export default function OwnerLayout({
     setUser(currentUser);
   }, [router]);
 
-  const initials = (user?.name || 'Owner')
-    .split(' ')
-    .map((p: string) => p[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile Sidebar Toggle */}
+      {/* Mobile Sidebar Toggle — offset below the Navbar instead of top-4,
+          which used to sit inside the Navbar's own header band */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-white rounded-xl shadow-md shadow-black/5 border border-gray-100 active:scale-95 transition-transform"
+        style={{ top: `calc(${NAVBAR_HEIGHT} + 1rem)` }}
+        className="lg:hidden fixed left-4 z-40 p-2.5 bg-white rounded-xl shadow-md shadow-black/5 border border-gray-100 active:scale-95 transition-transform"
         aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
       >
         {sidebarOpen ? <X className="w-5 h-5 text-gray-700" /> : <MenuIcon className="w-5 h-5 text-gray-700" />}
       </button>
 
-      {/* Sidebar - Navigation ONLY (NO settings, NO logout) */}
+      {/* Sidebar - Navigation ONLY (NO settings, NO logout). Starts below the
+          global Navbar (top: NAVBAR_HEIGHT, not top-0) so it no longer
+          overlaps it. */}
       <aside
-        className={`fixed top-0 left-0 h-full bg-white border-r border-gray-100 z-40 transition-[width] duration-300 ease-out flex flex-col ${
+        style={{ top: NAVBAR_HEIGHT, height: `calc(100vh - ${NAVBAR_HEIGHT})` }}
+        className={`fixed left-0 bg-white border-r border-gray-100 z-30 transition-[width] duration-300 ease-out flex flex-col ${
           sidebarOpen ? 'w-64' : 'w-0 lg:w-20'
         } overflow-hidden`}
       >
-        {/* Sidebar Header: Logo + Brand */}
-        <div className="p-5 border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="shrink-0 relative">
-              <Image
-                src="/logo.png"
-                alt="QuickBite"
-                width={40}
-                height={40}
-                className="w-10 h-10 object-contain"
-                priority
-              />
-              {/* live status pulse */}
-              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-white flex items-center justify-center">
-                <span className="relative flex h-2 h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-              </span>
-            </div>
-            {sidebarOpen && (
-              <div className="flex flex-col min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-gray-800 text-xl tracking-tight truncate">QuickBite</span>
-                </div>
-                <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1.5">
-                  Owner Portal
-                  <span className="w-1 h-1 rounded-full bg-gray-300" />
-                  <span className="text-emerald-600 font-medium">Live</span>
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Navigation Links ONLY - NO Settings or Logout here */}
         <nav className="p-3 space-y-0.5 flex-1 overflow-y-auto">
           {sidebarOpen && (
-            <p className="px-3 pt-2 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+            <p className="px-3 pt-3 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
               Menu
             </p>
           )}
@@ -135,7 +105,7 @@ export default function OwnerLayout({
                     isActive ? 'bg-orange-500 text-white shadow-sm shadow-orange-200' : 'bg-gray-100 text-gray-500 group-hover:bg-white group-hover:text-gray-700'
                   }`}
                 >
-                  <item.icon className="w-[18px] h-[18px]" />
+                  <item.icon className="w-4.5 h-4.5" />
                 </span>
                 {sidebarOpen && (
                   <span className="flex-1 text-left text-sm font-medium truncate">
@@ -146,21 +116,6 @@ export default function OwnerLayout({
             );
           })}
         </nav>
-
-        {/* Quiet profile footer - display only, NO logout here by design */}
-        <div className="p-3 border-t border-gray-100">
-          <div className={`flex items-center gap-3 rounded-xl px-2 py-2 ${sidebarOpen ? '' : 'justify-center'}`}>
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 text-white text-xs font-semibold flex items-center justify-center shrink-0">
-              {initials}
-            </div>
-            {sidebarOpen && (
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-800 truncate">{user?.name || 'Owner'}</p>
-                <p className="text-xs text-gray-400 truncate">{user?.email || 'Restaurant Owner'}</p>
-              </div>
-            )}
-          </div>
-        </div>
       </aside>
 
       {/* Main Content */}
