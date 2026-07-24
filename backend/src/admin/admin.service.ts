@@ -19,6 +19,39 @@ import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AdminService {
+  // ✅ In-memory notification store so mark-as-read / send actually persist
+  // for the life of the process (previously every call returned the same
+  // hardcoded mock array and writes were no-ops).
+  // NOTE: this resets on server restart and isn't shared across instances
+  // in a multi-process deployment — for full durability this should move
+  // to a Notification entity/table. Flagging this as a follow-up.
+  private notifications: NotificationDto[] = [
+    {
+      id: '1',
+      type: 'warning',
+      title: 'Low Stock Alert',
+      message: 'Restaurant "Pizza Palace" is running low on ingredients',
+      timestamp: new Date(),
+      read: false,
+    },
+    {
+      id: '2',
+      type: 'success',
+      title: 'New Order',
+      message: 'Order #ORD-1234 has been placed successfully',
+      timestamp: new Date(Date.now() - 3600000),
+      read: false,
+    },
+    {
+      id: '3',
+      type: 'info',
+      title: 'New User Registration',
+      message: '3 new users registered in the last hour',
+      timestamp: new Date(Date.now() - 7200000),
+      read: true,
+    },
+  ];
+
  // Add this method to admin.service.ts (around line 450)
 
 async verifyRestaurant(restaurantId: string, verified: boolean) {
@@ -762,11 +795,12 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
     return last6Months;
   }
 
-  async getOrderChartData(): Promise<OrderChartDataDto[]> {
+  async getOrderChartData(days: number = 30): Promise<OrderChartDataDto[]> {
     const last30Days = [];
     const now = new Date();
+    const rangeDays = Number.isFinite(days) && days > 0 ? Math.min(days, 365) : 30;
 
-    for (let i = 29; i >= 0; i--) {
+    for (let i = rangeDays - 1; i >= 0; i--) {
       const date = new Date(now);
       date.setDate(now.getDate() - i);
       date.setHours(0, 0, 0, 0);
@@ -841,41 +875,32 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
   //notifications for low stock, new orders, pending approvals, etc.
 
   async getNotifications(): Promise<NotificationDto[]> {
-    const mockNotifications: NotificationDto[] = [
-      {
-        id: '1',
-        type: 'warning',
-        title: 'Low Stock Alert',
-        message: 'Restaurant "Pizza Palace" is running low on ingredients',
-        timestamp: new Date(),
-        read: false,
-      },
-      {
-        id: '2',
-        type: 'success',
-        title: 'New Order',
-        message: 'Order #ORD-1234 has been placed successfully',
-        timestamp: new Date(Date.now() - 3600000),
-        read: false,
-      },
-      {
-        id: '3',
-        type: 'info',
-        title: 'New User Registration',
-        message: '3 new users registered in the last hour',
-        timestamp: new Date(Date.now() - 7200000),
-        read: true,
-      },
-    ];
-
-    return mockNotifications;
+    // ✅ Return newest first from the persistent store
+    return [...this.notifications].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+    );
   }
 
-  async sendNotification(notification: any) {
-    return { success: true, message: 'Notification sent successfully' };
+  async sendNotification(notification: Partial<NotificationDto>) {
+    const newNotification: NotificationDto = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type: notification.type || 'info',
+      title: notification.title || 'Notification',
+      message: notification.message || '',
+      timestamp: new Date(),
+      read: false,
+      userId: notification.userId,
+    };
+    this.notifications.unshift(newNotification);
+    return { success: true, message: 'Notification sent successfully', notification: newNotification };
   }
 
   async markNotificationAsRead(notificationId: string) {
+    const notification = this.notifications.find(n => n.id === notificationId);
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+    notification.read = true;
     return { success: true, message: 'Notification marked as read' };
   }
 
@@ -899,28 +924,62 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
         const approvals = await this.getPendingApprovals();
         data = approvals.users;
         break;
+      // ✅ 'delivery-agents' is what the frontend actually sends (URL-style slug);
+      // keep 'agents' too for backwards compatibility with any existing callers
       case 'agents':
+      case 'delivery-agents':
         data = await this.getDeliveryAgents();
         break;
+      // ✅ Previously unhandled — frontend Analytics page calls this and always
+      // got a BadRequestException. Combine the three chart datasets into one export.
+      case 'analytics': {
+        const [revenue, orders30, users6mo] = await Promise.all([
+          this.getRevenueChartData(),
+          this.getOrderChartData(30),
+          this.getUserChartData(),
+        ]);
+        data = [
+          ...revenue.map(r => ({ section: 'revenue_by_month', ...r })),
+          ...orders30.map(o => ({ section: 'orders_last_30_days', ...o })),
+          ...users6mo.map(u => ({ section: 'user_growth_by_month', ...u })),
+        ];
+        break;
+      }
       default:
-        throw new BadRequestException('Invalid export type');
+        throw new BadRequestException(
+          `Invalid export type "${type}". Valid types: users, orders, restaurants, applications, delivery-agents, analytics`,
+        );
     }
 
     if (data.length === 0) {
       return 'No data available';
     }
 
-    const headers = Object.keys(data[0]);
+    // ✅ Proper CSV escaping (quote fields containing commas/quotes/newlines)
+    // instead of silently mangling data by replacing commas with semicolons.
+    const escapeCsvField = (value: any): string => {
+      if (value === undefined || value === null) return '';
+      const str = typeof value === 'object' ? JSON.stringify(value) : String(value);
+      if (/[",\n]/.test(str)) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    // ✅ Union of keys across all rows, since 'analytics' mixes shapes per section.
+    // (Deliberately not using Array.from(new Set(...)) here — under some tsconfig
+    // `lib` settings without es2015.iterable, that degrades to unknown[] and breaks
+    // indexing below with TS2538.)
+    const headers: string[] = [];
+    for (const row of data) {
+      for (const key of Object.keys(row)) {
+        if (!headers.includes(key)) headers.push(key);
+      }
+    }
+
     const csvRows = [
       headers.join(','),
-      ...data.map(row => headers.map(header => {
-        const value = row[header];
-        if (value === undefined || value === null) return '';
-        if (typeof value === 'object') {
-          return JSON.stringify(value).replace(/,/g, ';');
-        }
-        return String(value).replace(/,/g, ';');
-      }).join(',')),
+      ...data.map((row: Record<string, any>) => headers.map(header => escapeCsvField(row[header])).join(',')),
     ];
 
     return csvRows.join('\n');
