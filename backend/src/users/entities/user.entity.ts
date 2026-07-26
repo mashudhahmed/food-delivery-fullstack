@@ -1,8 +1,16 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+} from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { Restaurant } from '../../restaurants/entities/restaurant.entity';
 import { Order } from '../../orders/entities/order.entity';
 import { Review } from '../../reviews/entities/review.entity';
+import { RefreshToken } from '../../auth/entities/refresh-token.entity';
 
 export enum UserRole {
   CUSTOMER = 'customer',
@@ -12,10 +20,10 @@ export enum UserRole {
 }
 
 export enum UserStatus {
-  PENDING = 'pending',      // Waiting for admin approval
-  APPROVED = 'approved',    // Approved
-  REJECTED = 'rejected',    // Rejected
-  SUSPENDED = 'suspended',  // Temporarily suspended
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+  SUSPENDED = 'suspended',
 }
 
 @Entity('users')
@@ -48,6 +56,10 @@ export class User {
     default: UserStatus.APPROVED,
   })
   status: UserStatus;
+
+  // Soft delete flag
+  @Column({ default: false })
+  isDeleted: boolean;
 
   // For restaurant owners
   @Column({ nullable: true })
@@ -92,11 +104,15 @@ export class User {
   updatedAt: Date;
 
   @Column({ nullable: true })
-resetPasswordToken: string;
+  resetPasswordToken: string;
 
-@Column({ nullable: true })
-resetPasswordExpires: Date;
+  @Column({ nullable: true })
+  resetPasswordExpires: Date;
 
+  @Column({ nullable: true })
+  lastLogin: Date;
+
+  // Relations
   @OneToMany(() => Restaurant, (restaurant) => restaurant.owner)
   restaurants: Restaurant[];
 
@@ -109,7 +125,6 @@ resetPasswordExpires: Date;
   @OneToMany(() => Review, (review) => review.customer)
   reviews: Review[];
 
-  // Add this line inside the User entity class
-@Column({ nullable: true })
-lastLogin: Date;
+  @OneToMany(() => RefreshToken, (rt) => rt.user)
+  refreshTokens: RefreshToken[];
 }

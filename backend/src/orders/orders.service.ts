@@ -1,6 +1,11 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, DataSource } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -9,55 +14,82 @@ import { RestaurantsService } from '../restaurants/restaurants.service';
 import { MailService } from '../mail/mail.service';
 import { UserRole } from '../users/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { assertCanTransition } from './order-status.machine';
 
 @Injectable()
 export class OrdersService {
   constructor(
     @InjectRepository(Order)
-    private orderRepository: Repository<Order>,
+    private readonly orderRepository: Repository<Order>,
     @InjectRepository(OrderItem)
-    private orderItemRepository: Repository<OrderItem>,
-    private menuService: MenuService,
-    private restaurantsService: RestaurantsService,
-    private mailService: MailService,
-    private notificationsService: NotificationsService,
+    private readonly orderItemRepository: Repository<OrderItem>,
+    private readonly menuService: MenuService,
+    private readonly restaurantsService: RestaurantsService,
+    private readonly mailService: MailService,
+    private readonly notificationsService: NotificationsService,
+    private readonly dataSource: DataSource, // ← needed for transactions
   ) {}
 
+  // ─────────────────────────────────────────────
+  // CREATE ORDER (fully transactional)
+  // ─────────────────────────────────────────────
   async createOrder(customerId: string, createOrderDto: CreateOrderDto) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     try {
-      const restaurant = await this.restaurantsService.findOne(createOrderDto.restaurantId);
+      // 1. Validate restaurant
+      const restaurant = await this.restaurantsService.findOne(
+        createOrderDto.restaurantId,
+      );
+
       if (!restaurant.isOpen) {
         throw new BadRequestException('Restaurant is currently closed');
       }
 
+      if (restaurant.isDeleted) {
+        throw new BadRequestException('Restaurant is no longer available');
+      }
+
+      // 2. Validate & calculate items
       let subtotal = 0;
-      const orderItems = [];
+      const orderItemsData: Partial<OrderItem>[] = [];
 
       for (const item of createOrderDto.items) {
         const menuItem = await this.menuService.getMenuItem(item.menuItemId);
 
         if (!menuItem.isAvailable) {
-          throw new BadRequestException(`Menu item ${menuItem.name} is not available`);
+          throw new BadRequestException(
+            `Menu item "${menuItem.name}" is not available`,
+          );
         }
 
         if (menuItem.restaurantId !== createOrderDto.restaurantId) {
-          throw new BadRequestException(`Menu item ${menuItem.name} does not belong to this restaurant`);
+          throw new BadRequestException(
+            `Menu item "${menuItem.name}" does not belong to this restaurant`,
+          );
         }
 
-        const itemTotal = menuItem.price * item.quantity;
+        const itemTotal = Number(menuItem.price) * item.quantity;
         subtotal += itemTotal;
 
-        orderItems.push({
+        orderItemsData.push({
           menuItemId: item.menuItemId,
           quantity: item.quantity,
           unitPrice: menuItem.price,
         });
       }
 
+      if (orderItemsData.length === 0) {
+        throw new BadRequestException('Order must contain at least one item');
+      }
+
       const deliveryFee = 50;
       const platformFee = 20;
       const totalAmount = subtotal + deliveryFee + platformFee;
 
+      // 3. Create Order
       const order = this.orderRepository.create({
         customerId,
         restaurantId: createOrderDto.restaurantId,
@@ -74,16 +106,21 @@ export class OrdersService {
         paymentMethod: createOrderDto.paymentMethod || null,
       });
 
-      const savedOrder = await this.orderRepository.save(order);
+      const savedOrder = await queryRunner.manager.save(order);
 
-      for (const item of orderItems) {
+      // 4. Create Order Items
+      for (const itemData of orderItemsData) {
         const orderItem = this.orderItemRepository.create({
-          ...item,
+          ...itemData,
           orderId: savedOrder.id,
         });
-        await this.orderItemRepository.save(orderItem);
+        await queryRunner.manager.save(orderItem);
       }
 
+      // 5. Commit transaction
+      await queryRunner.commitTransaction();
+
+      // 6. Load complete order (after commit)
       const completeOrder = await this.orderRepository.findOne({
         where: { id: savedOrder.id },
         relations: ['customer', 'restaurant', 'items', 'items.menuItem'],
@@ -93,28 +130,112 @@ export class OrdersService {
         throw new NotFoundException('Order not found after creation');
       }
 
+      // 7. Side effects (email + notifications) – outside transaction
       try {
         await this.mailService.sendOrderConfirmation(completeOrder);
-      } catch (emailError) {
-        console.error('Email sending failed:', emailError.message);
+      } catch (err) {
+        console.error('Email sending failed:', err.message);
       }
 
       try {
-        await this.notificationsService.notifyOrderPlaced(customerId, savedOrder.id);
-        await this.notificationsService.notifyNewOrder(restaurant.ownerId, savedOrder.id, restaurant.name);
-      } catch (notificationError) {
-        console.error('Notification sending failed:', notificationError.message);
+        await this.notificationsService.notifyOrderPlaced(
+          customerId,
+          savedOrder.id,
+        );
+        await this.notificationsService.notifyNewOrder(
+          restaurant.ownerId,
+          savedOrder.id,
+          restaurant.name,
+        );
+      } catch (err) {
+        console.error('Notification sending failed:', err.message);
       }
 
       return completeOrder;
     } catch (error) {
-      console.error('Order creation error:', error);
+      await queryRunner.rollbackTransaction();
       throw error;
+    } finally {
+      await queryRunner.release();
     }
   }
 
+  // ─────────────────────────────────────────────
+  // UPDATE ORDER STATUS (with status machine)
+  // ─────────────────────────────────────────────
+  async updateOrderStatus(
+    id: string,
+    status: OrderStatus,
+    userId: string,
+    userRole: UserRole,
+  ) {
+    const order = await this.getOrderWithDetails(id);
+
+    // Permission check
+    if (userRole === UserRole.OWNER) {
+      const restaurants = await this.restaurantsService.findByOwnerId(userId);
+      const restaurantIds = restaurants.map((r) => r.id);
+      if (!restaurantIds.includes(order.restaurantId)) {
+        throw new ForbiddenException('You do not own this restaurant');
+      }
+    } else if (userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'You do not have permission to update order status',
+      );
+    }
+
+    // Terminal states
+    if (
+      order.status === OrderStatus.DELIVERED ||
+      order.status === OrderStatus.CANCELLED
+    ) {
+      throw new BadRequestException(
+        `Cannot update order that is already ${order.status}`,
+      );
+    }
+
+    // Status machine validation
+    assertCanTransition(order.status, status);
+
+    const previousStatus = order.status;
+    order.status = status;
+    await this.orderRepository.save(order);
+
+    // Side effects
+    try {
+      await this.mailService.sendOrderStatusUpdate(order);
+    } catch (err) {
+      console.error('Failed to send status update email:', err.message);
+    }
+
+    try {
+      await this.notificationsService.notifyOrderStatusUpdate(
+        order.customerId,
+        id,
+        status,
+      );
+
+      if (status === OrderStatus.READY && previousStatus !== OrderStatus.READY) {
+        const earnings = order.deliveryFee || 50;
+        await this.notificationsService.notifyOrderReadyForAgents(
+          id,
+          order.restaurant.name,
+          earnings,
+        );
+      }
+    } catch (err) {
+      console.error('Notification sending failed:', err.message);
+    }
+
+    return order;
+  }
+
+  // ─────────────────────────────────────────────
+  // Rest of the methods (kept intact + small improvements)
+  // ─────────────────────────────────────────────
+
   async getCustomerOrders(customerId: string) {
-    return await this.orderRepository.find({
+    return this.orderRepository.find({
       where: { customerId },
       relations: ['restaurant', 'items', 'items.menuItem'],
       order: { placedAt: 'DESC' },
@@ -122,7 +243,7 @@ export class OrdersService {
   }
 
   async findAllOrders() {
-    return await this.orderRepository.find({
+    return this.orderRepository.find({
       relations: ['restaurant', 'items', 'items.menuItem', 'customer', 'agent'],
       order: { placedAt: 'DESC' },
     });
@@ -130,13 +251,11 @@ export class OrdersService {
 
   async getOwnerRestaurantOrders(ownerId: string) {
     const restaurants = await this.restaurantsService.findByOwnerId(ownerId);
-    const restaurantIds = restaurants.map(r => r.id);
-    
-    if (restaurantIds.length === 0) {
-      return [];
-    }
-    
-    return await this.orderRepository.find({
+    const restaurantIds = restaurants.map((r) => r.id);
+
+    if (restaurantIds.length === 0) return [];
+
+    return this.orderRepository.find({
       where: { restaurantId: In(restaurantIds) },
       relations: ['restaurant', 'items', 'items.menuItem', 'customer', 'agent'],
       order: { placedAt: 'DESC' },
@@ -156,57 +275,23 @@ export class OrdersService {
     return order;
   }
 
-  async updateOrderStatus(id: string, status: OrderStatus, userId: string, userRole: UserRole) {
-    const order = await this.getOrderWithDetails(id);
-
-    if (userRole === UserRole.OWNER) {
-      const restaurants = await this.restaurantsService.findByOwnerId(userId);
-      const restaurantIds = restaurants.map(r => r.id);
-      if (!restaurantIds.includes(order.restaurantId)) {
-        throw new ForbiddenException('You do not own this restaurant');
-      }
-    } else if (userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('You do not have permission to update order status');
-    }
-
-    if (order.status === OrderStatus.DELIVERED || order.status === OrderStatus.CANCELLED) {
-      throw new BadRequestException(`Cannot update order that is already ${order.status}`);
-    }
-
-    const previousStatus = order.status;
-    order.status = status;
-    await this.orderRepository.save(order);
-
-    try {
-      await this.mailService.sendOrderStatusUpdate(order);
-    } catch (emailError) {
-      console.error('Failed to send status update email:', emailError.message);
-    }
-
-    try {
-      await this.notificationsService.notifyOrderStatusUpdate(order.customerId, id, status);
-      
-      if (status === OrderStatus.READY && previousStatus !== OrderStatus.READY) {
-        const earnings = order.deliveryFee || 50;
-        console.log(`📢 Order #${id.slice(-8)} is READY! Notifying all agents...`);
-        await this.notificationsService.notifyOrderReadyForAgents(id, order.restaurant.name, earnings);
-      }
-    } catch (notificationError) {
-      console.error('Notification sending failed:', notificationError.message);
-    }
-
-    return order;
-  }
-
-  async assignDeliveryAgent(orderId: string, agentId: string, userRole: UserRole) {
+  async assignDeliveryAgent(
+    orderId: string,
+    agentId: string,
+    userRole: UserRole,
+  ) {
     if (userRole !== UserRole.ADMIN && userRole !== UserRole.AGENT) {
-      throw new ForbiddenException('Only admins or delivery agents can assign delivery agents');
+      throw new ForbiddenException(
+        'Only admins or delivery agents can assign delivery agents',
+      );
     }
 
     const order = await this.getOrderWithDetails(orderId);
 
     if (order.status !== OrderStatus.READY) {
-      throw new BadRequestException('Order must be ready before assigning a delivery agent');
+      throw new BadRequestException(
+        'Order must be ready before assigning a delivery agent',
+      );
     }
 
     if (order.agentId && order.agentId !== agentId) {
@@ -222,24 +307,28 @@ export class OrdersService {
       await this.notificationsService.sendToUser(restaurant.ownerId, {
         type: 'agent_assigned',
         title: 'Delivery Agent Assigned',
-        message: `Agent has been assigned to order #${orderId.slice(-8)} and is on the way`,
+        message: `Agent has been assigned to order #${orderId.slice(-8)}`,
         data: { orderId, agentId },
       });
-      
+
       await this.notificationsService.sendToUser(order.customerId, {
         type: 'order_assigned',
         title: 'Delivery Agent Assigned',
         message: `A delivery agent has been assigned to your order`,
         data: { orderId },
       });
-    } catch (notificationError) {
-      console.error('Notification sending failed:', notificationError.message);
+    } catch (err) {
+      console.error('Notification sending failed:', err.message);
     }
 
     return order;
   }
 
-  async updateDeliveryStatus(orderId: string, status: string, agentId: string) {
+  async updateDeliveryStatus(
+    orderId: string,
+    status: string,
+    agentId: string,
+  ) {
     const order = await this.getOrderWithDetails(orderId);
 
     if (order.agentId !== agentId) {
@@ -248,72 +337,56 @@ export class OrdersService {
 
     const orderStatus = status as OrderStatus;
 
-    if (orderStatus !== OrderStatus.PICKED_UP && orderStatus !== OrderStatus.DELIVERED) {
-      throw new BadRequestException('Agents can only update to picked_up or delivered');
+    if (
+      orderStatus !== OrderStatus.PICKED_UP &&
+      orderStatus !== OrderStatus.ON_THE_WAY &&
+      orderStatus !== OrderStatus.DELIVERED
+    ) {
+      throw new BadRequestException(
+        'Agents can only update to picked_up, on_the_way or delivered',
+      );
     }
 
-    if (orderStatus === OrderStatus.PICKED_UP) {
-      order.status = OrderStatus.PICKED_UP;
-      await this.orderRepository.save(order);
-      
-      await this.notificationsService.sendToUser(order.customerId, {
-        type: 'order_picked_up',
-        title: 'Order Picked Up',
-        message: `Your order has been picked up by the delivery agent`,
-        data: { orderId },
-      });
-      
-      const restaurant = await this.restaurantsService.findOne(order.restaurantId);
-      await this.notificationsService.sendToUser(restaurant.ownerId, {
-        type: 'order_picked_up',
-        title: 'Order Picked Up',
-        message: `Order #${orderId.slice(-8)} has been picked up by the delivery agent`,
-        data: { orderId },
-      });
-    }
-    
-    if (orderStatus === OrderStatus.DELIVERED) {
-      order.status = OrderStatus.DELIVERED;
-      await this.orderRepository.save(order);
-      
-      const earnings = order.deliveryFee || 50;
-      
-      // ✅ FIX: Send order delivered email
-      try {
-        await this.mailService.sendOrderDelivered(order);
-        console.log(`✅ Order delivered email sent to customer: ${order.customerEmail}`);
-      } catch (emailError) {
-        console.error('Failed to send order delivered email:', emailError.message);
+    assertCanTransition(order.status, orderStatus);
+
+    order.status = orderStatus;
+    await this.orderRepository.save(order);
+
+    // Notifications
+    try {
+      if (orderStatus === OrderStatus.PICKED_UP) {
+        await this.notificationsService.sendToUser(order.customerId, {
+          type: 'order_picked_up',
+          title: 'Order Picked Up',
+          message: `Your order has been picked up by the delivery agent`,
+          data: { orderId },
+        });
       }
-      
-      try {
-        await this.notificationsService.notifyAgentEarnings(agentId, orderId, earnings);
-      } catch (notificationError) {
-        console.error('Failed to send agent earnings notification:', notificationError.message);
-      }
-      
-      try {
+
+      if (orderStatus === OrderStatus.DELIVERED) {
+        const earnings = order.deliveryFee || 50;
+
+        try {
+          await this.mailService.sendOrderDelivered(order);
+        } catch (err) {
+          console.error('Failed to send delivered email:', err.message);
+        }
+
+        await this.notificationsService.notifyAgentEarnings(
+          agentId,
+          orderId,
+          earnings,
+        );
+
         await this.notificationsService.sendToUser(order.customerId, {
           type: 'order_delivered',
           title: 'Order Delivered!',
           message: `Your order has been delivered. Enjoy your meal!`,
           data: { orderId },
         });
-      } catch (notificationError) {
-        console.error('Failed to send customer notification:', notificationError.message);
       }
-      
-      const restaurant = await this.restaurantsService.findOne(order.restaurantId);
-      try {
-        await this.notificationsService.sendToUser(restaurant.ownerId, {
-          type: 'order_completed',
-          title: 'Order Completed',
-          message: `Order #${orderId.slice(-8)} has been delivered successfully`,
-          data: { orderId },
-        });
-      } catch (notificationError) {
-        console.error('Failed to send owner notification:', notificationError.message);
-      }
+    } catch (err) {
+      console.error('Notification error:', err.message);
     }
 
     return order;
@@ -323,28 +396,38 @@ export class OrdersService {
     const order = await this.getOrderWithDetails(id);
 
     if (order.customerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('You do not have permission to cancel this order');
+      throw new ForbiddenException(
+        'You do not have permission to cancel this order',
+      );
     }
 
     if (order.status !== OrderStatus.PENDING) {
       throw new BadRequestException('Only pending orders can be cancelled');
     }
 
+    assertCanTransition(order.status, OrderStatus.CANCELLED);
+
     order.status = OrderStatus.CANCELLED;
     await this.orderRepository.save(order);
 
     try {
-      await this.notificationsService.notifyOrderStatusUpdate(order.customerId, id, OrderStatus.CANCELLED);
-      
-      const restaurant = await this.restaurantsService.findOne(order.restaurantId);
+      await this.notificationsService.notifyOrderStatusUpdate(
+        order.customerId,
+        id,
+        OrderStatus.CANCELLED,
+      );
+
+      const restaurant = await this.restaurantsService.findOne(
+        order.restaurantId,
+      );
       await this.notificationsService.sendToUser(restaurant.ownerId, {
         type: 'order_cancelled',
         title: 'Order Cancelled',
         message: `Order #${id.slice(-8)} has been cancelled`,
         data: { id },
       });
-    } catch (notificationError) {
-      console.error('Notification sending failed:', notificationError.message);
+    } catch (err) {
+      console.error('Notification sending failed:', err.message);
     }
 
     return { message: 'Order cancelled successfully' };

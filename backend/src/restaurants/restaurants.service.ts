@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Restaurant } from './entities/restaurant.entity';
@@ -10,7 +14,7 @@ import { UserRole } from '../users/entities/user.entity';
 export class RestaurantsService {
   constructor(
     @InjectRepository(Restaurant)
-    private restaurantRepository: Repository<Restaurant>,
+    private readonly restaurantRepository: Repository<Restaurant>,
   ) {}
 
   async create(createRestaurantDto: CreateRestaurantDto, ownerId: string) {
@@ -18,26 +22,30 @@ export class RestaurantsService {
       ...createRestaurantDto,
       ownerId,
     });
-    return await this.restaurantRepository.save(restaurant);
+    return this.restaurantRepository.save(restaurant);
   }
 
   async findAll(filters?: { cuisineType?: string; isOpen?: boolean }) {
-    const query = this.restaurantRepository.createQueryBuilder('restaurant');
+    const query = this.restaurantRepository
+      .createQueryBuilder('restaurant')
+      .where('restaurant.isDeleted = :isDeleted', { isDeleted: false });
 
     if (filters?.cuisineType) {
-      query.andWhere('restaurant.cuisineType = :cuisineType', { cuisineType: filters.cuisineType });
+      query.andWhere('restaurant.cuisineType = :cuisineType', {
+        cuisineType: filters.cuisineType,
+      });
     }
 
     if (filters?.isOpen !== undefined) {
       query.andWhere('restaurant.isOpen = :isOpen', { isOpen: filters.isOpen });
     }
 
-    return await query.getMany();
+    return query.getMany();
   }
 
   async findOne(id: string) {
     const restaurant = await this.restaurantRepository.findOne({
-      where: { id },
+      where: { id, isDeleted: false },
       relations: ['menuItems', 'reviews', 'owner'],
     });
 
@@ -49,43 +57,50 @@ export class RestaurantsService {
   }
 
   async findByOwnerId(ownerId: string) {
-    return await this.restaurantRepository.find({
-      where: { ownerId },
+    return this.restaurantRepository.find({
+      where: { ownerId, isDeleted: false },
       relations: ['menuItems'],
     });
   }
 
-  async update(id: string, updateRestaurantDto: UpdateRestaurantDto, userId: string, userRole: UserRole) {
+  async update(
+    id: string,
+    updateRestaurantDto: UpdateRestaurantDto,
+    userId: string,
+    userRole: UserRole,
+  ) {
     const restaurant = await this.findOne(id);
 
     if (restaurant.ownerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('You do not have permission to update this restaurant');
+      throw new ForbiddenException(
+        'You do not have permission to update this restaurant',
+      );
     }
 
     Object.assign(restaurant, updateRestaurantDto);
-    return await this.restaurantRepository.save(restaurant);
+    return this.restaurantRepository.save(restaurant);
   }
 
-  // SIMPLE WORKING VERSION - Restore this
   async remove(id: string, userId: string, userRole: UserRole) {
     const restaurant = await this.findOne(id);
 
     if (restaurant.ownerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('You do not have permission to delete this restaurant');
+      throw new ForbiddenException(
+        'You do not have permission to delete this restaurant',
+      );
     }
 
-    // Delete menu items first (cascade)
-    if (restaurant.menuItems && restaurant.menuItems.length > 0) {
-      // This will cascade delete if set up in entity, otherwise manual delete
-      await this.restaurantRepository.delete(id);
-    } else {
-      await this.restaurantRepository.remove(restaurant);
-    }
-    
+    // Soft delete
+    restaurant.isDeleted = true;
+    restaurant.isOpen = false;
+    await this.restaurantRepository.save(restaurant);
+
     return { message: 'Restaurant deleted successfully' };
   }
 
   async updateRestaurantRating(restaurantId: string, averageRating: number) {
-    await this.restaurantRepository.update(restaurantId, { rating: averageRating });
+    await this.restaurantRepository.update(restaurantId, {
+      rating: averageRating,
+    });
   }
 }

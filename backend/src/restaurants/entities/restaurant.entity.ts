@@ -1,4 +1,13 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+} from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { MenuItem } from '../../menu/entities/menu-item.entity';
 import { Review } from '../../reviews/entities/review.entity';
@@ -35,6 +44,9 @@ export class Restaurant {
   @Column({ default: false })
   isVerified: boolean;
 
+  @Column({ default: false })
+  isDeleted: boolean; // ← already existed, we will now respect it everywhere
+
   @ManyToOne(() => User, (user) => user.restaurants)
   @JoinColumn({ name: 'ownerId' })
   owner: User;
@@ -44,18 +56,13 @@ export class Restaurant {
 
   @OneToMany(() => MenuItem, (menuItem) => menuItem.restaurant, {
     cascade: true,
-    onDelete: 'CASCADE',
   })
   menuItems: MenuItem[];
 
   @OneToMany(() => Review, (review) => review.restaurant, {
     cascade: true,
-    onDelete: 'CASCADE',
   })
   reviews: Review[];
-
-  @Column({ default: false })
-  isDeleted: boolean;
 
   @CreateDateColumn()
   createdAt: Date;

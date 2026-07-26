@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, Like } from 'typeorm';
+import { Repository, Between } from 'typeorm';
 import { User, UserRole, UserStatus } from '../users/entities/user.entity';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { Restaurant } from '../restaurants/entities/restaurant.entity';
@@ -19,12 +19,6 @@ import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AdminService {
-  // ✅ In-memory notification store so mark-as-read / send actually persist
-  // for the life of the process (previously every call returned the same
-  // hardcoded mock array and writes were no-ops).
-  // NOTE: this resets on server restart and isn't shared across instances
-  // in a multi-process deployment — for full durability this should move
-  // to a Notification entity/table. Flagging this as a follow-up.
   private notifications: NotificationDto[] = [
     {
       id: '1',
@@ -52,57 +46,18 @@ export class AdminService {
     },
   ];
 
- // Add this method to admin.service.ts (around line 450)
-
-async verifyRestaurant(restaurantId: string, verified: boolean) {
-  const restaurant = await this.restaurantRepository.findOne({
-    where: { id: restaurantId },
-  });
-  
-  if (!restaurant) {
-    throw new NotFoundException('Restaurant not found');
-  }
-
-  restaurant.isVerified = verified;
-  await this.restaurantRepository.save(restaurant);
-
-  return { 
-    success: true, 
-    message: `Restaurant ${verified ? 'verified' : 'unverified'} successfully` 
-  };
-}
-
-async verifyAgentDocument(agentId: string, documentType: string, verified: boolean) {
-  const agent = await this.userRepository.findOne({
-    where: { id: agentId, role: UserRole.AGENT },
-  });
-  
-  if (!agent) {
-    throw new NotFoundException('Agent not found');
-  }
-
-  // Store verification info (you can add a documentVerification field to User entity if needed)
-  console.log(`Document ${documentType} for agent ${agent.email} ${verified ? 'verified' : 'rejected'}`);
-  
-  return { 
-    success: true, 
-    message: `${documentType} ${verified ? 'verified' : 'rejected'} successfully` 
-  };
-}
-
-  
   constructor(
     @InjectRepository(User)
-    private userRepository: Repository<User>,
+    private readonly userRepository: Repository<User>,
     @InjectRepository(Order)
-    private orderRepository: Repository<Order>,
+    private readonly orderRepository: Repository<Order>,
     @InjectRepository(Restaurant)
-    private restaurantRepository: Repository<Restaurant>,
-    private mailService: MailService,
+    private readonly restaurantRepository: Repository<Restaurant>,
+    private readonly mailService: MailService,
   ) {}
 
-  // dashboard stats for total users, restaurants, orders, revenue, pending approvals, etc.
-  
+  // ====================== DASHBOARD ======================
+
   async getDashboardStats(): Promise<DashboardStatsDto> {
     const now = new Date();
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -120,25 +75,24 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
       completedOrders,
       totalRevenue,
     ] = await Promise.all([
-      this.userRepository.count(),
-      this.restaurantRepository.count(),
+      this.userRepository.count({ where: { isDeleted: false } }),
+      this.restaurantRepository.count({ where: { isDeleted: false } }),
       this.orderRepository.count(),
       this.userRepository.count({
-        where: { role: UserRole.OWNER, status: UserStatus.PENDING },
+        where: { role: UserRole.OWNER, status: UserStatus.PENDING, isDeleted: false },
       }),
       this.userRepository.count({
-        where: { role: UserRole.AGENT, status: UserStatus.PENDING },
+        where: { role: UserRole.AGENT, status: UserStatus.PENDING, isDeleted: false },
       }),
       this.userRepository.count({
-        where: { role: UserRole.AGENT, status: UserStatus.APPROVED },
+        where: { role: UserRole.AGENT, status: UserStatus.APPROVED, isDeleted: false },
       }),
       this.restaurantRepository
         .createQueryBuilder('r')
         .select('AVG(r.rating)', 'avg')
+        .where('r.isDeleted = false')
         .getRawOne(),
-      this.orderRepository.count({
-        where: { status: OrderStatus.DELIVERED },
-      }),
+      this.orderRepository.count({ where: { status: OrderStatus.DELIVERED } }),
       this.orderRepository
         .createQueryBuilder('order')
         .select('SUM(order.totalAmount)', 'total')
@@ -146,7 +100,6 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
         .getRawOne(),
     ]);
 
-    // Previous month calculations
     const prevMonthOrders = await this.orderRepository.count({
       where: {
         placedAt: Between(lastMonthStart, lastMonthEnd),
@@ -167,6 +120,7 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
     const prevMonthUsers = await this.userRepository.count({
       where: {
         createdAt: Between(lastMonthStart, lastMonthEnd),
+        isDeleted: false,
       },
     });
 
@@ -187,6 +141,7 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
     const currentMonthUsers = await this.userRepository.count({
       where: {
         createdAt: Between(thisMonthStart, now),
+        isDeleted: false,
       },
     });
 
@@ -195,11 +150,11 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
       : 0;
 
     const orderGrowth = prevMonthOrders
-      ? (currentMonthOrders - prevMonthOrders) / prevMonthOrders * 100
+      ? ((currentMonthOrders - prevMonthOrders) / prevMonthOrders) * 100
       : 0;
 
     const userGrowth = prevMonthUsers
-      ? (currentMonthUsers - prevMonthUsers) / prevMonthUsers * 100
+      ? ((currentMonthUsers - prevMonthUsers) / prevMonthUsers) * 100
       : 0;
 
     const completionRate = totalOrders
@@ -227,7 +182,7 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - 7);
-    
+
     const [
       totalUsers,
       totalRestaurants,
@@ -241,8 +196,8 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
       activeAgents,
       activeRestaurants,
     ] = await Promise.all([
-      this.userRepository.count(),
-      this.restaurantRepository.count(),
+      this.userRepository.count({ where: { isDeleted: false } }),
+      this.restaurantRepository.count({ where: { isDeleted: false } }),
       this.orderRepository.count(),
       this.orderRepository
         .createQueryBuilder('order')
@@ -269,15 +224,15 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
         .getRawOne(),
       this.userRepository.count({
         where: [
-          { role: UserRole.OWNER, status: UserStatus.PENDING },
-          { role: UserRole.AGENT, status: UserStatus.PENDING },
+          { role: UserRole.OWNER, status: UserStatus.PENDING, isDeleted: false },
+          { role: UserRole.AGENT, status: UserStatus.PENDING, isDeleted: false },
         ],
       }),
       this.userRepository.count({
-        where: { role: UserRole.AGENT, status: UserStatus.APPROVED },
+        where: { role: UserRole.AGENT, status: UserStatus.APPROVED, isDeleted: false },
       }),
       this.restaurantRepository.count({
-        where: { isOpen: true },
+        where: { isOpen: true, isDeleted: false },
       }),
     ]);
 
@@ -296,21 +251,23 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
     };
   }
 
-  // user management for admin to view, update, and delete users
+  // ====================== USERS ======================
 
-  async getAllUsers(role?: string) {
-    const whereCondition: any = {};
+  async getAllUsers(role?: string, limit = 20, page = 1) {
+    const whereCondition: any = { isDeleted: false };
     if (role && role !== 'all') {
       whereCondition.role = role;
     }
 
-    const users = await this.userRepository.find({
+    const [users, total] = await this.userRepository.findAndCount({
       where: whereCondition,
       select: [
-        'id', 'fullName', 'email', 'phone', 'role', 'status', 
+        'id', 'fullName', 'email', 'phone', 'role', 'status',
         'createdAt', 'lastLogin', 'businessName', 'vehicleType',
       ],
       order: { createdAt: 'DESC' },
+      take: limit,
+      skip: (page - 1) * limit,
     });
 
     const usersWithStats = await Promise.all(
@@ -318,7 +275,7 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
         const orders = await this.orderRepository.count({
           where: { customerId: user.id },
         });
-        
+
         const totalSpent = await this.orderRepository
           .createQueryBuilder('order')
           .select('SUM(order.totalAmount)', 'total')
@@ -334,18 +291,48 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
       }),
     );
 
-    return usersWithStats;
+    return {
+      data: usersWithStats,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async getUserStats() {
+    const [totalUsers, customers, owners, agents, admins, pendingOwners, pendingAgents] =
+      await Promise.all([
+        this.userRepository.count({ where: { isDeleted: false } }),
+        this.userRepository.count({ where: { role: UserRole.CUSTOMER, isDeleted: false } }),
+        this.userRepository.count({ where: { role: UserRole.OWNER, isDeleted: false } }),
+        this.userRepository.count({ where: { role: UserRole.AGENT, isDeleted: false } }),
+        this.userRepository.count({ where: { role: UserRole.ADMIN, isDeleted: false } }),
+        this.userRepository.count({
+          where: { role: UserRole.OWNER, status: UserStatus.PENDING, isDeleted: false },
+        }),
+        this.userRepository.count({
+          where: { role: UserRole.AGENT, status: UserStatus.PENDING, isDeleted: false },
+        }),
+      ]);
+
+    return {
+      totalUsers,
+      customers,
+      owners,
+      agents,
+      admins,
+      pendingApprovals: pendingOwners + pendingAgents,
+    };
   }
 
   async getUserDetails(userId: string) {
     const user = await this.userRepository.findOne({
-      where: { id: userId },
+      where: { id: userId, isDeleted: false },
       relations: ['restaurants'],
     });
-    
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+
+    if (!user) throw new NotFoundException('User not found');
 
     const orders = await this.orderRepository.find({
       where: { customerId: userId },
@@ -356,12 +343,12 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
 
     const stats = {
       totalOrders: orders.length,
-      completedOrders: orders.filter(o => o.status === OrderStatus.DELIVERED).length,
+      completedOrders: orders.filter((o) => o.status === OrderStatus.DELIVERED).length,
       totalSpent: orders
-        .filter(o => o.status === OrderStatus.DELIVERED)
+        .filter((o) => o.status === OrderStatus.DELIVERED)
         .reduce((sum, o) => sum + Number(o.totalAmount), 0),
-      averageOrderValue: orders.length 
-        ? orders.reduce((sum, o) => sum + Number(o.totalAmount), 0) / orders.length 
+      averageOrderValue: orders.length
+        ? orders.reduce((sum, o) => sum + Number(o.totalAmount), 0) / orders.length
         : 0,
     };
 
@@ -369,10 +356,10 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
   }
 
   async updateUserStatus(userId: string, status: string, reason?: string) {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    const user = await this.userRepository.findOne({
+      where: { id: userId, isDeleted: false },
+    });
+    if (!user) throw new NotFoundException('User not found');
 
     user.status = status as UserStatus;
     await this.userRepository.save(user);
@@ -381,10 +368,10 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
   }
 
   async updateUserRole(userId: string, role: string) {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    const user = await this.userRepository.findOne({
+      where: { id: userId, isDeleted: false },
+    });
+    if (!user) throw new NotFoundException('User not found');
 
     if (user.role === UserRole.ADMIN) {
       throw new BadRequestException('Cannot change admin role');
@@ -398,28 +385,27 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
 
   async deleteUser(userId: string) {
     const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    if (!user) throw new NotFoundException('User not found');
 
     if (user.role === UserRole.ADMIN) {
       throw new BadRequestException('Cannot delete admin user');
     }
 
-    // Soft delete - just update status
+    // Soft delete
+    user.isDeleted = true;
     user.status = UserStatus.REJECTED;
     await this.userRepository.save(user);
 
     return { success: true, message: 'User deleted successfully' };
   }
 
-  // Pending approvals for restaurant owners and delivery agents
+  // ====================== PENDING APPROVALS ======================
 
   async getPendingApprovals() {
     const pendingUsers = await this.userRepository.find({
       where: [
-        { role: UserRole.OWNER, status: UserStatus.PENDING },
-        { role: UserRole.AGENT, status: UserStatus.PENDING },
+        { role: UserRole.OWNER, status: UserStatus.PENDING, isDeleted: false },
+        { role: UserRole.AGENT, status: UserStatus.PENDING, isDeleted: false },
       ],
       select: [
         'id', 'fullName', 'email', 'phone', 'role', 'createdAt',
@@ -435,67 +421,59 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
     };
   }
 
-  //FIXED: Approve user with email notification
   async approveUser(userId: string, role?: string, notes?: string) {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    const user = await this.userRepository.findOne({
+      where: { id: userId, isDeleted: false },
+    });
+    if (!user) throw new NotFoundException('User not found');
 
-    if (role) {
-      user.role = role as UserRole;
-    }
-    
+    if (role) user.role = role as UserRole;
     user.status = UserStatus.APPROVED;
+    user.approvedAt = new Date();
     await this.userRepository.save(user);
 
-    // ✅ SEND APPROVAL EMAIL
     try {
       await this.mailService.sendApprovalEmail(user, user.role, notes);
-      console.log(`✅ Approval email sent to ${user.email}`);
-    } catch (emailError) {
-      console.error('Failed to send approval email:', emailError.message);
+    } catch (err) {
+      console.error('Failed to send approval email:', err.message);
     }
 
     return { success: true, message: 'User approved successfully', user };
   }
 
-  // ✅ FIXED: Reject user with email notification
   async rejectUser(userId: string, reason: string) {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    const user = await this.userRepository.findOne({
+      where: { id: userId, isDeleted: false },
+    });
+    if (!user) throw new NotFoundException('User not found');
 
     user.status = UserStatus.REJECTED;
+    user.rejectionReason = reason;
     await this.userRepository.save(user);
 
-    // ✅ SEND REJECTION EMAIL
     try {
       await this.mailService.sendRejectionEmail(user, reason);
-      console.log(`✅ Rejection email sent to ${user.email}`);
-    } catch (emailError) {
-      console.error('Failed to send rejection email:', emailError.message);
+    } catch (err) {
+      console.error('Failed to send rejection email:', err.message);
     }
 
     return { success: true, message: 'User rejected successfully' };
   }
 
-  //restaurant management for admin to view, update, and delete restaurants
+  // ====================== RESTAURANTS ======================
 
-  async getAllRestaurants(status?: string) {
-    const whereCondition: any = {};
-    
-    if (status === 'active') {
-      whereCondition.isOpen = true;
-    } else if (status === 'inactive') {
-      whereCondition.isOpen = false;
-    }
+  async getAllRestaurants(status?: string, limit = 20, page = 1) {
+    const whereCondition: any = { isDeleted: false };
 
-    const restaurants = await this.restaurantRepository.find({
+    if (status === 'active') whereCondition.isOpen = true;
+    else if (status === 'inactive') whereCondition.isOpen = false;
+
+    const [restaurants, total] = await this.restaurantRepository.findAndCount({
       where: whereCondition,
       relations: ['owner'],
       order: { createdAt: 'DESC' },
+      take: limit,
+      skip: (page - 1) * limit,
     });
 
     const restaurantsWithStats = await Promise.all(
@@ -503,7 +481,7 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
         const orders = await this.orderRepository.count({
           where: { restaurantId: restaurant.id },
         });
-        
+
         const revenue = await this.orderRepository
           .createQueryBuilder('order')
           .select('SUM(order.totalAmount)', 'total')
@@ -520,6 +498,7 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
           cuisineType: restaurant.cuisineType,
           rating: restaurant.rating,
           isOpen: restaurant.isOpen,
+          isVerified: restaurant.isVerified,
           imageUrl: restaurant.imageUrl,
           ownerName: restaurant.owner?.fullName,
           ownerEmail: restaurant.owner?.email,
@@ -531,18 +510,37 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
       }),
     );
 
-    return restaurantsWithStats;
+    return {
+      data: restaurantsWithStats,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async getRestaurantStats() {
+    const [total, open, verified] = await Promise.all([
+      this.restaurantRepository.count({ where: { isDeleted: false } }),
+      this.restaurantRepository.count({ where: { isDeleted: false, isOpen: true } }),
+      this.restaurantRepository.count({ where: { isDeleted: false, isVerified: true } }),
+    ]);
+
+    return {
+      total,
+      open,
+      closed: total - open,
+      verified,
+    };
   }
 
   async getRestaurantDetails(restaurantId: string) {
     const restaurant = await this.restaurantRepository.findOne({
-      where: { id: restaurantId },
+      where: { id: restaurantId, isDeleted: false },
       relations: ['owner'],
     });
-    
-    if (!restaurant) {
-      throw new NotFoundException('Restaurant not found');
-    }
+
+    if (!restaurant) throw new NotFoundException('Restaurant not found');
 
     const orders = await this.orderRepository.find({
       where: { restaurantId },
@@ -551,50 +549,74 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
       order: { placedAt: 'DESC' },
     });
 
-    const completedOrders = orders.filter(o => o.status === OrderStatus.DELIVERED);
-    const totalRevenue = completedOrders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
+    const completedOrders = orders.filter((o) => o.status === OrderStatus.DELIVERED);
+    const totalRevenue = completedOrders.reduce(
+      (sum, o) => sum + Number(o.totalAmount),
+      0,
+    );
 
     return {
       ...restaurant,
       totalOrders: orders.length,
       completedOrders: completedOrders.length,
       totalRevenue,
-      averageOrderValue: completedOrders.length ? totalRevenue / completedOrders.length : 0,
+      averageOrderValue: completedOrders.length
+        ? totalRevenue / completedOrders.length
+        : 0,
       recentOrders: orders.slice(0, 20),
     };
   }
 
   async updateRestaurantStatus(restaurantId: string, status: string) {
     const restaurant = await this.restaurantRepository.findOne({
-      where: { id: restaurantId },
+      where: { id: restaurantId, isDeleted: false },
     });
-    
-    if (!restaurant) {
-      throw new NotFoundException('Restaurant not found');
-    }
+
+    if (!restaurant) throw new NotFoundException('Restaurant not found');
 
     restaurant.isOpen = status === 'active';
     await this.restaurantRepository.save(restaurant);
 
-    return { success: true, message: `Restaurant ${status === 'active' ? 'opened' : 'closed'} successfully` };
+    return {
+      success: true,
+      message: `Restaurant ${status === 'active' ? 'opened' : 'closed'} successfully`,
+    };
+  }
+
+  async verifyRestaurant(restaurantId: string, verified: boolean) {
+    const restaurant = await this.restaurantRepository.findOne({
+      where: { id: restaurantId, isDeleted: false },
+    });
+
+    if (!restaurant) throw new NotFoundException('Restaurant not found');
+
+    restaurant.isVerified = verified;
+    await this.restaurantRepository.save(restaurant);
+
+    return {
+      success: true,
+      message: `Restaurant ${verified ? 'verified' : 'unverified'} successfully`,
+    };
   }
 
   async deleteRestaurant(restaurantId: string) {
     const restaurant = await this.restaurantRepository.findOne({
       where: { id: restaurantId },
     });
-    
-    if (!restaurant) {
-      throw new NotFoundException('Restaurant not found');
-    }
 
-    await this.restaurantRepository.delete(restaurantId);
+    if (!restaurant) throw new NotFoundException('Restaurant not found');
+
+    // Soft delete
+    restaurant.isDeleted = true;
+    restaurant.isOpen = false;
+    await this.restaurantRepository.save(restaurant);
+
     return { success: true, message: 'Restaurant deleted successfully' };
   }
 
-  // order management for admin to view, update, and cancel orders
+  // ====================== ORDERS ======================
 
-  async getAllOrders(status?: string, limit: number = 50, page: number = 1) {
+  async getAllOrders(status?: string, limit = 50, page = 1) {
     const whereCondition: any = {};
     if (status && status !== 'all') {
       whereCondition.status = status;
@@ -609,7 +631,7 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
     });
 
     return {
-      data: orders.map(order => ({
+      data: orders.map((order) => ({
         id: order.id,
         orderNumber: `#${order.id.slice(-8)}`,
         customerName: order.customer?.fullName || order.customerName || 'Guest',
@@ -634,10 +656,7 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
       relations: ['customer', 'restaurant', 'agent', 'items'],
     });
 
-    if (!order) {
-      throw new NotFoundException('Order not found');
-    }
-
+    if (!order) throw new NotFoundException('Order not found');
     return order;
   }
 
@@ -646,10 +665,8 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
       where: { id: orderId },
       relations: ['customer', 'restaurant'],
     });
-    
-    if (!order) {
-      throw new NotFoundException('Order not found');
-    }
+
+    if (!order) throw new NotFoundException('Order not found');
 
     order.status = status as OrderStatus;
     await this.orderRepository.save(order);
@@ -662,10 +679,8 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
       where: { id: orderId },
       relations: ['customer'],
     });
-    
-    if (!order) {
-      throw new NotFoundException('Order not found');
-    }
+
+    if (!order) throw new NotFoundException('Order not found');
 
     if (order.status === OrderStatus.DELIVERED) {
       throw new BadRequestException('Cannot cancel delivered order');
@@ -677,21 +692,23 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
     return { success: true, message: 'Order cancelled successfully' };
   }
 
-  // ==================== DELIVERY AGENT MANAGEMENT ====================
+  // ====================== DELIVERY AGENTS ======================
 
-  async getDeliveryAgents(status?: string) {
-    const whereCondition: any = { role: UserRole.AGENT };
+  async getDeliveryAgents(status?: string, limit = 20, page = 1) {
+    const whereCondition: any = { role: UserRole.AGENT, isDeleted: false };
     if (status && status !== 'all') {
       whereCondition.status = status;
     }
 
-    const agents = await this.userRepository.find({
+    const [agents, total] = await this.userRepository.findAndCount({
       where: whereCondition,
       select: [
         'id', 'fullName', 'email', 'phone', 'status', 'createdAt',
         'vehicleType', 'vehicleNumber', 'drivingLicense',
       ],
       order: { createdAt: 'DESC' },
+      take: limit,
+      skip: (page - 1) * limit,
     });
 
     const agentsWithStats = await Promise.all(
@@ -699,9 +716,14 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
         const deliveries = await this.orderRepository.find({
           where: { agentId: agent.id },
         });
-        
-        const completedDeliveries = deliveries.filter(o => o.status === OrderStatus.DELIVERED);
-        const totalEarnings = completedDeliveries.reduce((sum, o) => sum + Number(o.deliveryFee), 0);
+
+        const completedDeliveries = deliveries.filter(
+          (o) => o.status === OrderStatus.DELIVERED,
+        );
+        const totalEarnings = completedDeliveries.reduce(
+          (sum, o) => sum + Number(o.deliveryFee),
+          0,
+        );
 
         return {
           ...agent,
@@ -713,17 +735,38 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
       }),
     );
 
-    return agentsWithStats;
+    return {
+      data: agentsWithStats,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async getAgentStats() {
+    const [total, active] = await Promise.all([
+      this.userRepository.count({
+        where: { role: UserRole.AGENT, isDeleted: false },
+      }),
+      this.userRepository.count({
+        where: {
+          role: UserRole.AGENT,
+          status: UserStatus.APPROVED,
+          isDeleted: false,
+        },
+      }),
+    ]);
+
+    return { total, active };
   }
 
   async getDeliveryAgentDetails(agentId: string) {
     const agent = await this.userRepository.findOne({
-      where: { id: agentId, role: UserRole.AGENT },
+      where: { id: agentId, role: UserRole.AGENT, isDeleted: false },
     });
-    
-    if (!agent) {
-      throw new NotFoundException('Delivery agent not found');
-    }
+
+    if (!agent) throw new NotFoundException('Delivery agent not found');
 
     const deliveries = await this.orderRepository.find({
       where: { agentId },
@@ -731,8 +774,13 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
       order: { placedAt: 'DESC' },
     });
 
-    const completedDeliveries = deliveries.filter(o => o.status === OrderStatus.DELIVERED);
-    const totalEarnings = completedDeliveries.reduce((sum, o) => sum + Number(o.deliveryFee), 0);
+    const completedDeliveries = deliveries.filter(
+      (o) => o.status === OrderStatus.DELIVERED,
+    );
+    const totalEarnings = completedDeliveries.reduce(
+      (sum, o) => sum + Number(o.deliveryFee),
+      0,
+    );
 
     return {
       ...agent,
@@ -745,12 +793,10 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
 
   async updateAgentStatus(agentId: string, status: string) {
     const agent = await this.userRepository.findOne({
-      where: { id: agentId, role: UserRole.AGENT },
+      where: { id: agentId, role: UserRole.AGENT, isDeleted: false },
     });
-    
-    if (!agent) {
-      throw new NotFoundException('Delivery agent not found');
-    }
+
+    if (!agent) throw new NotFoundException('Delivery agent not found');
 
     agent.status = status as UserStatus;
     await this.userRepository.save(agent);
@@ -758,7 +804,28 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
     return { success: true, message: `Agent status updated to ${status}` };
   }
 
-  //chart data for revenue, orders, users, and notifications
+  async verifyAgentDocument(
+    agentId: string,
+    documentType: string,
+    verified: boolean,
+  ) {
+    const agent = await this.userRepository.findOne({
+      where: { id: agentId, role: UserRole.AGENT, isDeleted: false },
+    });
+
+    if (!agent) throw new NotFoundException('Agent not found');
+
+    console.log(
+      `Document ${documentType} for agent ${agent.email} ${verified ? 'verified' : 'rejected'}`,
+    );
+
+    return {
+      success: true,
+      message: `${documentType} ${verified ? 'verified' : 'rejected'} successfully`,
+    };
+  }
+
+  // ====================== CHARTS ======================
 
   async getRevenueChartData(): Promise<RevenueChartDataDto[]> {
     const last6Months = [];
@@ -795,8 +862,8 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
     return last6Months;
   }
 
-  async getOrderChartData(days: number = 30): Promise<OrderChartDataDto[]> {
-    const last30Days = [];
+  async getOrderChartData(days = 30): Promise<OrderChartDataDto[]> {
+    const result = [];
     const now = new Date();
     const rangeDays = Number.isFinite(days) && days > 0 ? Math.min(days, 365) : 30;
 
@@ -808,9 +875,7 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
       nextDate.setDate(date.getDate() + 1);
 
       const orders = await this.orderRepository.count({
-        where: {
-          placedAt: Between(date, nextDate),
-        },
+        where: { placedAt: Between(date, nextDate) },
       });
 
       const amount = await this.orderRepository
@@ -822,14 +887,14 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
         })
         .getRawOne();
 
-      last30Days.push({
+      result.push({
         date: date.toLocaleDateString('default', { month: 'short', day: 'numeric' }),
         orders,
         amount: Number(amount?.total) || 0,
       });
     }
 
-    return last30Days;
+    return result;
   }
 
   async getUserChartData(): Promise<UserChartDataDto[]> {
@@ -844,6 +909,7 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
         where: {
           role: UserRole.CUSTOMER,
           createdAt: Between(monthStart, monthEnd),
+          isDeleted: false,
         },
       });
 
@@ -851,6 +917,7 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
         where: {
           role: UserRole.OWNER,
           createdAt: Between(monthStart, monthEnd),
+          isDeleted: false,
         },
       });
 
@@ -858,6 +925,7 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
         where: {
           role: UserRole.AGENT,
           createdAt: Between(monthStart, monthEnd),
+          isDeleted: false,
         },
       });
 
@@ -872,10 +940,9 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
     return last6Months;
   }
 
-  //notifications for low stock, new orders, pending approvals, etc.
+  // ====================== NOTIFICATIONS ======================
 
   async getNotifications(): Promise<NotificationDto[]> {
-    // ✅ Return newest first from the persistent store
     return [...this.notifications].sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
     );
@@ -892,46 +959,42 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
       userId: notification.userId,
     };
     this.notifications.unshift(newNotification);
-    return { success: true, message: 'Notification sent successfully', notification: newNotification };
+    return {
+      success: true,
+      message: 'Notification sent successfully',
+      notification: newNotification,
+    };
   }
 
   async markNotificationAsRead(notificationId: string) {
-    const notification = this.notifications.find(n => n.id === notificationId);
-    if (!notification) {
-      throw new NotFoundException('Notification not found');
-    }
+    const notification = this.notifications.find((n) => n.id === notificationId);
+    if (!notification) throw new NotFoundException('Notification not found');
     notification.read = true;
     return { success: true, message: 'Notification marked as read' };
   }
 
-  //export data as CSV for users, orders, restaurants, pending approvals, and delivery agents
+  // ====================== EXPORT ======================
 
   async exportData(type: string): Promise<string> {
     let data: any[] = [];
 
     switch (type) {
       case 'users':
-        data = await this.getAllUsers();
+        data = (await this.getAllUsers(undefined, 100000, 1)).data;
         break;
       case 'orders':
-        const orders = await this.getAllOrders('all', 10000);
-        data = orders.data;
+        data = (await this.getAllOrders('all', 100000, 1)).data;
         break;
       case 'restaurants':
-        data = await this.getAllRestaurants();
+        data = (await this.getAllRestaurants(undefined, 100000, 1)).data;
         break;
       case 'applications':
-        const approvals = await this.getPendingApprovals();
-        data = approvals.users;
+        data = (await this.getPendingApprovals()).users;
         break;
-      // ✅ 'delivery-agents' is what the frontend actually sends (URL-style slug);
-      // keep 'agents' too for backwards compatibility with any existing callers
       case 'agents':
       case 'delivery-agents':
-        data = await this.getDeliveryAgents();
+        data = (await this.getDeliveryAgents(undefined, 100000, 1)).data;
         break;
-      // ✅ Previously unhandled — frontend Analytics page calls this and always
-      // got a BadRequestException. Combine the three chart datasets into one export.
       case 'analytics': {
         const [revenue, orders30, users6mo] = await Promise.all([
           this.getRevenueChartData(),
@@ -939,9 +1002,9 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
           this.getUserChartData(),
         ]);
         data = [
-          ...revenue.map(r => ({ section: 'revenue_by_month', ...r })),
-          ...orders30.map(o => ({ section: 'orders_last_30_days', ...o })),
-          ...users6mo.map(u => ({ section: 'user_growth_by_month', ...u })),
+          ...revenue.map((r) => ({ section: 'revenue_by_month', ...r })),
+          ...orders30.map((o) => ({ section: 'orders_last_30_days', ...o })),
+          ...users6mo.map((u) => ({ section: 'user_growth_by_month', ...u })),
         ];
         break;
       }
@@ -951,12 +1014,8 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
         );
     }
 
-    if (data.length === 0) {
-      return 'No data available';
-    }
+    if (data.length === 0) return 'No data available';
 
-    // ✅ Proper CSV escaping (quote fields containing commas/quotes/newlines)
-    // instead of silently mangling data by replacing commas with semicolons.
     const escapeCsvField = (value: any): string => {
       if (value === undefined || value === null) return '';
       const str = typeof value === 'object' ? JSON.stringify(value) : String(value);
@@ -966,10 +1025,6 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
       return str;
     };
 
-    // ✅ Union of keys across all rows, since 'analytics' mixes shapes per section.
-    // (Deliberately not using Array.from(new Set(...)) here — under some tsconfig
-    // `lib` settings without es2015.iterable, that degrades to unknown[] and breaks
-    // indexing below with TS2538.)
     const headers: string[] = [];
     for (const row of data) {
       for (const key of Object.keys(row)) {
@@ -979,15 +1034,17 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
 
     const csvRows = [
       headers.join(','),
-      ...data.map((row: Record<string, any>) => headers.map(header => escapeCsvField(row[header])).join(',')),
+      ...data.map((row: Record<string, any>) =>
+        headers.map((header) => escapeCsvField(row[header])).join(','),
+      ),
     ];
 
     return csvRows.join('\n');
   }
 
-  //activity feed for recent orders and user signups
+  // ====================== ACTIVITY ======================
 
-  async getActivityFeed(limit: number = 20) {
+  async getActivityFeed(limit = 20) {
     const recentOrders = await this.orderRepository.find({
       relations: ['customer', 'restaurant'],
       order: { placedAt: 'DESC' },
@@ -995,19 +1052,20 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
     });
 
     const recentUsers = await this.userRepository.find({
+      where: { isDeleted: false },
       order: { createdAt: 'DESC' },
       take: Math.floor(limit / 2),
     });
 
     const activities = [
-      ...recentOrders.map(order => ({
+      ...recentOrders.map((order) => ({
         id: `order-${order.id}`,
         type: 'order',
         message: `New order #${order.id.slice(-8)} from ${order.customer?.fullName || order.customerName || 'Guest'} at ${order.restaurant?.name}`,
         timestamp: order.placedAt,
         icon: 'shopping-bag',
       })),
-      ...recentUsers.map(user => ({
+      ...recentUsers.map((user) => ({
         id: `user-${user.id}`,
         type: 'user',
         message: `${user.fullName} joined as ${user.role}`,
@@ -1016,7 +1074,9 @@ async verifyAgentDocument(agentId: string, documentType: string, verified: boole
       })),
     ];
 
-    activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    activities.sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+    );
 
     return activities.slice(0, limit);
   }

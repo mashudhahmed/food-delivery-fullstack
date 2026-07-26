@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
@@ -23,21 +25,22 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: process.env.NODE_ENV === 'production' 
-        ? '.env.production' 
-        : process.env.NODE_ENV === 'neon' 
-          ? '.env.neon' 
-          : '.env.local',
+      envFilePath:
+        process.env.NODE_ENV === 'production'
+          ? '.env.production'
+          : process.env.NODE_ENV === 'neon'
+            ? '.env.neon'
+            : '.env.local',
     }),
-    
-    // Database with production-safe settings
+
+    // Database
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
         const host = configService.get('DB_HOST');
         const isNeon = host?.includes('neon.tech');
         const isProduction = configService.get('NODE_ENV') === 'production';
-        
+
         const baseConfig = {
           type: 'postgres' as const,
           host: host,
@@ -46,14 +49,17 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
           password: configService.get('DB_PASSWORD'),
           database: configService.get('DB_DATABASE'),
           entities: [__dirname + '/**/*.entity{.ts,.js}'],
-          synchronize: false, // ⚠️ ALWAYS false in production
+          synchronize: false,
           logging: !isProduction,
           maxQueryExecutionTime: 1000,
           poolSize: configService.get('DB_POOL_SIZE', 20),
           extra: {
             max: configService.get('DB_POOL_SIZE', 20),
             idleTimeoutMillis: configService.get('DB_IDLE_TIMEOUT', 30000),
-            connectionTimeoutMillis: configService.get('DB_CONNECTION_TIMEOUT', 5000),
+            connectionTimeoutMillis: configService.get(
+              'DB_CONNECTION_TIMEOUT',
+              5000,
+            ),
           },
         };
 
@@ -65,20 +71,31 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
             },
           };
         }
-        
+
         return baseConfig;
       },
       inject: [ConfigService],
     }),
-    
-    // Rate limiting
+
+    // Rate Limiting (multiple tiers)
     ThrottlerModule.forRoot([
       {
-        ttl: 60,
+        name: 'short',
+        ttl: 1000, // 1 second
+        limit: 3,
+      },
+      {
+        name: 'medium',
+        ttl: 10000, // 10 seconds
+        limit: 20,
+      },
+      {
+        name: 'long',
+        ttl: 60000, // 1 minute
         limit: 100,
       },
     ]),
-    
+
     // Feature modules
     CloudinaryModule,
     HealthModule,
@@ -95,6 +112,13 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     FavoritesModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Apply ThrottlerGuard globally
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

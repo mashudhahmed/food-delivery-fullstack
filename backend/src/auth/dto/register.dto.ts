@@ -1,20 +1,38 @@
-import { IsEmail, IsString, MinLength, IsEnum, IsOptional, Matches } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  MinLength,
+  IsEnum,
+  IsOptional,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 import { UserRole } from '../../users/entities/user.entity';
 
 export class RegisterDto {
   @IsString()
   @MinLength(2)
+  @MaxLength(100)
   fullName!: string;
 
   @IsEmail()
   email!: string;
 
   @IsString()
-  @MinLength(6)
+  @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  @MaxLength(64)
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
+    {
+      message:
+        'Password must contain at least 1 uppercase, 1 lowercase, 1 number and 1 special character (@$!%*?&)',
+    },
+  )
   password!: string;
 
   @Matches(/^(\+8801|01)[3-9]\d{8}$/, {
-    message: 'Please enter a valid Bangladeshi phone number (e.g., 01XXXXXXXXX or +8801XXXXXXXXX)'
+    message:
+      'Please enter a valid Bangladeshi phone number (e.g., 01XXXXXXXXX or +8801XXXXXXXXX)',
   })
   phone!: string;
 
@@ -26,7 +44,6 @@ export class RegisterDto {
   @IsOptional()
   role?: UserRole;
 
-  // For restaurant owners
   @IsOptional()
   @IsString()
   businessName?: string;
@@ -39,7 +56,6 @@ export class RegisterDto {
   @IsString()
   taxId?: string;
 
-  // For delivery agents
   @IsOptional()
   @IsString()
   nidNumber?: string;

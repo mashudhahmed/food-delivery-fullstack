@@ -1,15 +1,24 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+} from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Restaurant } from '../../restaurants/entities/restaurant.entity';
 import { OrderItem } from './order-item.entity';
 
 export enum OrderStatus {
-  PENDING = 'pending',           // 1. Order Placed
-  PREPARING = 'preparing',       // 2. Preparing
-  READY = 'ready',               // 3. Ready for Pickup
-  PICKED_UP = 'picked_up',       // 4. Picked Up
-  ON_THE_WAY = 'on_the_way',     // 5. On the Way
-  DELIVERED = 'delivered',       // 6. Delivered
+  PENDING = 'pending',
+  PREPARING = 'preparing',
+  READY = 'ready',
+  PICKED_UP = 'picked_up',
+  ON_THE_WAY = 'on_the_way',
+  DELIVERED = 'delivered',
   CANCELLED = 'cancelled',
 }
 
@@ -19,22 +28,25 @@ export class Order {
   id: string;
 
   @ManyToOne(() => User)
+  @JoinColumn({ name: 'customerId' })
   customer: User;
 
   @Column()
   customerId: string;
 
   @ManyToOne(() => Restaurant)
+  @JoinColumn({ name: 'restaurantId' })
   restaurant: Restaurant;
 
   @Column()
   restaurantId: string;
 
   @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'agentId' })
   agent: User;
 
   @Column({ nullable: true })
-  agentId: string;
+  agentId: string | null;
 
   @Column({
     type: 'enum',
@@ -59,21 +71,23 @@ export class Order {
   deliveryAddress: string;
 
   @Column({ nullable: true })
-  deliveryInstructions: string;
+  deliveryInstructions: string | null;
 
   @Column({ nullable: true })
-  customerName: string;
+  customerName: string | null;
 
   @Column({ nullable: true })
-  customerEmail: string;
+  customerEmail: string | null;
 
   @Column({ nullable: true })
-  customerPhone: string;
+  customerPhone: string | null;
 
   @Column({ nullable: true })
-  paymentMethod: string;
+  paymentMethod: string | null;
 
-  @OneToMany(() => OrderItem, (orderItem) => orderItem.order, { cascade: true })
+  @OneToMany(() => OrderItem, (orderItem) => orderItem.order, {
+    cascade: true,
+  })
   items: OrderItem[];
 
   @CreateDateColumn()
@@ -81,5 +95,4 @@ export class Order {
 
   @UpdateDateColumn()
   updatedAt: Date;
-
 }
