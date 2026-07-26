@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Search, Download, RefreshCw, Truck, Star, Phone, Mail, Car, X, CheckCircle, Ban, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
+import Pagination from '@/components/Pagination';
+import { unwrapPaginated } from '@/lib/unwrapPaginated';
 
 interface DeliveryAgent {
   id: string;
@@ -22,15 +24,6 @@ interface DeliveryAgent {
   createdAt: string;
 }
 
-const ensureArray = (data: any): any[] => {
-  if (Array.isArray(data)) return data;
-  if (data?.data && Array.isArray(data.data)) return data.data;
-  if (data?.items && Array.isArray(data.items)) return data.items;
-  if (data?.agents && Array.isArray(data.agents)) return data.agents;
-  console.warn('⚠️ Unexpected data format for delivery agents:', typeof data, data);
-  return [];
-};
-
 const STATUS_TINT: Record<string, string> = {
   approved: 'bg-emerald-50 text-emerald-700',
   pending: 'bg-amber-50 text-amber-700',
@@ -45,15 +38,42 @@ export default function DeliveryAgentsPage() {
   const [selectedAgent, setSelectedAgent] = useState<DeliveryAgent | null>(null);
   const [savingStatus, setSavingStatus] = useState(false);
 
+  // ✅ Pagination — was fetching the entire agent roster in one request.
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const limit = 20;
+
+  // ✅ Total/active counts now come from a dedicated endpoint instead of
+  // being computed from the (now partial) in-memory agents array.
+  const [stats, setStats] = useState({ total: 0, active: 0 });
+
   useEffect(() => {
     fetchAgents();
+  }, [page]);
+
+  useEffect(() => {
+    fetchStats();
   }, []);
+
+  const fetchStats = async () => {
+    try {
+      const response = await api.get('/admin/delivery-agents/stats');
+      const raw = response.data?.data ?? response.data;
+      setStats((prev) => ({ ...prev, ...raw }));
+    } catch (error) {
+      console.error('Failed to load agent stats:', error);
+    }
+  };
 
   const fetchAgents = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/admin/delivery-agents');
-      setAgents(ensureArray(response.data));
+      const response = await api.get(`/admin/delivery-agents?limit=${limit}&page=${page}`);
+      const { items, total: t, totalPages: tp } = unwrapPaginated<DeliveryAgent>(response.data);
+      setAgents(items);
+      setTotal(t);
+      setTotalPages(tp);
     } catch (error) {
       toast.error('Failed to load delivery agents');
       setAgents([]);
@@ -116,11 +136,6 @@ export default function DeliveryAgentsPage() {
       agent.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // ✅ Was checking a.status === 'active', which never matches the real enum
-  // (pending/approved/rejected/suspended) — agents always showed as inactive.
-  const activeCount = safeAgents.filter((a) => a.status === 'approved').length;
-  const avgRating = safeAgents.length ? safeAgents.reduce((acc, a) => acc + (a.rating || 0), 0) / safeAgents.length : 0;
-
   if (loading) {
     return (
       <div className="space-y-6 animate-pulse">
@@ -178,8 +193,8 @@ export default function DeliveryAgentsPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      {/* Stats Cards — pulled from /admin/delivery-agents/stats, not the current page's array */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-5">
           <div className="flex items-center gap-3">
             <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 text-blue-600">
@@ -187,7 +202,7 @@ export default function DeliveryAgentsPage() {
             </span>
             <div>
               <p className="text-xs text-gray-400">Total Agents</p>
-              <p className="text-xl font-bold text-gray-900 tabular-nums">{safeAgents.length}</p>
+              <p className="text-xl font-bold text-gray-900 tabular-nums">{stats.total}</p>
             </div>
           </div>
         </div>
@@ -198,22 +213,17 @@ export default function DeliveryAgentsPage() {
             </span>
             <div>
               <p className="text-xs text-gray-400">Active Agents</p>
-              <p className="text-xl font-bold text-gray-900 tabular-nums">{activeCount}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-5">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-50 text-amber-600">
-              <Star className="w-5 h-5" />
-            </span>
-            <div>
-              <p className="text-xs text-gray-400">Average Rating</p>
-              <p className="text-xl font-bold text-gray-900 tabular-nums">{avgRating.toFixed(1)}</p>
+              <p className="text-xl font-bold text-gray-900 tabular-nums">{stats.active}</p>
             </div>
           </div>
         </div>
       </div>
+      {/* Note: an "Average Rating" tile used to live here, computed from
+          agent.rating client-side — but there's no rating column on the
+          User entity, so it was always averaging undefined values (i.e.
+          always showing 0.0). Removed rather than keep showing a fake
+          number. Add a real per-agent rating column/table if this is a
+          feature you want, then this tile can come back for real. */}
 
       {/* Agents Grid */}
       {filteredAgents.length === 0 ? (
@@ -286,6 +296,8 @@ export default function DeliveryAgentsPage() {
           ))}
         </div>
       )}
+
+      <Pagination page={page} totalPages={totalPages} total={total} limit={limit} onPageChange={setPage} loading={loading} />
 
       {/* Agent Detail Modal */}
       {selectedAgent && (

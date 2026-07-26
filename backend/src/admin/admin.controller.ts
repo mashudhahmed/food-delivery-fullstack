@@ -18,6 +18,19 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { ApiTags, ApiBearerAuth} from '@nestjs/swagger';
+import {
+  UpdateUserStatusDto,
+  UpdateUserRoleDto,
+  ApproveUserDto,
+  RejectUserDto,
+  UpdateRestaurantStatusDto,
+  VerifyRestaurantDto,
+  UpdateOrderStatusDto,
+  CancelOrderDto,
+  UpdateAgentStatusDto,
+  VerifyAgentDocumentDto,
+  SendNotificationDto,
+} from './dto/admin-actions.dto';
 
 @ApiTags('Admin')
 @ApiBearerAuth()
@@ -35,8 +48,20 @@ export class AdminController {
 
   // User Management
   @Get('users')
-  async getAllUsers(@Query('role') role?: string) {
-    return this.adminService.getAllUsers(role);
+  async getAllUsers(
+    @Query('role') role?: string,
+    @Query('limit') limit?: string,
+    @Query('page') page?: string,
+  ) {
+    return this.adminService.getAllUsers(role, limit ? parseInt(limit, 10) : 20, page ? parseInt(page, 10) : 1);
+  }
+
+  // ⚠️ Must stay ABOVE 'users/:userId' — Nest matches routes in
+  // declaration order, so if this were below, ParseUUIDPipe would try
+  // (and fail) to parse the literal string "stats" as a UUID.
+  @Get('users/stats')
+  async getUserStats() {
+    return this.adminService.getUserStats();
   }
 
   @Get('users/:userId')
@@ -47,18 +72,17 @@ export class AdminController {
   @Patch('users/:userId/status')
   async updateUserStatus(
     @Param('userId', ParseUUIDPipe) userId: string,
-    @Body('status') status: string,
-    @Body('reason') reason?: string,
+    @Body() dto: UpdateUserStatusDto,
   ) {
-    return this.adminService.updateUserStatus(userId, status, reason);
+    return this.adminService.updateUserStatus(userId, dto.status, dto.reason);
   }
 
   @Patch('users/:userId/role')
   async updateUserRole(
     @Param('userId', ParseUUIDPipe) userId: string,
-    @Body('role') role: string,
+    @Body() dto: UpdateUserRoleDto,
   ) {
-    return this.adminService.updateUserRole(userId, role);
+    return this.adminService.updateUserRole(userId, dto.role);
   }
 
   @Delete('users/:userId')
@@ -75,24 +99,32 @@ export class AdminController {
   @Patch('approve/:userId')
   async approveUser(
     @Param('userId', ParseUUIDPipe) userId: string,
-    @Body('role') role: string,
-    @Body('notes') notes?: string,
+    @Body() dto: ApproveUserDto,
   ) {
-    return this.adminService.approveUser(userId, role, notes);
+    return this.adminService.approveUser(userId, dto.role, dto.notes);
   }
 
   @Patch('reject/:userId')
   async rejectUser(
     @Param('userId', ParseUUIDPipe) userId: string,
-    @Body('reason') reason: string,
+    @Body() dto: RejectUserDto,
   ) {
-    return this.adminService.rejectUser(userId, reason);
+    return this.adminService.rejectUser(userId, dto.reason);
   }
 
   // Restaurant Management
   @Get('restaurants')
-  async getAllRestaurants(@Query('status') status?: string) {
-    return this.adminService.getAllRestaurants(status);
+  async getAllRestaurants(
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+    @Query('page') page?: string,
+  ) {
+    return this.adminService.getAllRestaurants(status, limit ? parseInt(limit, 10) : 20, page ? parseInt(page, 10) : 1);
+  }
+
+  @Get('restaurants/stats')
+  async getRestaurantStats() {
+    return this.adminService.getRestaurantStats();
   }
 
   @Get('restaurants/:restaurantId')
@@ -103,17 +135,17 @@ export class AdminController {
   @Patch('restaurants/:restaurantId/status')
   async updateRestaurantStatus(
     @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
-    @Body('status') status: string,
+    @Body() dto: UpdateRestaurantStatusDto,
   ) {
-    return this.adminService.updateRestaurantStatus(restaurantId, status);
+    return this.adminService.updateRestaurantStatus(restaurantId, dto.status);
   }
 
   @Patch('restaurants/:restaurantId/verify')
   async verifyRestaurant(
     @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
-    @Body('verified') verified: boolean,
+    @Body() dto: VerifyRestaurantDto,
   ) {
-    return this.adminService.verifyRestaurant(restaurantId, verified);
+    return this.adminService.verifyRestaurant(restaurantId, dto.verified);
   }
 
   @Delete('restaurants/:restaurantId')
@@ -126,8 +158,9 @@ export class AdminController {
   async getAllOrders(
     @Query('status') status?: string,
     @Query('limit') limit?: string,
+    @Query('page') page?: string,
   ) {
-    return this.adminService.getAllOrders(status, limit ? parseInt(limit) : 50);
+    return this.adminService.getAllOrders(status, limit ? parseInt(limit, 10) : 20, page ? parseInt(page, 10) : 1);
   }
 
   @Get('orders/:orderId')
@@ -138,23 +171,32 @@ export class AdminController {
   @Patch('orders/:orderId/status')
   async updateOrderStatus(
     @Param('orderId', ParseUUIDPipe) orderId: string,
-    @Body('status') status: string,
+    @Body() dto: UpdateOrderStatusDto,
   ) {
-    return this.adminService.updateOrderStatus(orderId, status);
+    return this.adminService.updateOrderStatus(orderId, dto.status);
   }
 
   @Patch('orders/:orderId/cancel')
   async cancelOrder(
     @Param('orderId', ParseUUIDPipe) orderId: string,
-    @Body('reason') reason: string,
+    @Body() dto: CancelOrderDto,
   ) {
-    return this.adminService.cancelOrder(orderId, reason);
+    return this.adminService.cancelOrder(orderId, dto.reason);
   }
 
   // Delivery Agent Management
   @Get('delivery-agents')
-  async getDeliveryAgents(@Query('status') status?: string) {
-    return this.adminService.getDeliveryAgents(status);
+  async getDeliveryAgents(
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+    @Query('page') page?: string,
+  ) {
+    return this.adminService.getDeliveryAgents(status, limit ? parseInt(limit, 10) : 20, page ? parseInt(page, 10) : 1);
+  }
+
+  @Get('delivery-agents/stats')
+  async getAgentStats() {
+    return this.adminService.getAgentStats();
   }
 
   @Get('delivery-agents/:agentId')
@@ -165,18 +207,17 @@ export class AdminController {
   @Patch('delivery-agents/:agentId/status')
   async updateAgentStatus(
     @Param('agentId', ParseUUIDPipe) agentId: string,
-    @Body('status') status: string,
+    @Body() dto: UpdateAgentStatusDto,
   ) {
-    return this.adminService.updateAgentStatus(agentId, status);
+    return this.adminService.updateAgentStatus(agentId, dto.status);
   }
 
   @Patch('delivery-agents/:agentId/verify-document')
   async verifyAgentDocument(
     @Param('agentId', ParseUUIDPipe) agentId: string,
-    @Body('documentType') documentType: string,
-    @Body('verified') verified: boolean,
+    @Body() dto: VerifyAgentDocumentDto,
   ) {
-    return this.adminService.verifyAgentDocument(agentId, documentType, verified);
+    return this.adminService.verifyAgentDocument(agentId, dto.documentType, dto.verified);
   }
 
   // Analytics
@@ -202,8 +243,8 @@ export class AdminController {
   }
 
   @Post('notifications')
-  async sendNotification(@Body() body: any) {
-    return this.adminService.sendNotification(body);
+  async sendNotification(@Body() dto: SendNotificationDto) {
+    return this.adminService.sendNotification(dto);
   }
 
   @Patch('notifications/:notificationId/read')

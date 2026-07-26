@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Search, Download, RefreshCw, Eye, Filter, X, Package, Ban } from 'lucide-react';
 import toast from 'react-hot-toast';
+import Pagination from '@/components/Pagination';
+import { unwrapPaginated } from '@/lib/unwrapPaginated';
 
 // ✅ Matches the FLAT shape actually returned by GET /admin/orders (adminService.getAllOrders),
 // which maps { id, orderNumber, customerName, customerEmail, restaurantName, agentName, ... } —
@@ -41,15 +43,6 @@ interface OrderDetail {
   items?: { id: string; name?: string; quantity: number; price: number }[];
 }
 
-const ensureArray = (data: any): any[] => {
-  if (Array.isArray(data)) return data;
-  if (data?.data && Array.isArray(data.data)) return data.data;
-  if (data?.items && Array.isArray(data.items)) return data.items;
-  if (data?.orders && Array.isArray(data.orders)) return data.orders;
-  console.warn('⚠️ Unexpected data format for orders:', typeof data, data);
-  return [];
-};
-
 const STATUS_META: Record<string, { text: string; color: string; ring: string; dot: string }> = {
   pending: { text: 'Order Placed', color: 'bg-amber-50 text-amber-700', ring: 'ring-amber-200', dot: 'bg-amber-500' },
   preparing: { text: 'Preparing', color: 'bg-blue-50 text-blue-700', ring: 'ring-blue-200', dot: 'bg-blue-500' },
@@ -73,8 +66,20 @@ export default function OrdersPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
+  // ✅ Pagination — was fetching up to 100 orders in one shot and filtering
+  // client-side; now server-paginated (20/page) like the rest of the admin
+  // list pages.
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const limit = 20;
+
   useEffect(() => {
     fetchOrders();
+  }, [statusFilter, page]);
+
+  useEffect(() => {
+    setPage(1);
   }, [statusFilter]);
 
   const fetchOrders = async () => {
@@ -82,10 +87,13 @@ export default function OrdersPage() {
     try {
       // ✅ Correct endpoint — GET /admin/orders (was calling /admin/orders/recent,
       // which doesn't exist on the backend and 404'd every time).
-      const params = new URLSearchParams({ limit: '100' });
+      const params = new URLSearchParams({ limit: String(limit), page: String(page) });
       if (statusFilter !== 'all') params.append('status', statusFilter);
       const response = await api.get(`/admin/orders?${params.toString()}`);
-      setOrders(ensureArray(response.data));
+      const { items, total: t, totalPages: tp } = unwrapPaginated<OrderListItem>(response.data);
+      setOrders(items);
+      setTotal(t);
+      setTotalPages(tp);
     } catch (error) {
       toast.error('Failed to load orders');
       setOrders([]);
@@ -154,6 +162,8 @@ export default function OrdersPage() {
 
   const safeOrders = Array.isArray(orders) ? orders : [];
 
+  // ⚠️ Search only refines the CURRENT page of results — with server-side
+  // pagination there's no full in-memory order list to search across.
   const filteredOrders = safeOrders.filter((order) => {
     const term = searchTerm.toLowerCase();
     return (
@@ -304,6 +314,8 @@ export default function OrdersPage() {
           </table>
         </div>
       </div>
+
+      <Pagination page={page} totalPages={totalPages} total={total} limit={limit} onPageChange={setPage} loading={loading} />
 
       {/* Order Detail Modal */}
       {(selectedOrder || detailLoading) && (

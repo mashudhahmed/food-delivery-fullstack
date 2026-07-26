@@ -31,10 +31,10 @@ const navItems = [
   { id: 'analytics', label: 'Analytics', icon: BarChart3, path: '/admin/analytics' },
 ];
 
-// Height of the global dashboard Navbar (Navbar.tsx uses h-20 = 5rem in its
+// Height of the global dashboard Navbar (Navbar.tsx uses h-16 = 4rem in its
 // isDashboardPage branch). The sidebar and its mobile toggle are offset by
 // this so they sit below it instead of overlapping it.
-const NAVBAR_HEIGHT = '5rem';
+const NAVBAR_HEIGHT = '4rem';
 
 export default function AdminLayout({
   children,
@@ -90,16 +90,16 @@ export default function AdminLayout({
                 href={item.path}
                 className={`group relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 ${
                   isActive
-                    ? 'bg-purple-50 text-purple-600'
+                    ? 'bg-orange-50 text-orange-600'
                     : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
                 {isActive && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-purple-500" />
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-orange-500" />
                 )}
                 <span
                   className={`flex items-center justify-center w-9 h-9 rounded-lg shrink-0 transition-colors ${
-                    isActive ? 'bg-purple-500 text-white shadow-sm shadow-purple-200' : 'bg-gray-100 text-gray-500 group-hover:bg-white group-hover:text-gray-700'
+                    isActive ? 'bg-orange-500 text-white shadow-sm shadow-orange-200' : 'bg-gray-100 text-gray-500 group-hover:bg-white group-hover:text-gray-700'
                   }`}
                 >
                   <item.icon className="w-4.5 h-4.5" />

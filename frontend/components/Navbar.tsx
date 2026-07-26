@@ -183,10 +183,12 @@ export default function Navbar() {
     switch (user?.role) {
       case 'admin':
         return [
-          { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+          { href: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard },
+          { href: '/admin/applications', label: 'Applications', icon: Briefcase },
           { href: '/admin/users', label: 'Users', icon: Users },
           { href: '/admin/restaurants', label: 'Restaurants', icon: Store },
           { href: '/admin/orders', label: 'Orders', icon: Package },
+          { href: '/admin/delivery-agents', label: 'Delivery Agents', icon: Truck },
           { href: '/admin/analytics', label: 'Analytics', icon: TrendingUp },
         ];
       case 'owner':
@@ -679,13 +681,13 @@ export default function Navbar() {
         <LogoutModal isOpen={isLogoutModalOpen} onClose={() => setIsLogoutModalOpen(false)} onConfirm={handleConfirmLogout} />
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} initialMode={authModalMode} />
 
-        <nav className="bg-white border-b border-gray-200 sticky top-0 z-40" role="navigation" aria-label="Dashboard navigation">
+        <nav className="bg-white/90 backdrop-blur-xl border-b border-gray-100 sticky top-0 z-40" role="navigation" aria-label="Dashboard navigation">
           <div className="px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-20">
+            <div className="flex items-center justify-between h-16">
               <div className="flex items-center gap-3">
                 <button 
                   onClick={handleLogoClick}
-                  className="flex items-center gap-3 hover:opacity-80 transition group cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-lg p-1"
+                  className="flex items-center gap-2.5 hover:opacity-80 transition group cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-lg p-1"
                   type="button"
                   aria-label="Go to dashboard"
                 >
@@ -693,22 +695,22 @@ export default function Navbar() {
                     <Image 
                       src="/logo.png" 
                       alt="QuickBite" 
-                      width={48} 
-                      height={48} 
-                      className="w-12 h-12 object-contain"
+                      width={38} 
+                      height={38} 
+                      className="w-9.5 h-9.5 object-contain"
                       priority
                     />
                   </div>
                   <div className="flex flex-col items-start">
-                    <span className="text-2xl font-bold text-orange-500 leading-tight">QuickBite</span>
-                    <span className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">
+                    <span className="text-lg font-bold text-orange-500 leading-tight">QuickBite</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full -mt-0.5">
                       {getPortalTitle()}
                     </span>
                   </div>
                 </button>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 <NotificationDropdown />
 
                 <button 
@@ -726,18 +728,20 @@ export default function Navbar() {
                   <Settings className="w-5 h-5 text-gray-500" aria-hidden="true" />
                 </Link>
 
-                <div className="relative ml-1" ref={profileMenuRef}>
+                <div className="w-px h-6 bg-gray-200 mx-1.5" aria-hidden="true" />
+
+                <div className="relative" ref={profileMenuRef}>
                   <button 
                     onClick={() => setIsProfileOpen(!isProfileOpen)} 
-                    className="flex items-center gap-2 text-sm font-medium hover:text-orange-500 transition pl-2 focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-lg"
+                    className="flex items-center gap-2 text-sm font-medium hover:bg-gray-50 transition pl-1 pr-2.5 py-1 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500"
                     aria-label={isProfileOpen ? 'Close profile menu' : 'Open profile menu'}
                     aria-expanded={isProfileOpen}
                     aria-haspopup="true"
                   >
-                    <div className="w-9 h-9 bg-orange-100 rounded-full flex items-center justify-center">
-                      <User className="w-5 h-5 text-orange-600" aria-hidden="true" />
+                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                      <User className="w-4.5 h-4.5 text-orange-600" aria-hidden="true" />
                     </div>
-                    <span className="hidden sm:inline text-gray-700 font-medium">{user?.fullName?.split(' ')[0] || 'User'}</span>
+                    <span className="hidden sm:inline text-gray-700">{user?.fullName?.split(' ')[0] || 'User'}</span>
                     <ChevronDown className="w-4 h-4 text-gray-400" aria-hidden="true" />
                   </button>
 

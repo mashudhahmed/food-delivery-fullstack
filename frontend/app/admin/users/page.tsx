@@ -4,6 +4,8 @@ import { useEffect, useState, JSX } from 'react';
 import { api } from '@/lib/api';
 import { Search, Download, RefreshCw, MoreVertical, Edit, Ban, Trash2, Shield, Eye, CheckCircle, XCircle, AlertCircle, Users as UsersIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
+import Pagination from '@/components/Pagination';
+import { unwrapPaginated } from '@/lib/unwrapPaginated';
 
 interface User {
   id: string;
@@ -17,16 +19,6 @@ interface User {
   createdAt: string;
   lastLogin: string;
 }
-
-// ✅ Ensure array in case the API wraps the list in an object
-const ensureArray = (data: any): any[] => {
-  if (Array.isArray(data)) return data;
-  if (data?.data && Array.isArray(data.data)) return data.data;
-  if (data?.items && Array.isArray(data.items)) return data.items;
-  if (data?.users && Array.isArray(data.users)) return data.users;
-  console.warn('⚠️ Unexpected data format for users:', typeof data, data);
-  return [];
-};
 
 const ROLE_TINT: Record<string, string> = {
   admin: 'bg-purple-50 text-purple-700',
@@ -54,18 +46,58 @@ export default function UsersPage() {
   const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
   const [roleChangeTarget, setRoleChangeTarget] = useState<User | null>(null);
 
+  // ✅ Pagination — the list used to fetch every user in one request and
+  // filter client-side. Now it's server-paginated (20/page), so page state
+  // and total counts come from the API instead of array.length.
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const limit = 20;
+
+  // ✅ Summary tiles now come from a dedicated stats endpoint instead of
+  // being computed from the (now partial) in-memory users array.
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    customers: 0,
+    owners: 0,
+    agents: 0,
+    admins: 0,
+    pendingApprovals: 0,
+  });
+
   useEffect(() => {
     fetchUsers();
+  }, [roleFilter, page]);
+
+  useEffect(() => {
+    setPage(1);
   }, [roleFilter]);
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      const response = await api.get('/admin/users/stats');
+      const raw = response.data?.data ?? response.data;
+      setStats((prev) => ({ ...prev, ...raw }));
+    } catch (error) {
+      console.error('Failed to load user stats:', error);
+    }
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ limit: String(limit), page: String(page) });
       if (roleFilter !== 'all') params.append('role', roleFilter);
 
       const response = await api.get(`/admin/users?${params.toString()}`);
-      setUsers(ensureArray(response.data));
+      const { items, total: t, totalPages: tp } = unwrapPaginated<User>(response.data);
+      setUsers(items);
+      setTotal(t);
+      setTotalPages(tp);
     } catch (error) {
       console.error('Failed to load users:', error);
       toast.error('Failed to load users');
@@ -97,6 +129,7 @@ export default function UsersPage() {
       await api.patch(`/admin/users/${userId}/status`, { status: newStatus });
       toast.success(`User status updated to ${newStatus}`);
       fetchUsers();
+      fetchStats();
     } catch (error) {
       toast.error('Failed to update status');
     }
@@ -108,6 +141,7 @@ export default function UsersPage() {
       toast.success(`User role updated to ${newRole}`);
       setRoleChangeTarget(null);
       fetchUsers();
+      fetchStats();
     } catch (error) {
       toast.error('Failed to update role');
     }
@@ -119,12 +153,17 @@ export default function UsersPage() {
         await api.delete(`/admin/users/${userId}`);
         toast.success('User deleted successfully');
         fetchUsers();
+        fetchStats();
       } catch (error) {
         toast.error('Failed to delete user');
       }
     }
   };
 
+  // ⚠️ Search and status-filter only refine the CURRENT page of results —
+  // with server-side pagination there's no full in-memory list to filter
+  // against anymore. A user on page 2 searching for someone on page 1 won't
+  // find them this way. True server-side search is a follow-up if needed.
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
       user.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -149,11 +188,11 @@ export default function UsersPage() {
   }
 
   const statTiles = [
-    { label: 'Total Users', value: users.length, accent: 'text-gray-900' },
-    { label: 'Customers', value: users.filter((u) => u.role === 'customer').length, accent: 'text-gray-900' },
-    { label: 'Restaurant Owners', value: users.filter((u) => u.role === 'owner').length, accent: 'text-gray-900' },
-    { label: 'Delivery Agents', value: users.filter((u) => u.role === 'agent').length, accent: 'text-gray-900' },
-    { label: 'Pending Approvals', value: users.filter((u) => u.status === 'pending').length, accent: 'text-amber-600' },
+    { label: 'Total Users', value: stats.totalUsers, accent: 'text-gray-900' },
+    { label: 'Customers', value: stats.customers, accent: 'text-gray-900' },
+    { label: 'Restaurant Owners', value: stats.owners, accent: 'text-gray-900' },
+    { label: 'Delivery Agents', value: stats.agents, accent: 'text-gray-900' },
+    { label: 'Pending Approvals', value: stats.pendingApprovals, accent: 'text-amber-600' },
   ];
 
   return (
@@ -358,6 +397,8 @@ export default function UsersPage() {
           </div>
         )}
       </div>
+
+      <Pagination page={page} totalPages={totalPages} total={total} limit={limit} onPageChange={setPage} loading={loading} />
 
       {/* User Detail Modal */}
       {selectedUser && (
