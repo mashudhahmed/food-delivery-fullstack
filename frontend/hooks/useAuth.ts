@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { auth } from '@/lib/auth';
-import { User } from '@/types';
+import { auth, type AuthUser } from '@/lib/auth';
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -13,7 +12,7 @@ export function useAuth() {
     try {
       const currentUser = auth.getCurrentUser();
       const authenticated = auth.isAuthenticated();
-      
+
       setUser(currentUser);
       setIsAuthenticated(authenticated);
     } catch (error) {
@@ -45,17 +44,23 @@ export function useAuth() {
     };
   }, [checkAuth]);
 
-  const login = useCallback(async (data: { email: string; password: string }) => {
-    const result = await auth.login(data);
-    checkAuth();
-    return result;
-  }, [checkAuth]);
+  const login = useCallback(
+    async (data: { email: string; password: string }) => {
+      const result = await auth.login(data);
+      checkAuth();
+      return result;
+    },
+    [checkAuth],
+  );
 
-  const register = useCallback(async (data: any) => {
-    const result = await auth.register(data);
-    checkAuth();
-    return result;
-  }, [checkAuth]);
+  const register = useCallback(
+    async (data: any) => {
+      const result = await auth.register(data);
+      checkAuth();
+      return result;
+    },
+    [checkAuth],
+  );
 
   const logout = useCallback(() => {
     auth.logout();
