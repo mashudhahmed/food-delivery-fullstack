@@ -1,11 +1,14 @@
-export type NotificationType = 
+export type NotificationType =
   | 'order_new'
   | 'order_status'
   | 'order_ready'
-  | 'order_picked_up'      // NEW
-  | 'order_on_the_way'     // NEW
+  | 'order_picked_up'
+  | 'order_on_the_way'
   | 'order_delivered'
   | 'order_cancelled'
+  | 'order_available'      // agent: new order ready for pickup
+  | 'order_assigned'
+  | 'earnings_added'
   | 'restaurant_approved'
   | 'restaurant_rejected'
   | 'agent_assigned'

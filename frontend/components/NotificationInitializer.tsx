@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { auth } from "@/lib/auth";
 import { wsService } from "@/lib/websocket";
+import type { NotificationType } from "@/types/notification";
 
 export default function NotificationInitializer() {
   const { fetchNotifications, addNotification } = useNotificationStore();
@@ -19,12 +20,35 @@ export default function NotificationInitializer() {
     wsService.connect();
 
     // 3. Listen for real-time notifications
+    const VALID_TYPES = new Set<string>([
+      "order_new",
+      "order_status",
+      "order_ready",
+      "order_picked_up",
+      "order_on_the_way",
+      "order_delivered",
+      "order_cancelled",
+      "order_available",
+      "order_assigned",
+      "earnings_added",
+      "restaurant_approved",
+      "restaurant_rejected",
+      "agent_assigned",
+      "payment_received",
+      "system_alert",
+    ]);
+
     const handleNotification = (payload: any) => {
+      const rawType = payload.type as string | undefined;
+      const type = (
+        rawType && VALID_TYPES.has(rawType) ? rawType : "system_alert"
+      ) as NotificationType;
+
       addNotification({
         id: payload.id || crypto.randomUUID(),
         title: payload.title || "New notification",
         message: payload.message || "",
-        type: payload.type || "info",
+        type,
         read: false,
         createdAt: payload.createdAt || new Date().toISOString(),
         data: payload.data,
@@ -36,7 +60,7 @@ export default function NotificationInitializer() {
         id: crypto.randomUUID(),
         title: "Order Update",
         message: `Your order status is now ${payload.status || "updated"}`,
-        type: "order",
+        type: "order_status", // must be a member of NotificationType
         read: false,
         createdAt: new Date().toISOString(),
         data: { orderId: payload.id },
