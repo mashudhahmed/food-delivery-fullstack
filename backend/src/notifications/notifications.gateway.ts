@@ -1,78 +1,81 @@
+// src/notifications/notifications.gateway.ts
 import {
   WebSocketGateway,
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
-  OnGatewayInit,
+  SubscribeMessage,
+  MessageBody,
+  ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, UseGuards } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { WsJwtGuard } from '../auth/guards/ws-jwt.guard';
+import { Injectable, Logger } from '@nestjs/common';
 
 @WebSocketGateway({
+  namespace: '/notifications',
   cors: {
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'https://project-quickbite.vercel.app',
-      process.env.FRONTEND_URL,
-    ].filter(Boolean),
+    origin: process.env.FRONTEND_URL
+      ? process.env.FRONTEND_URL.split(',').map((o) => o.trim())
+      : true,
     credentials: true,
   },
-  namespace: '/notifications',
 })
+@Injectable()
 export class NotificationsGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer()
   server: Server;
 
   private readonly logger = new Logger(NotificationsGateway.name);
-  private connectedClients = new Map<string, string>(); // socketId → userId
+
+  // socketId → userId
+  private readonly connectedClients = new Map<string, string>();
 
   constructor(
     private readonly jwtService: JwtService,
-    private readonly configService: ConfigService,
+    private readonly config: ConfigService,
   ) {}
-
-  afterInit() {
-    this.logger.log('Notifications WebSocket Gateway initialized');
-  }
 
   async handleConnection(client: Socket) {
     try {
-      const token = this.extractToken(client);
+      const token =
+        client.handshake.auth?.token ||
+        client.handshake.headers?.authorization?.replace(/^Bearer\s+/i, '') ||
+        (client.handshake.query?.token as string);
 
       if (!token) {
-        this.logger.warn(`Client ${client.id} connected without token`);
-        client.emit('error', { message: 'Authentication required' });
+        this.logger.warn(`Client ${client.id} connected without token → disconnect`);
         client.disconnect(true);
         return;
       }
 
-      const payload = await this.jwtService.verifyAsync(token, {
-        secret: this.configService.get<string>('JWT_SECRET'),
+      const payload = this.jwtService.verify(token, {
+        secret: this.config.get<string>('JWT_SECRET'),
       });
 
-      const userId = payload.sub;
+      const userId = payload.sub || payload.id;
 
-      // Store mapping
-      this.connectedClients.set(client.id, userId);
+      if (!userId) {
+        client.disconnect(true);
+        return;
+      }
+
       client.data.userId = userId;
+      client.data.role = payload.role;
 
-      // Join private room
-      client.join(`user_${userId}`);
+      // Private room for this user
+      client.join(`user:${userId}`);
 
-      this.logger.log(`User ${userId} connected (socket: ${client.id})`);
-      client.emit('connected', {
-        message: 'Successfully connected to notification server',
-        userId,
-      });
+      this.connectedClients.set(client.id, userId);
+
+      this.logger.log(
+        `Client connected → userId: ${userId} | socket: ${client.id}`,
+      );
     } catch (err) {
-      this.logger.warn(`WebSocket connection rejected: ${err.message}`);
-      client.emit('error', { message: 'Invalid or expired token' });
+      this.logger.warn(`Invalid token from ${client.id} → disconnect`);
       client.disconnect(true);
     }
   }
@@ -82,50 +85,51 @@ export class NotificationsGateway
     this.connectedClients.delete(client.id);
 
     if (userId) {
-      this.logger.log(`User ${userId} disconnected (socket: ${client.id})`);
+      this.logger.log(`Client disconnected → userId: ${userId}`);
     }
   }
 
-  // ─────────────────────────────────────────────
-  // Public methods used by NotificationsService
-  // ─────────────────────────────────────────────
-
-  sendNotificationToUser(userId: string, notification: any) {
-    this.server.to(`user_${userId}`).emit('notification', notification);
-    this.logger.debug(`Notification sent to user ${userId}: ${notification.title}`);
+  /**
+   * Main method used by NotificationsService
+   * (matches the existing call: sendNotificationToUser)
+   */
+  sendNotificationToUser(userId: string, payload: any) {
+    this.server.to(`user:${userId}`).emit('notification', payload);
   }
 
-  sendNotificationToUsers(userIds: string[], notification: any) {
-    userIds.forEach((userId) => {
-      this.server.to(`user_${userId}`).emit('notification', notification);
-    });
+  /**
+   * Alias / helper used in other places
+   */
+  notifyUser(userId: string, event: string, data: any) {
+    this.server.to(`user:${userId}`).emit(event, data);
   }
 
-  broadcastToAll(notification: any) {
-    this.server.emit('notification', notification);
+  /**
+   * Notify multiple users
+   */
+  notifyUsers(userIds: string[], event: string, data: any) {
+    userIds.forEach((id) => this.notifyUser(id, event, data));
   }
 
-  // ─────────────────────────────────────────────
-  // Helpers
-  // ─────────────────────────────────────────────
+  /**
+   * Broadcast to all connected clients (use carefully)
+   */
+  broadcast(event: string, data: any) {
+    this.server.emit(event, data);
+  }
 
-  private extractToken(client: Socket): string | null {
-    // Preferred: handshake.auth.token
-    if (client.handshake.auth?.token) {
-      return client.handshake.auth.token;
-    }
+  @SubscribeMessage('ping')
+  handlePing(@ConnectedSocket() client: Socket) {
+    return { event: 'pong', data: { timestamp: Date.now() } };
+  }
 
-    // Header
-    const authHeader = client.handshake.headers?.authorization;
-    if (authHeader?.startsWith('Bearer ')) {
-      return authHeader.slice(7);
-    }
-
-    // Query fallback (less secure)
-    if (client.handshake.query?.token) {
-      return client.handshake.query.token as string;
-    }
-
-    return null;
+  @SubscribeMessage('join-room')
+  handleJoinRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() room: string,
+  ) {
+    if (!client.data.userId) return;
+    client.join(room);
+    return { event: 'joined', data: { room } };
   }
 }

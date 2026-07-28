@@ -20,6 +20,8 @@ import { FavoritesModule } from './favorites/favorites.module';
 import { HealthModule } from './health/health.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 
+const isProd = process.env.NODE_ENV === 'production';
+
 @Module({
   imports: [
     // Configuration
@@ -78,21 +80,24 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     }),
 
     // Rate Limiting (multiple tiers)
+    // Generous defaults so normal app usage never hits a global limit.
+    // Sensitive routes (login/register/forgot-password) get their own
+    // stricter @Throttle() overrides in their controllers.
     ThrottlerModule.forRoot([
       {
         name: 'short',
         ttl: 1000, // 1 second
-        limit: 3,
+        limit: isProd ? 5 : 30,
       },
       {
         name: 'medium',
         ttl: 10000, // 10 seconds
-        limit: 20,
+        limit: isProd ? 20 : 100,
       },
       {
         name: 'long',
         ttl: 60000, // 1 minute
-        limit: 100,
+        limit: isProd ? 100 : 300,
       },
     ]),
 

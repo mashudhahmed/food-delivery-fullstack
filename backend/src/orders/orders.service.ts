@@ -432,4 +432,205 @@ export class OrdersService {
 
     return { message: 'Order cancelled successfully' };
   }
+
+  // ─────────────────────────────────────────────
+  // OWNER ANALYTICS
+  // ─────────────────────────────────────────────
+  async getOwnerAnalytics(
+    ownerId: string,
+    restaurantId?: string,
+    period: 'week' | 'month' | 'year' = 'week',
+  ): Promise<any> {
+    // 1. Get restaurants belonging to this owner
+    const restaurants = await this.restaurantsService.findByOwnerId(ownerId);
+
+    if (restaurants.length === 0) {
+      return this.emptyAnalytics();
+    }
+
+    const restaurantIds = restaurantId
+      ? [restaurantId]
+      : restaurants.map((r) => r.id);
+
+    // 2. Date ranges
+    const now = new Date();
+    let currentStart: Date;
+    let previousStart: Date;
+
+    if (period === 'week') {
+      currentStart = new Date(now);
+      currentStart.setDate(now.getDate() - 7);
+      previousStart = new Date(now);
+      previousStart.setDate(now.getDate() - 14);
+    } else if (period === 'month') {
+      currentStart = new Date(now);
+      currentStart.setMonth(now.getMonth() - 1);
+      previousStart = new Date(now);
+      previousStart.setMonth(now.getMonth() - 2);
+    } else {
+      currentStart = new Date(now);
+      currentStart.setFullYear(now.getFullYear() - 1);
+      previousStart = new Date(now);
+      previousStart.setFullYear(now.getFullYear() - 2);
+    }
+
+    // 3. Fetch all relevant orders
+    const allOrders = await this.orderRepository.find({
+      where: { restaurantId: In(restaurantIds) },
+      relations: ['items'],
+      order: { placedAt: 'DESC' },
+    });
+
+    const completed = allOrders.filter(
+      (o) => o.status === OrderStatus.DELIVERED,
+    );
+
+    const totalRevenue = completed.reduce(
+      (sum, o) => sum + Number(o.totalAmount || 0),
+      0,
+    );
+    const totalOrders = allOrders.length;
+    const avgOrderValue = completed.length
+      ? Math.round(totalRevenue / completed.length)
+      : 0;
+    const completionRate = totalOrders
+      ? Math.round((completed.length / totalOrders) * 100)
+      : 0;
+
+    // Growth calculation
+    const currentOrders = allOrders.filter(
+      (o) => new Date(o.placedAt) >= currentStart,
+    );
+    const previousOrders = allOrders.filter((o) => {
+      const d = new Date(o.placedAt);
+      return d >= previousStart && d < currentStart;
+    });
+
+    const currentRevenue = currentOrders
+      .filter((o) => o.status === OrderStatus.DELIVERED)
+      .reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+
+    const previousRevenue = previousOrders
+      .filter((o) => o.status === OrderStatus.DELIVERED)
+      .reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+
+    const revenueGrowth = previousRevenue
+      ? Number(
+          (((currentRevenue - previousRevenue) / previousRevenue) * 100).toFixed(1),
+        )
+      : 0;
+
+    const orderGrowth = previousOrders.length
+      ? Number(
+          (
+            ((currentOrders.length - previousOrders.length) /
+              previousOrders.length) *
+            100
+          ).toFixed(1),
+        )
+      : 0;
+
+    // Revenue trend (last 7 days)
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return d;
+    });
+
+    const revenueTrend = last7Days.map((date) => {
+      const dayOrders = allOrders.filter((o) => {
+        const od = new Date(o.placedAt);
+        return od.toDateString() === date.toDateString();
+      });
+
+      const dayRevenue = dayOrders
+        .filter((o) => o.status === OrderStatus.DELIVERED)
+        .reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+
+      return {
+        date: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        revenue: dayRevenue,
+        orders: dayOrders.length,
+      };
+    });
+
+    // Order status distribution
+    const orderStatusData = [
+      { name: 'Completed', value: completed.length, color: '#10b981' },
+      {
+        name: 'Pending',
+        value: allOrders.filter((o) => o.status === OrderStatus.PENDING).length,
+        color: '#eab308',
+      },
+      {
+        name: 'Preparing',
+        value: allOrders.filter((o) => o.status === OrderStatus.PREPARING)
+          .length,
+        color: '#3b82f6',
+      },
+      {
+        name: 'Cancelled',
+        value: allOrders.filter((o) => o.status === OrderStatus.CANCELLED)
+          .length,
+        color: '#ef4444',
+      },
+    ].filter((i) => i.value > 0);
+
+    // Real popular items from order items
+    const itemMap = new Map<
+      string,
+      { name: string; sales: number; revenue: number }
+    >();
+
+    for (const order of completed) {
+      if (!order.items) continue;
+      for (const item of order.items) {
+        const key = item.menuItemId;
+        const existing = itemMap.get(key) || {
+          name: (item as any).name || 'Unknown',
+          sales: 0,
+          revenue: 0,
+        };
+        existing.sales += item.quantity || 1;
+        existing.revenue += Number(item.unitPrice) * (item.quantity || 1);
+        itemMap.set(key, existing);
+      }
+    }
+
+    const popularItems = Array.from(itemMap.values())
+      .sort((a, b) => b.sales - a.sales)
+      .slice(0, 5);
+
+    return {
+      totalRevenue,
+      totalOrders,
+      avgOrderValue,
+      completionRate,
+      revenueGrowth,
+      orderGrowth,
+      avgOrderGrowth: 0,
+      conversionGrowth: 0,
+      revenueTrend,
+      orderStatusData,
+      popularItems,
+      categoryData: [], // can be extended later
+    };
+  }
+
+  private emptyAnalytics() {
+    return {
+      totalRevenue: 0,
+      totalOrders: 0,
+      avgOrderValue: 0,
+      completionRate: 0,
+      revenueGrowth: 0,
+      orderGrowth: 0,
+      avgOrderGrowth: 0,
+      conversionGrowth: 0,
+      revenueTrend: [],
+      orderStatusData: [],
+      popularItems: [],
+      categoryData: [],
+    };
+  }
 }

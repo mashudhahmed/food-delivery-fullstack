@@ -36,7 +36,7 @@ export default function NotificationInitializer() {
         id: crypto.randomUUID(),
         title: "Order Update",
         message: `Your order status is now ${payload.status || "updated"}`,
-        type: "ORDER",
+        type: "order",
         read: false,
         createdAt: new Date().toISOString(),
         data: { orderId: payload.id },
