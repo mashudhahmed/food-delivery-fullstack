@@ -23,7 +23,8 @@
     "migration:run": "ts-node ./node_modules/typeorm/cli.js migration:run -d src/database/data-source.ts",
     "migration:revert": "ts-node ./node_modules/typeorm/cli.js migration:revert -d src/database/data-source.ts",
     "seed:admin": "ts-node src/database/seeds/admin.seed.ts",
-    "typeorm": "ts-node ./node_modules/typeorm/cli.js"
+    "typeorm": "ts-node ./node_modules/typeorm/cli.js",
+    "seed:open-restaurants": "ts-node src/database/seeds/open-restaurants.seed.ts"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",

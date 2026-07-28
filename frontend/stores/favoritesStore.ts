@@ -5,22 +5,60 @@ import { auth } from '@/lib/auth';
 
 export interface FavoriteItem {
   id: string;
+  /** Restaurant display name */
   name: string;
+  /** Alias used by some pages */
+  restaurantName?: string;
+  /** Primary image field used by the store */
   image?: string;
+  /** Alias used by favorites page / restaurant cards */
+  imageUrl?: string;
+  restaurantImage?: string;
   rating?: number;
+  cuisineType?: string;
 }
 
 interface FavoritesState {
   items: FavoriteItem[];
   loading: boolean;
 
-  // Actions
   toggleFavorite: (restaurant: FavoriteItem) => Promise<void>;
   addFavorite: (restaurant: FavoriteItem) => void;
   removeFavorite: (id: string) => void;
   isFavorite: (id: string) => boolean;
   loadFavorites: () => Promise<void>;
   clearFavorites: () => void;
+}
+
+function normalizeFavorite(item: any): FavoriteItem {
+  const id =
+    item.restaurantId || item.restaurant?.id || item.id || '';
+  const name =
+    item.restaurantName ||
+    item.restaurant?.name ||
+    item.name ||
+    'Restaurant';
+  const image =
+    item.restaurantImage ||
+    item.restaurant?.imageUrl ||
+    item.restaurant?.image ||
+    item.imageUrl ||
+    item.image ||
+    undefined;
+  const rating = item.restaurant?.rating ?? item.rating;
+  const cuisineType =
+    item.cuisineType || item.restaurant?.cuisineType || undefined;
+
+  return {
+    id,
+    name,
+    restaurantName: name,
+    image,
+    imageUrl: image,
+    restaurantImage: image,
+    rating,
+    cuisineType,
+  };
 }
 
 export const useFavoritesStore = create<FavoritesState>()(
@@ -34,9 +72,10 @@ export const useFavoritesStore = create<FavoritesState>()(
       },
 
       addFavorite: (restaurant: FavoriteItem) => {
-        const exists = get().items.some((item) => item.id === restaurant.id);
-        if (!exists) {
-          set({ items: [...get().items, restaurant] });
+        const normalized = normalizeFavorite(restaurant);
+        const exists = get().items.some((item) => item.id === normalized.id);
+        if (!exists && normalized.id) {
+          set({ items: [...get().items, normalized] });
         }
       },
 
@@ -48,35 +87,36 @@ export const useFavoritesStore = create<FavoritesState>()(
 
       toggleFavorite: async (restaurant: FavoriteItem) => {
         const { items, addFavorite, removeFavorite } = get();
-        const exists = items.some((item) => item.id === restaurant.id);
+        const normalized = normalizeFavorite(restaurant);
+        const exists = items.some((item) => item.id === normalized.id);
 
         // Optimistic update
         if (exists) {
-          removeFavorite(restaurant.id);
+          removeFavorite(normalized.id);
         } else {
-          addFavorite(restaurant);
+          addFavorite(normalized);
         }
 
-        // Sync with backend only if user is logged in
         if (!auth.isAuthenticated()) return;
 
         try {
           if (exists) {
-            // Remove from backend
-            await api.delete(`/favorites/${restaurant.id}`);
+            await api.delete(`/favorites/${normalized.id}`);
           } else {
-            // Add to backend
             await api.post('/favorites', {
-              restaurantId: restaurant.id,
+              restaurantId: normalized.id,
+              restaurantName: normalized.name,
+              restaurantImage: normalized.imageUrl || normalized.image,
+              cuisineType: normalized.cuisineType,
             });
           }
         } catch (error) {
-          // Rollback on error
           console.error('Failed to sync favorite:', error);
+          // Rollback
           if (exists) {
-            addFavorite(restaurant);
+            addFavorite(normalized);
           } else {
-            removeFavorite(restaurant.id);
+            removeFavorite(normalized.id);
           }
         }
       },
@@ -91,13 +131,9 @@ export const useFavoritesStore = create<FavoritesState>()(
             ? data
             : data?.data || data?.items || [];
 
-          // Normalize the shape
-          const normalized: FavoriteItem[] = list.map((item: any) => ({
-            id: item.restaurantId || item.restaurant?.id || item.id,
-            name: item.restaurant?.name || item.name || 'Restaurant',
-            image: item.restaurant?.imageUrl || item.restaurant?.image || item.image,
-            rating: item.restaurant?.rating || item.rating,
-          }));
+          const normalized: FavoriteItem[] = (list as any[])
+            .map(normalizeFavorite)
+            .filter((item) => !!item.id);
 
           set({ items: normalized });
         } catch (error) {
@@ -113,7 +149,7 @@ export const useFavoritesStore = create<FavoritesState>()(
     }),
     {
       name: 'quickbite-favorites',
-      partialize: (state) => ({ items: state.items }), // only persist items
-    }
-  )
+      partialize: (state) => ({ items: state.items }),
+    },
+  ),
 );

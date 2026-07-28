@@ -27,7 +27,7 @@ export class OrdersService {
     private readonly restaurantsService: RestaurantsService,
     private readonly mailService: MailService,
     private readonly notificationsService: NotificationsService,
-    private readonly dataSource: DataSource, // ← needed for transactions
+    private readonly dataSource: DataSource,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -39,7 +39,6 @@ export class OrdersService {
     await queryRunner.startTransaction();
 
     try {
-      // 1. Validate restaurant
       const restaurant = await this.restaurantsService.findOne(
         createOrderDto.restaurantId,
       );
@@ -52,7 +51,6 @@ export class OrdersService {
         throw new BadRequestException('Restaurant is no longer available');
       }
 
-      // 2. Validate & calculate items
       let subtotal = 0;
       const orderItemsData: Partial<OrderItem>[] = [];
 
@@ -89,7 +87,6 @@ export class OrdersService {
       const platformFee = 20;
       const totalAmount = subtotal + deliveryFee + platformFee;
 
-      // 3. Create Order
       const order = this.orderRepository.create({
         customerId,
         restaurantId: createOrderDto.restaurantId,
@@ -108,7 +105,6 @@ export class OrdersService {
 
       const savedOrder = await queryRunner.manager.save(order);
 
-      // 4. Create Order Items
       for (const itemData of orderItemsData) {
         const orderItem = this.orderItemRepository.create({
           ...itemData,
@@ -117,10 +113,8 @@ export class OrdersService {
         await queryRunner.manager.save(orderItem);
       }
 
-      // 5. Commit transaction
       await queryRunner.commitTransaction();
 
-      // 6. Load complete order (after commit)
       const completeOrder = await this.orderRepository.findOne({
         where: { id: savedOrder.id },
         relations: ['customer', 'restaurant', 'items', 'items.menuItem'],
@@ -130,7 +124,6 @@ export class OrdersService {
         throw new NotFoundException('Order not found after creation');
       }
 
-      // 7. Side effects (email + notifications) – outside transaction
       try {
         await this.mailService.sendOrderConfirmation(completeOrder);
       } catch (err) {
@@ -171,7 +164,6 @@ export class OrdersService {
   ) {
     const order = await this.getOrderWithDetails(id);
 
-    // Permission check
     if (userRole === UserRole.OWNER) {
       const restaurants = await this.restaurantsService.findByOwnerId(userId);
       const restaurantIds = restaurants.map((r) => r.id);
@@ -184,7 +176,6 @@ export class OrdersService {
       );
     }
 
-    // Terminal states
     if (
       order.status === OrderStatus.DELIVERED ||
       order.status === OrderStatus.CANCELLED
@@ -194,14 +185,12 @@ export class OrdersService {
       );
     }
 
-    // Status machine validation
     assertCanTransition(order.status, status);
 
     const previousStatus = order.status;
     order.status = status;
     await this.orderRepository.save(order);
 
-    // Side effects
     try {
       await this.mailService.sendOrderStatusUpdate(order);
     } catch (err) {
@@ -231,7 +220,7 @@ export class OrdersService {
   }
 
   // ─────────────────────────────────────────────
-  // Rest of the methods (kept intact + small improvements)
+  // LIST / DETAIL HELPERS
   // ─────────────────────────────────────────────
 
   async getCustomerOrders(customerId: string) {
@@ -274,6 +263,10 @@ export class OrdersService {
 
     return order;
   }
+
+  // ─────────────────────────────────────────────
+  // AGENT ASSIGNMENT / DELIVERY
+  // ─────────────────────────────────────────────
 
   async assignDeliveryAgent(
     orderId: string,
@@ -352,7 +345,6 @@ export class OrdersService {
     order.status = orderStatus;
     await this.orderRepository.save(order);
 
-    // Notifications
     try {
       if (orderStatus === OrderStatus.PICKED_UP) {
         await this.notificationsService.sendToUser(order.customerId, {
@@ -391,6 +383,10 @@ export class OrdersService {
 
     return order;
   }
+
+  // ─────────────────────────────────────────────
+  // CANCEL
+  // ─────────────────────────────────────────────
 
   async cancelOrder(id: string, userId: string, userRole: UserRole) {
     const order = await this.getOrderWithDetails(id);
@@ -441,18 +437,27 @@ export class OrdersService {
     restaurantId?: string,
     period: 'week' | 'month' | 'year' = 'week',
   ): Promise<any> {
-    // 1. Get restaurants belonging to this owner
     const restaurants = await this.restaurantsService.findByOwnerId(ownerId);
 
     if (restaurants.length === 0) {
       return this.emptyAnalytics();
     }
 
-    const restaurantIds = restaurantId
-      ? [restaurantId]
-      : restaurants.map((r) => r.id);
+    const ownedIds = restaurants.map((r) => r.id);
 
-    // 2. Date ranges
+    // Ensure requested restaurant belongs to this owner
+    let restaurantIds: string[];
+    if (restaurantId) {
+      if (!ownedIds.includes(restaurantId)) {
+        throw new ForbiddenException(
+          'You do not have access to this restaurant',
+        );
+      }
+      restaurantIds = [restaurantId];
+    } else {
+      restaurantIds = ownedIds;
+    }
+
     const now = new Date();
     let currentStart: Date;
     let previousStart: Date;
@@ -474,10 +479,9 @@ export class OrdersService {
       previousStart.setFullYear(now.getFullYear() - 2);
     }
 
-    // 3. Fetch all relevant orders
     const allOrders = await this.orderRepository.find({
       where: { restaurantId: In(restaurantIds) },
-      relations: ['items'],
+      relations: ['items', 'items.menuItem'],
       order: { placedAt: 'DESC' },
     });
 
@@ -497,7 +501,6 @@ export class OrdersService {
       ? Math.round((completed.length / totalOrders) * 100)
       : 0;
 
-    // Growth calculation
     const currentOrders = allOrders.filter(
       (o) => new Date(o.placedAt) >= currentStart,
     );
@@ -516,7 +519,10 @@ export class OrdersService {
 
     const revenueGrowth = previousRevenue
       ? Number(
-          (((currentRevenue - previousRevenue) / previousRevenue) * 100).toFixed(1),
+          (
+            ((currentRevenue - previousRevenue) / previousRevenue) *
+            100
+          ).toFixed(1),
         )
       : 0;
 
@@ -530,7 +536,6 @@ export class OrdersService {
         )
       : 0;
 
-    // Revenue trend (last 7 days)
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (6 - i));
@@ -554,7 +559,6 @@ export class OrdersService {
       };
     });
 
-    // Order status distribution
     const orderStatusData = [
       { name: 'Completed', value: completed.length, color: '#10b981' },
       {
@@ -576,7 +580,6 @@ export class OrdersService {
       },
     ].filter((i) => i.value > 0);
 
-    // Real popular items from order items
     const itemMap = new Map<
       string,
       { name: string; sales: number; revenue: number }
@@ -586,8 +589,10 @@ export class OrdersService {
       if (!order.items) continue;
       for (const item of order.items) {
         const key = item.menuItemId;
+        const itemName =
+          item.menuItem?.name || (item as any).name || 'Unknown';
         const existing = itemMap.get(key) || {
-          name: (item as any).name || 'Unknown',
+          name: itemName,
           sales: 0,
           revenue: 0,
         };
@@ -613,7 +618,7 @@ export class OrdersService {
       revenueTrend,
       orderStatusData,
       popularItems,
-      categoryData: [], // can be extended later
+      categoryData: [],
     };
   }
 
