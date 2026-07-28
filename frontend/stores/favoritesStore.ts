@@ -1,133 +1,110 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { api } from '@/lib/api';
-import toast from 'react-hot-toast';
+import { auth } from '@/lib/auth';
 
-// Updated FavoriteItem interface with proper restaurant info
 export interface FavoriteItem {
   id: string;
-  restaurantId: string;
-  restaurantName: string;
-  restaurantImage?: string;
-  cuisineType?: string;
-  menuItemId?: string;
-  menuItemName?: string;
-  price?: number;
-  imageUrl?: string;
-  createdAt?: string;
-  // Add restaurant details that might come from API
-  restaurant?: {
-    name: string;
-    address: string;
-    rating: number;
-    imageUrl?: string;
-  };
+  name: string;
+  image?: string;
+  rating?: number;
 }
 
-interface FavoritesStore {
+interface FavoritesState {
   items: FavoriteItem[];
-  isLoading: boolean;
+  loading: boolean;
+
+  // Actions
+  toggleFavorite: (restaurant: FavoriteItem) => Promise<void>;
+  addFavorite: (restaurant: FavoriteItem) => void;
+  removeFavorite: (id: string) => void;
+  isFavorite: (id: string) => boolean;
   loadFavorites: () => Promise<void>;
-  addFavorite: (restaurantId: string, restaurantName: string, restaurantImage?: string, cuisineType?: string) => Promise<void>;
-  removeFavorite: (restaurantId: string) => Promise<void>;
-  isFavorite: (restaurantId: string) => boolean;
-  getFavoriteCount: () => number;
   clearFavorites: () => void;
 }
 
-export const useFavoritesStore = create<FavoritesStore>()(
+export const useFavoritesStore = create<FavoritesState>()(
   persist(
     (set, get) => ({
       items: [],
-      isLoading: false,
+      loading: false,
+
+      isFavorite: (id: string) => {
+        return get().items.some((item) => item.id === id);
+      },
+
+      addFavorite: (restaurant: FavoriteItem) => {
+        const exists = get().items.some((item) => item.id === restaurant.id);
+        if (!exists) {
+          set({ items: [...get().items, restaurant] });
+        }
+      },
+
+      removeFavorite: (id: string) => {
+        set({
+          items: get().items.filter((item) => item.id !== id),
+        });
+      },
+
+      toggleFavorite: async (restaurant: FavoriteItem) => {
+        const { items, addFavorite, removeFavorite } = get();
+        const exists = items.some((item) => item.id === restaurant.id);
+
+        // Optimistic update
+        if (exists) {
+          removeFavorite(restaurant.id);
+        } else {
+          addFavorite(restaurant);
+        }
+
+        // Sync with backend only if user is logged in
+        if (!auth.isAuthenticated()) return;
+
+        try {
+          if (exists) {
+            // Remove from backend
+            await api.delete(`/favorites/${restaurant.id}`);
+          } else {
+            // Add to backend
+            await api.post('/favorites', {
+              restaurantId: restaurant.id,
+            });
+          }
+        } catch (error) {
+          // Rollback on error
+          console.error('Failed to sync favorite:', error);
+          if (exists) {
+            addFavorite(restaurant);
+          } else {
+            removeFavorite(restaurant.id);
+          }
+        }
+      },
 
       loadFavorites: async () => {
-        set({ isLoading: true });
+        if (!auth.isAuthenticated()) return;
+
+        set({ loading: true });
         try {
-          const response = await api.get('/favorites');
-          // Ensure each item has the proper structure
-          const favorites = (response.data || []).map((item: any) => ({
-            ...item,
-            restaurant: item.restaurant || {
-              name: item.restaurantName,
-              address: item.restaurantAddress || '',
-              rating: item.rating || 0,
-            }
+          const { data } = await api.get('/favorites');
+          const list = Array.isArray(data)
+            ? data
+            : data?.data || data?.items || [];
+
+          // Normalize the shape
+          const normalized: FavoriteItem[] = list.map((item: any) => ({
+            id: item.restaurantId || item.restaurant?.id || item.id,
+            name: item.restaurant?.name || item.name || 'Restaurant',
+            image: item.restaurant?.imageUrl || item.restaurant?.image || item.image,
+            rating: item.restaurant?.rating || item.rating,
           }));
-          set({ items: favorites });
+
+          set({ items: normalized });
         } catch (error) {
           console.error('Failed to load favorites:', error);
         } finally {
-          set({ isLoading: false });
+          set({ loading: false });
         }
-      },
-
-      addFavorite: async (restaurantId: string, restaurantName: string, restaurantImage?: string, cuisineType?: string) => {
-        try {
-          const existing = get().items.find(item => item.restaurantId === restaurantId);
-          if (existing) {
-            return;
-          }
-          
-          const response = await api.post('/favorites', {
-            restaurantId,
-            restaurantName,
-            restaurantImage,
-            cuisineType,
-          });
-          
-          const newItem = {
-            ...response.data,
-            restaurant: {
-              name: restaurantName,
-              address: '',
-              rating: 0,
-              imageUrl: restaurantImage,
-            }
-          };
-          
-          set((state) => ({ 
-            items: [...state.items, newItem] 
-          }));
-          
-          toast.success('Added to favorites');
-          return response.data;
-        } catch (error: any) {
-          if (error.response?.status !== 409) {
-            toast.error('Failed to add to favorites');
-          }
-          throw error;
-        }
-      },
-
-      removeFavorite: async (restaurantId: string) => {
-        try {
-          await api.delete(`/favorites/${restaurantId}`);
-          
-          set((state) => ({ 
-            items: state.items.filter((item) => item.restaurantId !== restaurantId) 
-          }));
-          
-          toast.success('Removed from favorites');
-        } catch (error: any) {
-          if (error.response?.status === 404) {
-            set((state) => ({ 
-              items: state.items.filter((item) => item.restaurantId !== restaurantId) 
-            }));
-            toast.success('Removed from favorites');
-          } else {
-            toast.error('Failed to remove from favorites');
-          }
-          throw error;
-        }
-      },
-
-      isFavorite: (restaurantId: string) => {
-        return get().items.some((item) => item.restaurantId === restaurantId);
-      },
-
-      getFavoriteCount: () => {
-        return get().items.length;
       },
 
       clearFavorites: () => {
@@ -135,7 +112,8 @@ export const useFavoritesStore = create<FavoritesStore>()(
       },
     }),
     {
-      name: 'favorites-storage',
+      name: 'quickbite-favorites',
+      partialize: (state) => ({ items: state.items }), // only persist items
     }
   )
 );

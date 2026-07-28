@@ -105,9 +105,9 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
         userData: response.user 
       });
       
-      // ✅ Validate response has user
-      if (!response.user) {
-        console.error('❌ No user in response:', response);
+      // ✅ Validate response has user and token
+      if (!response.user || !response.token) {
+        console.error('❌ No user or token in response:', response);
         toast.error('Login failed: User data missing');
         setLoading(false);
         return;
@@ -175,8 +175,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
       const response = await auth.register(signupData);
       console.log('🔵 Signup response:', { token: !!response.token, user: !!response.user });
       
-      if (!response.user) {
-        console.error('❌ No user in signup response:', response);
+      if (!response.user || !response.token) {
+        console.error('❌ No user or token in signup response:', response);
         toast.error('Registration failed: User data missing');
         setLoading(false);
         return;

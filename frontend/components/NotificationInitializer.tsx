@@ -1,64 +1,60 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useNotificationStore } from '@/stores/notificationStore';
-import { auth } from '@/lib/auth';
-import { wsService } from '@/lib/websocket';
+import { useEffect } from "react";
+import { useNotificationStore } from "@/stores/notificationStore";
+import { auth } from "@/lib/auth";
+import { wsService } from "@/lib/websocket";
 
 export default function NotificationInitializer() {
-  const { fetchNotifications } = useNotificationStore();
+  const { fetchNotifications, addNotification } = useNotificationStore();
 
   useEffect(() => {
-    const initializeNotifications = async () => {
-      const token = localStorage.getItem('token');
-      const user = auth.getCurrentUser();
-      
-      if (token && user) {
-        try {
-          // Fetch existing notifications
-          await fetchNotifications();
-          
-          // Try to connect WebSocket, but don't let it crash the app
-          try {
-            wsService.connect(user.id);
-          } catch (wsError) {
-            console.log('WebSocket not available - using polling only');
-          }
-          console.log('Notification system initialized for user:', user.id);
-        } catch (error) {
-          console.log('Notification system initialization skipped:', error);
-        }
-      }
+    // Only run on client and when user is logged in
+    if (!auth.isAuthenticated()) return;
+
+    // 1. Load existing notifications from API
+    fetchNotifications();
+
+    // 2. Connect WebSocket
+    wsService.connect();
+
+    // 3. Listen for real-time notifications
+    const handleNotification = (payload: any) => {
+      addNotification({
+        id: payload.id || crypto.randomUUID(),
+        title: payload.title || "New notification",
+        message: payload.message || "",
+        type: payload.type || "info",
+        read: false,
+        createdAt: payload.createdAt || new Date().toISOString(),
+        data: payload.data,
+      });
     };
 
-    initializeNotifications();
-
-    const handleAuthChange = () => {
-      const user = auth.getCurrentUser();
-      if (user) {
-        try {
-          wsService.disconnect();
-          wsService.connect(user.id);
-        } catch (error) {
-          console.log('WebSocket connection skipped');
-        }
-        fetchNotifications();
-      } else {
-        wsService.disconnect();
-      }
+    const handleOrderUpdate = (payload: any) => {
+      addNotification({
+        id: crypto.randomUUID(),
+        title: "Order Update",
+        message: `Your order status is now ${payload.status || "updated"}`,
+        type: "ORDER",
+        read: false,
+        createdAt: new Date().toISOString(),
+        data: { orderId: payload.id },
+      });
     };
 
-    window.addEventListener('auth-change', handleAuthChange);
-    
+    wsService.on("notification", handleNotification);
+    wsService.on("order-status-update", handleOrderUpdate);
+    wsService.on("new-order", handleOrderUpdate);
+
+    // Cleanup
     return () => {
-      window.removeEventListener('auth-change', handleAuthChange);
-      try {
-        wsService.disconnect();
-      } catch (error) {
-        // Ignore disconnect errors
-      }
+      wsService.off("notification", handleNotification);
+      wsService.off("order-status-update", handleOrderUpdate);
+      wsService.off("new-order", handleOrderUpdate);
     };
-  }, [fetchNotifications]);
+  }, [fetchNotifications, addNotification]);
 
+  // This component renders nothing
   return null;
 }

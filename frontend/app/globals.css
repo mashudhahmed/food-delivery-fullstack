@@ -1,49 +1,164 @@
-@import 'tailwindcss';
-/* frontend/app/globals.css */
-@import 'leaflet/dist/leaflet.css';
+@import "tailwindcss";
 
+/* ======================
+   CSS Variables (Design System)
+   ====================== */
 :root {
-  --font-sans: 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
-  --color-primary: #ea580c;
-  --color-primary-dark: #c2410c;
+  --background: #fafafa;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --primary: #f97316;          /* Orange – food delivery brand */
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #fff7ed;
+  --accent-foreground: #9a3412;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #f97316;
+  --radius: 0.75rem;
+
+  --success: #22c55e;
+  --warning: #eab308;
+  --info: #3b82f6;
 }
 
-@layer utilities {
-  .line-clamp-2 {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    line-clamp: 2;
-  }
-  
-  .text-shadow {
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-  
-  .text-shadow-lg {
-    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  }
+/* ======================
+   Base Styles
+   ====================== */
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  font-family: var(--font-sans);
-  background: linear-gradient(135deg, #f5f7fa 0%, #f8f9fc 100%);
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-sans);
-  font-weight: 600;
-  letter-spacing: -0.02em;
+/* ======================
+   Smooth transitions everywhere
+   ====================== */
+button,
+a,
+input,
+select,
+textarea {
+  transition: all 0.2s ease;
 }
 
-
-
-/* Fix Leaflet marker icons */
-.leaflet-marker-icon {
-  filter: hue-rotate(10deg) brightness(1.1);
+/* ======================
+   Custom scrollbar
+   ====================== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
+/* ======================
+   Leaflet map fixes
+   ====================== */
 .leaflet-container {
-  z-index: 10;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  border-radius: var(--radius);
+}
+
+.leaflet-control-attribution {
+  font-size: 10px !important;
+}
+
+/* ======================
+   Utility classes
+   ====================== */
+.glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -8px rgb(0 0 0 / 0.12);
+}
+
+/* Status badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.badge-pending { background: #fef3c7; color: #92400e; }
+.badge-confirmed { background: #dbeafe; color: #1e40af; }
+.badge-preparing { background: #ffedd5; color: #9a3412; }
+.badge-ready { background: #dcfce7; color: #166534; }
+.badge-assigned { background: #e0e7ff; color: #3730a3; }
+.badge-picked_up { background: #f3e8ff; color: #6b21a8; }
+.badge-on_the_way { background: #cffafe; color: #155e75; }
+.badge-delivered { background: #d1fae5; color: #065f46; }
+.badge-cancelled { background: #fee2e2; color: #991b1b; }
+
+/* Skeleton loading */
+.skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.4s ease infinite;
+  border-radius: var(--radius);
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Fade-in animation */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Modal overlay */
+.modal-overlay {
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+/* Focus ring */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }

@@ -1,142 +1,124 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Restaurant } from '@/types';
-import { Star, Heart } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { auth } from '@/lib/auth';
-import { useFavoritesStore } from '@/stores/favoritesStore';
-import toast from 'react-hot-toast';
-import Image from 'next/image';
+import Link from "next/link";
+import Image from "next/image";
+import { Star, Heart } from "lucide-react";
+import { useFavoritesStore } from "@/stores/favoritesStore";
+import { toast } from "sonner";
 
-interface Props {
-  restaurant: Restaurant;
+interface RestaurantCardProps {
+  restaurant: {
+    id: string;
+    name: string;
+    description?: string;
+    image?: string;
+    imageUrl?: string;
+    rating?: number;
+    reviewCount?: number;
+    isOpen?: boolean;
+    cuisineType?: string;
+    deliveryFee?: number;
+    deliveryTime?: string;
+  };
 }
 
-export default function RestaurantCard({ restaurant }: Props) {
-  const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // Use the favorites store
-  const { isFavorite, addFavorite, removeFavorite, loadFavorites } = useFavoritesStore();
-  const isFavorited = isFavorite(restaurant.id);
+export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
+  const { items, toggleFavorite } = useFavoritesStore();
+  const isFavorite = items.some((i) => i.id === restaurant.id);
+  const isClosed = restaurant.isOpen === false;
 
-  const getRatingValue = () => {
-    const rating = restaurant.rating;
-    if (typeof rating === 'number') return rating;
-    if (typeof rating === 'string') return parseFloat(rating);
-    return 4.5;
-  };
+  // Support both field names coming from backend
+  const imageSrc = restaurant.imageUrl || restaurant.image || null;
 
-  const ratingNumber = getRatingValue();
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    const user = auth.getCurrentUser();
-    setIsAuthenticated(!!token && !!user);
-    
-    // Load favorites if authenticated
-    if (token && user && user.role === 'customer') {
-      loadFavorites();
-    }
-  }, []);
-
-  const handleFavoriteClick = async (e: React.MouseEvent) => {
+  const handleFavorite = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    if (!isAuthenticated) {
-      toast.error('Please login to add favorites');
-      setTimeout(() => {
-        router.push('/login');
-      }, 1500);
-      return;
-    }
 
-    setIsLoading(true);
+    toggleFavorite({
+      id: restaurant.id,
+      name: restaurant.name,
+      image: imageSrc || undefined,
+      rating: restaurant.rating,
+    });
 
-    try {
-      if (isFavorited) {
-        await removeFavorite(restaurant.id);
-        await loadFavorites();
-      } else {
-        await addFavorite(
-          restaurant.id,
-          restaurant.name,
-          restaurant.imageUrl,
-          restaurant.cuisineType
-        );
-        await loadFavorites();
-      }
-    } catch (error: any) {
-      console.error('Favorite error:', error);
-      if (error.response?.status !== 409) {
-        toast.error(error.response?.data?.message || 'Something went wrong');
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    toast.success(isFavorite ? "Removed from favorites" : "Added to favorites");
   };
 
   return (
-    <Link href={`/restaurants/${restaurant.id}`}>
-      <div className="group bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden">
-        <div className="relative h-40 overflow-hidden bg-linear-to-br from-orange-400 to-red-500">
-          {restaurant.imageUrl ? (
-            <Image
-              src={restaurant.imageUrl}
-              alt={`${restaurant.name} restaurant`}
-              fill
-              className="object-cover group-hover:scale-105 transition-transform duration-300"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <span className="text-5xl">🍔</span>
+    <Link
+      href={`/restaurants/${restaurant.id}`}
+      className="group block bg-white rounded-2xl overflow-hidden border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+    >
+      {/* Image */}
+      <div className="relative aspect-16/10 bg-slate-100 overflow-hidden">
+        {imageSrc ? (
+          <Image
+            src={imageSrc}
+            alt={restaurant.name}
+            fill
+            className="object-cover group-hover:scale-105 transition duration-500"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-orange-100 to-orange-50">
+            <span className="text-4xl font-bold text-orange-300">
+              {restaurant.name.charAt(0).toUpperCase()}
+            </span>
+          </div>
+        )}
+
+        {/* Favorite button */}
+        <button
+          onClick={handleFavorite}
+          className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-sm hover:scale-110 transition z-10"
+        >
+          <Heart
+            className={`w-4 h-4 transition ${
+              isFavorite ? "fill-red-500 text-red-500" : "text-slate-600"
+            }`}
+          />
+        </button>
+
+        {/* Closed badge */}
+        {isClosed && (
+          <div className="absolute top-3 left-3 z-10">
+            <span className="px-2.5 py-1 rounded-full bg-slate-900/80 text-white text-xs font-semibold backdrop-blur">
+              Closed
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="p-4">
+        <h3 className="font-semibold text-slate-900 group-hover:text-orange-600 transition line-clamp-1">
+          {restaurant.name}
+        </h3>
+
+        {restaurant.description && (
+          <p className="text-sm text-slate-500 mt-1 line-clamp-1">
+            {restaurant.description}
+          </p>
+        )}
+
+        <div className="flex items-center gap-3 mt-3 text-sm text-slate-600">
+          {restaurant.rating !== undefined && Number(restaurant.rating) > 0 && (
+            <div className="flex items-center gap-1">
+              <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+              <span className="font-medium">
+                {Number(restaurant.rating).toFixed(1)}
+              </span>
+              {restaurant.reviewCount !== undefined && (
+                <span className="text-slate-400 text-xs">
+                  ({restaurant.reviewCount})
+                </span>
+              )}
             </div>
           )}
-          
-          {/* Heart button with ARIA label */}
-          <button 
-            className={`absolute top-2 right-2 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center transition-all ${
-              isLoading ? 'opacity-50 cursor-wait' : 'hover:bg-white'
-            }`}
-            onClick={handleFavoriteClick}
-            disabled={isLoading}
-            aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-          >
-            <Heart 
-              className={`w-4 h-4 transition-colors ${
-                isFavorited 
-                  ? 'text-red-500 fill-red-500' 
-                  : 'text-gray-500 hover:text-red-500'
-              }`} 
-            />
-          </button>
-        </div>
 
-        <div className="p-3">
-          <div className="flex justify-between items-start mb-1">
-            <h3 className="font-bold text-gray-800 group-hover:text-orange-500 transition-colors text-base line-clamp-1">
-              {restaurant.name}
-            </h3>
-            <div className="flex items-center gap-1 bg-green-50 px-1.5 py-0.5 rounded">
-              <Star className="w-3 h-3 text-green-600 fill-green-600" />
-              <span className="text-xs font-semibold text-green-600">
-                {ratingNumber.toFixed(1)}
-              </span>
-            </div>
-          </div>
-          
-          <p className="text-gray-500 text-xs mb-2">
-            {restaurant.cuisineType} • {restaurant.isOpen ? 'Open Now' : 'Closed'}
-          </p>
-          
-          <p className="text-xs text-gray-400 line-clamp-1">
-            {restaurant.address}
-          </p>
+          {restaurant.cuisineType && (
+            <span className="text-slate-400 text-xs">{restaurant.cuisineType}</span>
+          )}
         </div>
       </div>
     </Link>
