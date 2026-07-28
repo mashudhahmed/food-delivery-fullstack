@@ -6,7 +6,7 @@ export type NotificationType =
   | 'order_on_the_way'
   | 'order_delivered'
   | 'order_cancelled'
-  | 'order_available'      // agent: new order ready for pickup
+  | 'order_available'
   | 'order_assigned'
   | 'earnings_added'
   | 'restaurant_approved'

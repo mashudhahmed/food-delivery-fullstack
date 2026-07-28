@@ -10,16 +10,11 @@ export default function NotificationInitializer() {
   const { fetchNotifications, addNotification } = useNotificationStore();
 
   useEffect(() => {
-    // Only run on client and when user is logged in
     if (!auth.isAuthenticated()) return;
 
-    // 1. Load existing notifications from API
     fetchNotifications();
-
-    // 2. Connect WebSocket
     wsService.connect();
 
-    // 3. Listen for real-time notifications
     const VALID_TYPES = new Set<string>([
       "order_new",
       "order_status",
@@ -60,7 +55,7 @@ export default function NotificationInitializer() {
         id: crypto.randomUUID(),
         title: "Order Update",
         message: `Your order status is now ${payload.status || "updated"}`,
-        type: "order_status", // must be a member of NotificationType
+        type: "order_status",
         read: false,
         createdAt: new Date().toISOString(),
         data: { orderId: payload.id },
@@ -71,7 +66,6 @@ export default function NotificationInitializer() {
     wsService.on("order-status-update", handleOrderUpdate);
     wsService.on("new-order", handleOrderUpdate);
 
-    // Cleanup
     return () => {
       wsService.off("notification", handleNotification);
       wsService.off("order-status-update", handleOrderUpdate);
@@ -79,6 +73,5 @@ export default function NotificationInitializer() {
     };
   }, [fetchNotifications, addNotification]);
 
-  // This component renders nothing
   return null;
 }
