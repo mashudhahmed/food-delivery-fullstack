@@ -10,6 +10,7 @@ export interface AuthUser {
   status?: string;
   phone?: string;
   avatar?: string;
+  address?: string;
 }
 
 export interface AuthResponse {
