@@ -147,36 +147,30 @@ export class AuthService {
   }
 
   // ─────────────────────────────────────────────
-  // REFRESH (with rotation + reuse detection)
+  // REFRESH (selector + verifier, rotation + reuse detection)
   // ─────────────────────────────────────────────
   async refresh(
     refreshToken: string,
     meta?: { ip?: string; userAgent?: string },
   ) {
-    if (!refreshToken) {
-      throw new UnauthorizedException('Refresh token required');
+    if (!refreshToken || !refreshToken.includes('.')) {
+      throw new UnauthorizedException('Invalid refresh token');
     }
 
-    // Find matching hashed token
-    const candidates = await this.refreshTokenRepository.find({
-      where: { revoked: false },
+    const [selector, verifier] = refreshToken.split('.');
+    if (!selector || !verifier) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const matched = await this.refreshTokenRepository.findOne({
+      where: { selector, revoked: false },
       relations: ['user'],
     });
-
-    let matched: RefreshToken | null = null;
-    for (const candidate of candidates) {
-      const isMatch = await bcrypt.compare(refreshToken, candidate.tokenHash);
-      if (isMatch) {
-        matched = candidate;
-        break;
-      }
-    }
 
     if (!matched) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    // Expired?
     if (matched.expiresAt < new Date()) {
       matched.revoked = true;
       matched.revokedAt = new Date();
@@ -184,9 +178,19 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token expired');
     }
 
-    // 🔥 REUSE DETECTION
+    const isMatch = await bcrypt.compare(verifier, matched.tokenHash);
+    if (!isMatch) {
+      // Possible reuse → revoke whole family
+      await this.refreshTokenRepository.update(
+        { family: matched.family },
+        { revoked: true, revokedAt: new Date() },
+      );
+      throw new UnauthorizedException(
+        'Refresh token reuse detected. All sessions revoked for security.',
+      );
+    }
+
     if (matched.replacedByTokenId) {
-      // Someone reused an old token → revoke entire family
       await this.refreshTokenRepository.update(
         { family: matched.family },
         { revoked: true, revokedAt: new Date() },
@@ -206,7 +210,6 @@ export class AuthService {
       );
     }
 
-    // Rotate
     const newTokens = await this.issueTokens(user, meta, matched.family);
 
     matched.revoked = true;
@@ -225,23 +228,15 @@ export class AuthService {
   // LOGOUT (single device)
   // ─────────────────────────────────────────────
   async logout(refreshToken: string) {
-    if (!refreshToken) {
+    if (!refreshToken?.includes('.')) {
       return { message: 'Logged out' };
     }
 
-    const candidates = await this.refreshTokenRepository.find({
-      where: { revoked: false },
-    });
-
-    for (const candidate of candidates) {
-      const isMatch = await bcrypt.compare(refreshToken, candidate.tokenHash);
-      if (isMatch) {
-        candidate.revoked = true;
-        candidate.revokedAt = new Date();
-        await this.refreshTokenRepository.save(candidate);
-        break;
-      }
-    }
+    const [selector] = refreshToken.split('.');
+    await this.refreshTokenRepository.update(
+      { selector },
+      { revoked: true, revokedAt: new Date() },
+    );
 
     return { message: 'Logged out successfully' };
   }
@@ -322,7 +317,7 @@ export class AuthService {
     user.resetPasswordExpires = null;
     await this.userRepository.save(user);
 
-    // Optional: revoke all refresh tokens after password change
+    // Revoke all refresh tokens after password change
     await this.refreshTokenRepository.update(
       { userId: user.id, revoked: false },
       { revoked: true, revokedAt: new Date() },
@@ -360,8 +355,10 @@ export class AuthService {
       expiresIn: this.ACCESS_TOKEN_TTL,
     });
 
-    const rawRefreshToken = crypto.randomBytes(64).toString('hex');
-    const tokenHash = await bcrypt.hash(rawRefreshToken, 10);
+    // selector = public part (indexed), verifier = secret part (hashed)
+    const selector = crypto.randomBytes(16).toString('hex');
+    const verifier = crypto.randomBytes(32).toString('hex');
+    const tokenHash = await bcrypt.hash(verifier, 10);
 
     const family = existingFamily || crypto.randomUUID();
     const expiresAt = new Date();
@@ -369,18 +366,25 @@ export class AuthService {
 
     const refreshTokenEntity = this.refreshTokenRepository.create({
       userId: user.id,
+      selector, // REQUIRED – was missing and caused 500 on login
       tokenHash,
       family,
       expiresAt,
       userAgent: meta?.userAgent ?? null,
       ipAddress: meta?.ip ?? null,
+      revoked: false,
+      revokedAt: null,
+      replacedByTokenId: null,
     });
 
     const saved = await this.refreshTokenRepository.save(refreshTokenEntity);
 
+    // Client stores: selector.verifier
+    const refreshToken = `${selector}.${verifier}`;
+
     return {
       accessToken,
-      refreshToken: rawRefreshToken,
+      refreshToken,
       expiresIn: 15 * 60, // 15 minutes in seconds
       refreshTokenId: saved.id,
     };

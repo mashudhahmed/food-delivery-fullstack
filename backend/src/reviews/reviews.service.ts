@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Review } from './entities/review.entity';
@@ -19,7 +23,9 @@ export class ReviewsService {
   ) {}
 
   async createReview(customerId: string, createReviewDto: CreateReviewDto) {
-    const order = await this.ordersService.getOrderWithDetails(createReviewDto.orderId);
+    const order = await this.ordersService.getOrderWithDetails(
+      createReviewDto.orderId,
+    );
 
     if (order.customerId !== customerId) {
       throw new BadRequestException('You can only review your own orders');
@@ -45,13 +51,27 @@ export class ReviewsService {
       comment: createReviewDto.comment,
     });
 
-    await this.reviewRepository.save(review);
+    const saved = await this.reviewRepository.save(review);
 
     await this.updateRestaurantRating(order.restaurantId);
 
-    await this.mailService.sendNewReviewNotification(review, order.restaurant.owner.email);
+    const fullReview = await this.reviewRepository.findOne({
+      where: { id: saved.id },
+      relations: ['customer', 'restaurant', 'restaurant.owner', 'order'],
+    });
 
-    return review;
+    if (fullReview?.restaurant?.owner?.email) {
+      try {
+        await this.mailService.sendNewReviewNotification(
+          fullReview,
+          fullReview.restaurant.owner.email,
+        );
+      } catch (err) {
+        console.error('Failed to send review notification:', err.message);
+      }
+    }
+
+    return saved;
   }
 
   async getRestaurantReviews(restaurantId: string) {
@@ -74,7 +94,10 @@ export class ReviewsService {
 
   private async updateRestaurantRating(restaurantId: string) {
     const averageRating = await this.getAverageRating(restaurantId);
-    await this.restaurantsService.updateRestaurantRating(restaurantId, averageRating);
+    await this.restaurantsService.updateRestaurantRating(
+      restaurantId,
+      averageRating,
+    );
   }
 
   private async getAverageRating(restaurantId: string): Promise<number> {
@@ -84,6 +107,6 @@ export class ReviewsService {
       .where('review.restaurantId = :restaurantId', { restaurantId })
       .getRawOne();
 
-    return parseFloat(result.average) || 0;
+    return parseFloat(result?.average) || 0;
   }
 }

@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Request,
+  Query,
+} from '@nestjs/common';
 import { RestaurantsService } from './restaurants.service';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
@@ -33,12 +44,21 @@ export class RestaurantsController {
     if (ownerId) {
       return this.restaurantsService.findByOwnerId(ownerId);
     }
-    
+
     const filters = {
       cuisineType,
       isOpen: isOpen === 'true' ? true : isOpen === 'false' ? false : undefined,
     };
     return this.restaurantsService.findAll(filters);
+  }
+
+  // Must be BEFORE @Get(':id') so "owner" is not treated as an id
+  @Get('owner/my')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.OWNER, UserRole.ADMIN)
+  @ApiBearerAuth()
+  findMyRestaurants(@Request() req) {
+    return this.restaurantsService.findByOwnerId(req.user.id);
   }
 
   @Get(':id')
@@ -49,13 +69,22 @@ export class RestaurantsController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  update(@Param('id') id: string, @Body() updateRestaurantDto: UpdateRestaurantDto, @Request() req) {
-    return this.restaurantsService.update(id, updateRestaurantDto, req.user.id, req.user.role);
+  update(
+    @Param('id') id: string,
+    @Body() updateRestaurantDto: UpdateRestaurantDto,
+    @Request() req,
+  ) {
+    return this.restaurantsService.update(
+      id,
+      updateRestaurantDto,
+      req.user.id,
+      req.user.role,
+    );
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.OWNER, UserRole.ADMIN)  //Allow OWNER to delete
+  @Roles(UserRole.OWNER, UserRole.ADMIN)
   @ApiBearerAuth()
   remove(@Param('id') id: string, @Request() req) {
     return this.restaurantsService.remove(id, req.user.id, req.user.role);

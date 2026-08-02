@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, DataSource } from 'typeorm';
+import { Repository, In, DataSource, IsNull } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -265,6 +265,56 @@ export class OrdersService {
   }
 
   // ─────────────────────────────────────────────
+  // AGENT: available + my orders + accept
+  // ─────────────────────────────────────────────
+
+  async getAvailableOrders() {
+    return this.orderRepository.find({
+      where: {
+        status: OrderStatus.READY,
+        agentId: IsNull(),
+      },
+      relations: ['restaurant', 'items', 'items.menuItem', 'customer'],
+      order: { placedAt: 'ASC' },
+    });
+  }
+
+  async getAgentOrders(agentId: string) {
+    return this.orderRepository.find({
+      where: { agentId },
+      relations: ['restaurant', 'items', 'items.menuItem', 'customer'],
+      order: { placedAt: 'DESC' },
+    });
+  }
+
+  async acceptOrder(orderId: string, agentId: string) {
+    const order = await this.getOrderWithDetails(orderId);
+
+    if (order.status !== OrderStatus.READY) {
+      throw new BadRequestException('Order is not ready for pickup');
+    }
+    if (order.agentId) {
+      throw new BadRequestException('Order already assigned to another agent');
+    }
+
+    order.agentId = agentId;
+    await this.orderRepository.save(order);
+
+    try {
+      await this.notificationsService.sendToUser(order.customerId, {
+        type: 'order_assigned',
+        title: 'Delivery Agent Assigned',
+        message: 'A delivery agent has been assigned to your order',
+        data: { orderId },
+      });
+    } catch (err) {
+      console.error('Notification failed:', err?.message);
+    }
+
+    return order;
+  }
+
+  // ─────────────────────────────────────────────
   // AGENT ASSIGNMENT / DELIVERY
   // ─────────────────────────────────────────────
 
@@ -445,7 +495,6 @@ export class OrdersService {
 
     const ownedIds = restaurants.map((r) => r.id);
 
-    // Ensure requested restaurant belongs to this owner
     let restaurantIds: string[];
     if (restaurantId) {
       if (!ownedIds.includes(restaurantId)) {

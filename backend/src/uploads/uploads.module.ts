@@ -11,10 +11,13 @@ import { CloudinaryModule } from '../cloudinary/cloudinary.module';
     MulterModule.register({
       storage: memoryStorage(),
       fileFilter: (req, file, callback) => {
+        if (!file || !file.originalname || !file.mimetype) {
+          return callback(new Error('Invalid file'), false);
+        }
+
         const allowedTypes = /jpeg|jpg|png|gif|webp/;
-        const isValidExt = allowedTypes.test(
-          file.originalname.split('.').pop().toLowerCase()
-        );
+        const ext = file.originalname.split('.').pop()?.toLowerCase() || '';
+        const isValidExt = allowedTypes.test(ext);
         const isValidMime = allowedTypes.test(file.mimetype);
 
         if (isValidMime && isValidExt) {

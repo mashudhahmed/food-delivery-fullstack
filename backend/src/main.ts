@@ -1,3 +1,6 @@
+import { initSentry } from './common/sentry/sentry';
+initSentry();
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, Logger } from '@nestjs/common';
@@ -6,21 +9,15 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import compression from 'compression';
 import helmet from 'helmet';
+import { WinstonModule } from 'nest-winston';
+import { winstonConfig } from './common/logger/winston.config';
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
-
-  let logLevels: ('error' | 'warn' | 'log' | 'debug' | 'verbose')[];
-
-  if (process.env.NODE_ENV === 'production') {
-    logLevels = ['error', 'warn', 'log'];
-  } else {
-    logLevels = ['error', 'warn', 'log', 'debug', 'verbose'];
-  }
-
   const app = await NestFactory.create(AppModule, {
-    logger: logLevels,
+    logger: WinstonModule.createLogger(winstonConfig),
   });
+
+  const logger = new Logger('Bootstrap');
 
   // Security middleware
   app.use(helmet());
@@ -41,13 +38,11 @@ async function bootstrap() {
     }),
   );
 
-  // Global interceptors
+  // Global interceptors & filters
   app.useGlobalInterceptors(new ResponseInterceptor());
-
-  // Global exception filter
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  // CORS configuration
+  // CORS
   const allowedOrigins = [
     'https://project-quickbite.vercel.app',
     'http://localhost:3000',
@@ -85,7 +80,7 @@ async function bootstrap() {
     maxAge: 3600,
   });
 
-  // Swagger - only in development
+  // Swagger - only in non-production
   if (process.env.NODE_ENV !== 'production') {
     const config = new DocumentBuilder()
       .setTitle('QuickBite Food Delivery API')
@@ -95,6 +90,7 @@ async function bootstrap() {
       .setVersion('1.0')
       .addBearerAuth()
       .addTag('auth', 'Authentication endpoints')
+      .addTag('users', 'User profile management')
       .addTag('restaurants', 'Restaurant management')
       .addTag('menu', 'Menu item management')
       .addTag('orders', 'Order placement and tracking')
@@ -107,10 +103,9 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api-docs', app, document);
-    logger.log('📚 Swagger UI enabled at /api-docs');
+    logger.log('Swagger UI enabled at /api-docs');
   }
 
-  // Start server
   const port = process.env.PORT || 3001;
 
   // Graceful shutdown
@@ -124,25 +119,23 @@ async function bootstrap() {
     });
   });
 
-  // Handle uncaught exceptions
   process.on('uncaughtException', (error) => {
     logger.error('Uncaught Exception:', error);
   });
 
-  // Handle unhandled rejections
   process.on('unhandledRejection', (reason, promise) => {
     logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
   });
 
   await app.listen(port, '0.0.0.0');
 
-  logger.log(`✅ Application running on: http://localhost:${port}`);
-  logger.log(`🔗 API endpoints available at: http://localhost:${port}/api`);
-  logger.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.log(`📊 Health check: http://localhost:${port}/api/health`);
+  logger.log(`Application running on: http://localhost:${port}`);
+  logger.log(`API endpoints available at: http://localhost:${port}/api`);
+  logger.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.log(`Health check: http://localhost:${port}/api/health`);
 
   if (process.env.NODE_ENV !== 'production') {
-    logger.log(`📚 API Docs: http://localhost:${port}/api-docs`);
+    logger.log(`API Docs: http://localhost:${port}/api-docs`);
   }
 }
 

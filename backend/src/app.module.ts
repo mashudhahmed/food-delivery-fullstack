@@ -46,7 +46,7 @@ const isProd = process.env.NODE_ENV === 'production';
         const baseConfig = {
           type: 'postgres' as const,
           host: host,
-          port: configService.get('DB_PORT'),
+          port: +configService.get('DB_PORT') || 5432,
           username: configService.get('DB_USERNAME'),
           password: configService.get('DB_PASSWORD'),
           database: configService.get('DB_DATABASE'),
@@ -54,14 +54,12 @@ const isProd = process.env.NODE_ENV === 'production';
           synchronize: false,
           logging: !isProduction,
           maxQueryExecutionTime: 1000,
-          poolSize: configService.get('DB_POOL_SIZE', 20),
+          poolSize: +configService.get('DB_POOL_SIZE') || 20,
           extra: {
-            max: configService.get('DB_POOL_SIZE', 20),
-            idleTimeoutMillis: configService.get('DB_IDLE_TIMEOUT', 30000),
-            connectionTimeoutMillis: configService.get(
-              'DB_CONNECTION_TIMEOUT',
-              5000,
-            ),
+            max: +configService.get('DB_POOL_SIZE') || 20,
+            idleTimeoutMillis: +configService.get('DB_IDLE_TIMEOUT') || 30000,
+            connectionTimeoutMillis:
+              +configService.get('DB_CONNECTION_TIMEOUT') || 5000,
           },
         };
 
@@ -79,24 +77,21 @@ const isProd = process.env.NODE_ENV === 'production';
       inject: [ConfigService],
     }),
 
-    // Rate Limiting (multiple tiers)
-    // Generous defaults so normal app usage never hits a global limit.
-    // Sensitive routes (login/register/forgot-password) get their own
-    // stricter @Throttle() overrides in their controllers.
+    // Rate Limiting
     ThrottlerModule.forRoot([
       {
         name: 'short',
-        ttl: 1000, // 1 second
+        ttl: 1000,
         limit: isProd ? 5 : 30,
       },
       {
         name: 'medium',
-        ttl: 10000, // 10 seconds
+        ttl: 10000,
         limit: isProd ? 20 : 100,
       },
       {
         name: 'long',
-        ttl: 60000, // 1 minute
+        ttl: 60000,
         limit: isProd ? 100 : 300,
       },
     ]),
@@ -119,7 +114,6 @@ const isProd = process.env.NODE_ENV === 'production';
   controllers: [AppController],
   providers: [
     AppService,
-    // Apply ThrottlerGuard globally
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

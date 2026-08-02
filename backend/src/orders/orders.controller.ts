@@ -50,9 +50,29 @@ export class OrdersController {
     return this.ordersService.getOwnerRestaurantOrders(req.user.id);
   }
 
-  /**
-   * Owner analytics — must be BEFORE @Get(':id')
-   */
+  // ── Agent routes (BEFORE @Get(':id')) ──
+
+  @Get('available')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.AGENT, UserRole.ADMIN)
+  getAvailableOrders() {
+    return this.ordersService.getAvailableOrders();
+  }
+
+  @Get('agent/my')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.AGENT, UserRole.ADMIN)
+  getAgentOrders(@Request() req) {
+    return this.ordersService.getAgentOrders(req.user.id);
+  }
+
+  @Patch(':id/accept')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.AGENT)
+  acceptOrder(@Param('id') id: string, @Request() req) {
+    return this.ordersService.acceptOrder(id, req.user.id);
+  }
+
   @Get('owner/analytics')
   @UseGuards(RolesGuard)
   @Roles(UserRole.OWNER)

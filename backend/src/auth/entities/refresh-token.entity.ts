@@ -22,11 +22,15 @@ export class RefreshToken {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  /** Hashed refresh token – never store plain text */
+  /** Public part – indexed, used for fast lookup */
+  @Column({ unique: true })
+  @Index()
+  selector: string;
+
+  /** Hashed verifier – never store plain text */
   @Column()
   tokenHash: string;
 
-  /** Family ID used for rotation + reuse detection */
   @Column()
   @Index()
   family: string;
@@ -40,7 +44,6 @@ export class RefreshToken {
   @Column({ type: 'timestamptz', nullable: true })
   revokedAt: Date | null;
 
-  /** Points to the new token after rotation */
   @Column({ nullable: true })
   replacedByTokenId: string | null;
 
