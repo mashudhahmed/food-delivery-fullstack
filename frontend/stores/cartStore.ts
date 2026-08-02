@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { MenuItem } from '../types';
+import { MenuItem } from '@/types';
+import toast from 'react-hot-toast';
 
 export interface CartItem extends MenuItem {
   quantity: number;
@@ -24,6 +25,13 @@ export const useCartStore = create<CartStore>()(
 
       addItem: (item, restaurantName, quantity = 1) => {
         const items = get().items;
+
+        // Enforce single restaurant
+        if (items.length > 0 && items[0].restaurantId !== item.restaurantId) {
+          toast.error('You can only order from one restaurant at a time. Clear cart first.');
+          return;
+        }
+
         const existingItem = items.find((i) => i.id === item.id);
 
         if (existingItem) {
@@ -33,7 +41,17 @@ export const useCartStore = create<CartStore>()(
             ),
           });
         } else {
-          set({ items: [...items, { ...item, quantity, restaurantName }] });
+          set({
+            items: [
+              ...items,
+              {
+                ...item,
+                price: Number(item.price) || 0,
+                quantity,
+                restaurantName,
+              },
+            ],
+          });
         }
       },
 
@@ -47,14 +65,19 @@ export const useCartStore = create<CartStore>()(
           return;
         }
         set({
-          items: get().items.map((i) => (i.id === itemId ? { ...i, quantity } : i)),
+          items: get().items.map((i) =>
+            i.id === itemId ? { ...i, quantity } : i
+          ),
         });
       },
 
       clearCart: () => set({ items: [] }),
 
       getTotalPrice: () => {
-        return get().items.reduce((total, item) => total + item.price * item.quantity, 0);
+        return get().items.reduce((total, item) => {
+          const price = Number(item.price) || 0;
+          return total + price * item.quantity;
+        }, 0);
       },
 
       getTotalItems: () => {

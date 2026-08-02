@@ -1,6 +1,8 @@
+// components/ErrorBoundary.tsx
 "use client";
 
 import React, { Component, ErrorInfo, ReactNode } from "react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 
 interface Props {
   children: ReactNode;
@@ -33,34 +35,37 @@ export default class ErrorBoundary extends Component<Props, State> {
 
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-          <div className="text-center max-w-md">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
-              <svg
-                className="w-8 h-8 text-red-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
+          <div className="text-center max-w-sm">
+            {/* Icon */}
+            <div className="mx-auto mb-5 w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center">
+              <AlertTriangle className="w-7 h-7 text-red-500" />
             </div>
-            <h2 className="text-xl font-bold text-slate-900 mb-2">
+
+            {/* Title */}
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight mb-2">
               Something went wrong
             </h2>
-            <p className="text-slate-500 mb-6">
+
+            {/* Message */}
+            <p className="text-sm text-slate-500 leading-relaxed mb-7">
               An unexpected error occurred. Please try refreshing the page.
             </p>
+
+            {/* Action */}
             <button
               onClick={() => window.location.reload()}
-              className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-medium transition"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold shadow-lg shadow-orange-500/20 transition"
             >
+              <RefreshCw className="w-4 h-4" />
               Refresh page
             </button>
+
+            {/* Optional: show error in dev */}
+            {process.env.NODE_ENV === "development" && this.state.error && (
+              <pre className="mt-6 text-left text-[11px] text-red-600/80 bg-red-50 rounded-xl p-3 overflow-auto max-h-32">
+                {this.state.error.message}
+              </pre>
+            )}
           </div>
         </div>
       );

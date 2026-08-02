@@ -5,13 +5,9 @@ import { auth } from '@/lib/auth';
 
 export interface FavoriteItem {
   id: string;
-  /** Restaurant display name */
   name: string;
-  /** Alias used by some pages */
   restaurantName?: string;
-  /** Primary image field used by the store */
   image?: string;
-  /** Alias used by favorites page / restaurant cards */
   imageUrl?: string;
   restaurantImage?: string;
   rating?: number;
@@ -86,6 +82,11 @@ export const useFavoritesStore = create<FavoritesState>()(
       },
 
       toggleFavorite: async (restaurant: FavoriteItem) => {
+        // Guard – never mutate state if guest
+        if (!auth.isAuthenticated()) {
+          return;
+        }
+
         const { items, addFavorite, removeFavorite } = get();
         const normalized = normalizeFavorite(restaurant);
         const exists = items.some((item) => item.id === normalized.id);
@@ -96,8 +97,6 @@ export const useFavoritesStore = create<FavoritesState>()(
         } else {
           addFavorite(normalized);
         }
-
-        if (!auth.isAuthenticated()) return;
 
         try {
           if (exists) {

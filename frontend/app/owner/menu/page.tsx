@@ -1,629 +1,315 @@
 'use client';
 
-import { Suspense } from 'react';
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { auth } from '@/lib/api';
 import { api } from '@/lib/api';
-import {
-  Menu as MenuIcon,
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  X,
-  AlertCircle,
-  Store,
-} from 'lucide-react';
-import toast from 'react-hot-toast';
-import Image from 'next/image';
+import { auth } from '@/lib/auth';
+import { unwrapPaginated, ensureArray } from '@/lib/unwrapPaginated';
+import LoadingSkeleton from '@/components/LoadingSkeleton';
 import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
+import toast from 'react-hot-toast';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 
-interface MenuItem {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  isAvailable: boolean;
-  category: string;
-  imageUrl?: string;
-}
-
-interface Restaurant {
-  id: string;
-  name: string;
-}
-
-// Create a separate component that uses useSearchParams
-function OwnerMenuContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const restaurantIdParam = searchParams.get('restaurant');
-
-  const [user, setUser] = useState<any>(null);
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [selectedRestaurant, setSelectedRestaurant] = useState<string>('');
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+export default function OwnerMenuPage() {
+  const [restaurants, setRestaurants] = useState<any[]>([]);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState('');
+  const [menuItems, setMenuItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [showModal, setShowModal] = useState(false);
-  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
-
-  // Delete modal state
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<MenuItem | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Form data - restaurantId only for selection, NOT sent to API
-  const [formData, setFormData] = useState({
+  const [form, setForm] = useState({
     name: '',
     description: '',
     price: '',
     category: '',
-    restaurantId: '', // Used for selection only, not sent in API body
+    isAvailable: true,
   });
 
-  const categories = ['All', 'Appetizers', 'Main Course', 'Beverages', 'Desserts', 'Sides'];
-
   useEffect(() => {
-    const currentUser = auth.getCurrentUser();
-    if (!currentUser || currentUser.role !== 'owner') {
-      router.push('/');
-      return;
-    }
-    setUser(currentUser);
     fetchRestaurants();
   }, []);
 
   useEffect(() => {
-    if (restaurantIdParam && restaurants.length > 0) {
-      setSelectedRestaurant(restaurantIdParam);
+    if (selectedRestaurantId) {
+      fetchMenu(selectedRestaurantId);
     }
-  }, [restaurantIdParam, restaurants]);
+  }, [selectedRestaurantId]);
 
-  useEffect(() => {
-    if (selectedRestaurant) {
-      fetchMenuItems();
-    }
-  }, [selectedRestaurant]);
-
-  const fetchRestaurants = async () => {
+  async function fetchRestaurants() {
     try {
+      setLoading(true);
       const currentUser = auth.getCurrentUser();
-      const response = await api.get(`/restaurants?ownerId=${currentUser?.id}`);
-      const ownerRestaurants = response.data || [];
-      setRestaurants(ownerRestaurants);
+      if (!currentUser?.id) return;
 
-      // Auto-select first restaurant if available
-      if (ownerRestaurants.length > 0 && !selectedRestaurant) {
-        setSelectedRestaurant(ownerRestaurants[0].id);
+      const res = await api.get('/restaurants/owner/my');
+
+      // Safe for plain array OR interceptor-wrapped response
+      const list = ensureArray(res.data?.data ?? res.data);
+
+      setRestaurants(list);
+      if (list.length > 0) {
+        setSelectedRestaurantId(list[0].id);
       }
-    } catch (error) {
+    } catch (err) {
+      console.error(err);
       toast.error('Failed to load restaurants');
+      setRestaurants([]);
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const fetchMenuItems = async () => {
-    if (!selectedRestaurant) return;
+  async function fetchMenu(restaurantId: string) {
     try {
-      const response = await api.get(`/menu/restaurant/${selectedRestaurant}`);
-      setMenuItems(response.data || []);
-    } catch (error) {
-      console.error('Failed to load menu:', error);
+      const res = await api.get(`/menu/restaurant/${restaurantId}`);
+      const list = ensureArray(
+        unwrapPaginated(res.data).items.length
+          ? unwrapPaginated(res.data).items
+          : res.data?.data ?? res.data,
+      );
+      setMenuItems(list);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to load menu');
       setMenuItems([]);
     }
-  };
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    let targetRestaurantId = selectedRestaurant;
-
-    if (!editingItem) {
-      targetRestaurantId = formData.restaurantId || selectedRestaurant;
-      if (!targetRestaurantId) {
-        toast.error('Please select a restaurant first');
-        return;
-      }
-    }
-
-    if (!editingItem) {
-      if (!formData.name.trim()) {
-        toast.error('Please enter item name');
-        return;
-      }
-      if (!formData.description.trim()) {
-        toast.error('Please enter item description');
-        return;
-      }
-      if (!formData.price || parseFloat(formData.price) <= 0) {
-        toast.error('Please enter a valid price');
-        return;
-      }
-      if (!formData.category) {
-        toast.error('Please select a category');
-        return;
-      }
-    } else {
-      if (formData.name && !formData.name.trim()) {
-        toast.error('Item name cannot be empty');
-        return;
-      }
-      if (formData.price && parseFloat(formData.price) <= 0) {
-        toast.error('Please enter a valid price');
-        return;
-      }
-    }
-
-    try {
-      if (editingItem) {
-        const updateData: any = {};
-        if (formData.name && formData.name !== editingItem.name) updateData.name = formData.name.trim();
-        if (formData.description && formData.description !== editingItem.description)
-          updateData.description = formData.description.trim();
-        if (formData.price && parseFloat(formData.price) !== editingItem.price)
-          updateData.price = parseFloat(formData.price);
-        if (formData.category && formData.category !== editingItem.category) updateData.category = formData.category;
-
-        if (Object.keys(updateData).length === 0) {
-          toast.error('No changes made');
-          return;
-        }
-
-        await api.patch(`/menu/${editingItem.id}`, updateData);
-        toast.success('Menu item updated');
-      } else {
-        const data = {
-          name: formData.name.trim(),
-          description: formData.description.trim(),
-          price: parseFloat(formData.price),
-          category: formData.category,
-          isAvailable: true,
-        };
-        await api.post(`/menu/restaurant/${targetRestaurantId}`, data);
-        toast.success('Menu item added');
-      }
-
-      setShowModal(false);
-      setEditingItem(null);
-      setFormData({ name: '', description: '', price: '', category: '', restaurantId: '' });
-      fetchMenuItems();
-    } catch (error: any) {
-      console.error('Error:', error.response?.data);
-      const errorData = error.response?.data;
-      if (errorData?.message) {
-        if (Array.isArray(errorData.message)) {
-          toast.error(errorData.message.join(', '));
-        } else {
-          toast.error(errorData.message);
-        }
-      } else if (errorData?.error) {
-        toast.error(errorData.error);
-      } else {
-        toast.error('Operation failed. Please check all fields.');
-      }
-    }
-  };
-
-  const toggleAvailability = async (id: string, currentStatus: boolean) => {
-    try {
-      await api.patch(`/menu/${id}`, { isAvailable: !currentStatus });
-      toast.success(`Item ${!currentStatus ? 'available' : 'unavailable'}`);
-      fetchMenuItems();
-    } catch (error: any) {
-      console.error('Toggle error:', error.response?.data);
-      toast.error(error.response?.data?.message || 'Failed to update status');
-    }
-  };
-
-  const openDeleteModal = (item: MenuItem) => {
-    setItemToDelete(item);
-    setShowDeleteModal(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!itemToDelete) return;
-
-    setDeleting(true);
-    try {
-      await api.delete(`/menu/${itemToDelete.id}`);
-      toast.success('Menu item deleted');
-      setShowDeleteModal(false);
-      setItemToDelete(null);
-      fetchMenuItems();
-    } catch (error: any) {
-      console.error('Delete error:', error.response?.data);
-      toast.error(error.response?.data?.message || 'Failed to delete item');
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const openAddModal = () => {
-    if (restaurants.length === 0) {
-      toast.error('Please add a restaurant first before adding menu items');
-      return;
-    }
+  function openCreate() {
     setEditingItem(null);
-    setFormData({
+    setForm({
       name: '',
       description: '',
       price: '',
       category: '',
-      restaurantId: restaurants.length === 1 ? restaurants[0].id : '',
+      isAvailable: true,
     });
-    setShowModal(true);
-  };
-
-  const openEditModal = (item: MenuItem) => {
-    setEditingItem(item);
-    setFormData({
-      name: item.name,
-      description: item.description,
-      price: item.price.toString(),
-      category: item.category,
-      restaurantId: '',
-    });
-    setShowModal(true);
-  };
-
-  const filteredItems = menuItems.filter((item) => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
-
-  const availableCount = menuItems.filter((i) => i.isAvailable).length;
-
-  if (loading) {
-    return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-8 w-56 bg-gray-200 rounded-lg" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-72 bg-gray-100 rounded-2xl border border-gray-100" />
-          ))}
-        </div>
-      </div>
-    );
+    setShowForm(true);
   }
 
+  function openEdit(item: any) {
+    setEditingItem(item);
+    setForm({
+      name: item.name || '',
+      description: item.description || '',
+      price: String(item.price || ''),
+      category: item.category || '',
+      isAvailable: item.isAvailable !== false,
+    });
+    setShowForm(true);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedRestaurantId) return;
+
+    const payload = {
+      name: form.name.trim(),
+      description: form.description.trim(),
+      price: Number(form.price),
+      category: form.category.trim(),
+      isAvailable: form.isAvailable,
+      restaurantId: selectedRestaurantId,
+    };
+
+    try {
+      if (editingItem) {
+        await api.patch(`/menu/${editingItem.id}`, payload);
+        toast.success('Menu item updated');
+      } else {
+        await api.post('/menu', payload);
+        toast.success('Menu item created');
+      }
+      setShowForm(false);
+      fetchMenu(selectedRestaurantId);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to save');
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteId) return;
+    try {
+      setDeleting(true);
+      await api.delete(`/menu/${deleteId}`);
+      toast.success('Item deleted');
+      setDeleteId(null);
+      fetchMenu(selectedRestaurantId);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to delete');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  if (loading) return <LoadingSkeleton />;
+
   return (
-    <div>
-      <DeleteConfirmationModal
-        isOpen={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false);
-          setItemToDelete(null);
-        }}
-        onConfirm={confirmDelete}
-        title="Delete Menu Item"
-        message="Are you sure you want to delete this menu item?"
-        itemName={itemToDelete?.name}
-        loading={deleting}
-      />
-
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Menu Management</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage your restaurant menu items</p>
-        </div>
-        <button
-          onClick={openAddModal}
-          disabled={restaurants.length === 0}
-          className={`flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition ${
-            restaurants.length === 0
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              : 'bg-orange-500 text-white hover:bg-orange-600 shadow-sm shadow-orange-200'
-          }`}
-        >
-          <Plus className="w-4 h-4" />
-          Add Menu Item
-        </button>
-      </div>
-
-      {restaurants.length === 0 && (
-        <div className="mb-6 bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-amber-800">No restaurants found</p>
-            <p className="text-sm text-amber-700">Please add a restaurant before adding menu items.</p>
-          </div>
+    <div className="p-6 max-w-6xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-bold">Menu Management</h1>
+        <div className="flex gap-3">
+          {restaurants.length > 1 && (
+            <select
+              value={selectedRestaurantId}
+              onChange={(e) => setSelectedRestaurantId(e.target.value)}
+              className="border rounded-lg px-3 py-2 text-sm"
+            >
+              {restaurants.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          )}
           <button
-            onClick={() => router.push('/owner/restaurants')}
-            className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-xl hover:bg-amber-600 transition shrink-0"
+            onClick={openCreate}
+            disabled={!selectedRestaurantId}
+            className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50"
           >
-            Add Restaurant
+            <Plus className="w-4 h-4" /> Add Item
           </button>
-        </div>
-      )}
-
-      {/* Quick stats */}
-      {selectedRestaurant && menuItems.length > 0 && (
-        <div className="flex flex-wrap gap-3 mb-6">
-          <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm shadow-black/2">
-            <MenuIcon className="w-4 h-4 text-gray-400" />
-            <span className="text-sm text-gray-600">
-              <span className="font-semibold text-gray-900">{menuItems.length}</span> items
-            </span>
-          </div>
-          <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm shadow-black/2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span className="text-sm text-gray-600">
-              <span className="font-semibold text-gray-900">{availableCount}</span> available
-            </span>
-          </div>
-          <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm shadow-black/2">
-            <span className="w-2 h-2 rounded-full bg-gray-300" />
-            <span className="text-sm text-gray-600">
-              <span className="font-semibold text-gray-900">{menuItems.length - availableCount}</span> unavailable
-            </span>
-          </div>
-        </div>
-      )}
-
-      {restaurants.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-1 mb-4 -mx-1 px-1">
-          {restaurants.map((restaurant) => (
-            <button
-              key={restaurant.id}
-              onClick={() => setSelectedRestaurant(restaurant.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap border ${
-                selectedRestaurant === restaurant.id
-                  ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
-                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              <Store className="w-3.5 h-3.5" />
-              {restaurant.name}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search menu items..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition"
-          />
-        </div>
-        <div className="flex gap-2 overflow-x-auto">
-          {categories.map((category) => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category === 'All' ? 'all' : category)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${
-                selectedCategory === (category === 'All' ? 'all' : category)
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              {category}
-            </button>
-          ))}
         </div>
       </div>
 
-      {selectedRestaurant && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredItems.map((item) => (
-            <div
-              key={item.id}
-              className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 overflow-hidden hover:shadow-md hover:shadow-black/4 transition-shadow"
-            >
-              <div className="relative h-40 bg-gray-100">
-                {item.imageUrl ? (
-                  <Image src={item.imageUrl} alt={item.name} fill className="object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-4xl bg-linear-to-br from-gray-50 to-gray-100">
-                    🍽️
-                  </div>
-                )}
-                <div className="absolute top-3 right-3">
-                  <button
-                    onClick={() => toggleAvailability(item.id, item.isAvailable)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium shadow-sm transition ${
-                      item.isAvailable
-                        ? 'bg-emerald-500 text-white hover:bg-emerald-600'
-                        : 'bg-white text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${item.isAvailable ? 'bg-white' : 'bg-gray-400'}`} />
-                    {item.isAvailable ? 'Available' : 'Unavailable'}
-                  </button>
-                </div>
-              </div>
-              <div className="p-4">
-                <div className="flex justify-between items-start gap-3">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-gray-900 truncate">{item.name}</h3>
-                    <p className="text-sm text-gray-500 mt-1 line-clamp-2">{item.description}</p>
-                    <span className="inline-block text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full mt-2">
-                      {item.category}
+      {restaurants.length === 0 ? (
+        <div className="text-center py-16 text-gray-500">
+          No restaurants found. Create a restaurant first.
+        </div>
+      ) : menuItems.length === 0 ? (
+        <div className="text-center py-16 text-gray-500">
+          No menu items yet. Add your first item.
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left p-4">Name</th>
+                <th className="text-left p-4">Category</th>
+                <th className="text-left p-4">Price</th>
+                <th className="text-left p-4">Status</th>
+                <th className="text-right p-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {menuItems.map((item) => (
+                <tr key={item.id} className="border-t">
+                  <td className="p-4 font-medium">{item.name}</td>
+                  <td className="p-4">{item.category || '—'}</td>
+                  <td className="p-4">৳{Number(item.price).toFixed(0)}</td>
+                  <td className="p-4">
+                    <span
+                      className={`px-2 py-0.5 rounded text-xs ${
+                        item.isAvailable !== false
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}
+                    >
+                      {item.isAvailable !== false ? 'Available' : 'Unavailable'}
                     </span>
-                  </div>
-                  <p className="text-lg font-bold text-orange-600 tabular-nums shrink-0">৳{item.price}</p>
-                </div>
-                <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
-                  <button
-                    onClick={() => openEditModal(item)}
-                    className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition flex items-center justify-center gap-1.5"
-                  >
-                    <Edit className="w-3.5 h-3.5" />
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => openDeleteModal(item)}
-                    className="flex-1 px-3 py-1.5 border border-red-100 text-red-600 rounded-lg text-sm hover:bg-red-50 transition flex items-center justify-center gap-1.5"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+                  </td>
+                  <td className="p-4 text-right space-x-2">
+                    <button
+                      onClick={() => openEdit(item)}
+                      className="p-1.5 hover:bg-gray-100 rounded"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteId(item.id)}
+                      className="p-1.5 hover:bg-red-50 rounded text-red-600"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {selectedRestaurant && filteredItems.length === 0 && (
-        <div className="text-center py-16 bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2">
-          <MenuIcon className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-          <p className="text-sm font-medium text-gray-600">No menu items found</p>
-          <p className="text-xs text-gray-400 mt-1 mb-4">Add a dish to start filling out this restaurant's menu.</p>
-          <button onClick={openAddModal} className="text-sm font-medium text-orange-600 hover:text-orange-700">
-            Add your first menu item →
-          </button>
-        </div>
-      )}
-
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-xl">
-            <div className="p-5 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white">
-              <h2 className="text-lg font-bold text-gray-900">{editingItem ? 'Edit Menu Item' : 'Add Menu Item'}</h2>
-              <button onClick={() => setShowModal(false)} className="p-1.5 hover:bg-gray-100 rounded-lg transition">
-                <X className="w-5 h-5 text-gray-500" />
+      {showForm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <form
+            onSubmit={handleSubmit}
+            className="bg-white rounded-xl p-6 w-full max-w-md space-y-4"
+          >
+            <h2 className="text-lg font-bold">
+              {editingItem ? 'Edit Item' : 'Add Menu Item'}
+            </h2>
+            <input
+              required
+              placeholder="Name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2"
+            />
+            <textarea
+              placeholder="Description"
+              value={form.description}
+              onChange={(e) =>
+                setForm({ ...form, description: e.target.value })
+              }
+              className="w-full border rounded-lg px-3 py-2"
+              rows={2}
+            />
+            <input
+              required
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Price"
+              value={form.price}
+              onChange={(e) => setForm({ ...form, price: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2"
+            />
+            <input
+              placeholder="Category"
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2"
+            />
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.isAvailable}
+                onChange={(e) =>
+                  setForm({ ...form, isAvailable: e.target.checked })
+                }
+              />
+              Available
+            </label>
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="flex-1 border rounded-lg py-2"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 bg-orange-500 text-white rounded-lg py-2"
+              >
+                {editingItem ? 'Update' : 'Create'}
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-5 space-y-4">
-              {!editingItem && restaurants.length > 1 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Restaurant</label>
-                  <select
-                    required
-                    value={formData.restaurantId}
-                    onChange={(e) => setFormData({ ...formData, restaurantId: e.target.value })}
-                    className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition cursor-pointer"
-                  >
-                    <option value="">Select Restaurant</option>
-                    {restaurants.map((restaurant) => (
-                      <option key={restaurant.id} value={restaurant.id}>
-                        {restaurant.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-gray-400 mt-1.5">Select which restaurant this menu item belongs to</p>
-                </div>
-              )}
-
-              {editingItem && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Restaurant</label>
-                  <input
-                    type="text"
-                    value={restaurants.find((r) => r.id === selectedRestaurant)?.name || 'Selected Restaurant'}
-                    disabled
-                    className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 text-gray-500"
-                  />
-                  <p className="text-xs text-gray-400 mt-1.5">Menu items cannot be moved between restaurants</p>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Item Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required={!editingItem}
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Description <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  rows={3}
-                  required={!editingItem}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Describe the dish (ingredients, serving size, etc.)"
-                  className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Price (৳) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  required={!editingItem}
-                  step="0.01"
-                  min="0"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  placeholder="0.00"
-                  className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Category <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required={!editingItem}
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition cursor-pointer"
-                >
-                  <option value="">Select Category</option>
-                  <option value="Appetizers">Appetizers</option>
-                  <option value="Main Course">Main Course</option>
-                  <option value="Beverages">Beverages</option>
-                  <option value="Desserts">Desserts</option>
-                  <option value="Sides">Sides</option>
-                </select>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="submit"
-                  className="flex-1 bg-orange-500 text-white text-sm font-medium py-2.5 rounded-xl hover:bg-orange-600 transition shadow-sm shadow-orange-200"
-                >
-                  {editingItem ? 'Update' : 'Add'} Item
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2.5 rounded-xl hover:bg-gray-50 transition"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
+          </form>
         </div>
       )}
-    </div>
-  );
-}
 
-// Main export with Suspense boundary
-export default function OwnerMenuPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
-        </div>
-      }
-    >
-      <OwnerMenuContent />
-    </Suspense>
+      <DeleteConfirmationModal
+        isOpen={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Delete menu item?"
+        message="This action cannot be undone."
+        loading={deleting}
+      />
+    </div>
   );
 }

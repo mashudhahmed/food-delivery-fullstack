@@ -54,7 +54,6 @@ api.interceptors.response.use(
     };
 
     if (error.response?.status === 429) {
-      // Rate limited – surface a friendly message instead of a raw error
       const retryAfter = error.response.headers?.['retry-after'];
       console.warn('Too many requests – please wait a moment', { retryAfter });
       toast.error('Too many requests. Please wait a few seconds and try again.');
@@ -91,11 +90,9 @@ api.interceptors.response.use(
       }
 
       try {
-        // refresh endpoint is also under /api
-        const { data } = await axios.post(
-          `${API_URL}/auth/refresh`,
-          { refreshToken },
-        );
+        const { data } = await axios.post(`${API_URL}/auth/refresh`, {
+          refreshToken,
+        });
 
         const newAccessToken = data.data?.accessToken || data.accessToken;
         const newRefreshToken = data.data?.refreshToken || data.refreshToken;

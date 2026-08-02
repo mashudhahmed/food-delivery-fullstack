@@ -2,7 +2,21 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Mail, Lock, User, Phone, Eye, EyeOff, ArrowLeft, Briefcase, Truck, AlertCircle } from 'lucide-react';
+import {
+  X,
+  Mail,
+  Lock,
+  User,
+  Phone,
+  Eye,
+  EyeOff,
+  ArrowLeft,
+  Briefcase,
+  Truck,
+  AlertCircle,
+  Check,
+  Loader2,
+} from 'lucide-react';
 import { auth } from '@/lib/auth';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
@@ -16,21 +30,20 @@ interface AuthModalProps {
   initialMode?: 'login' | 'signup';
 }
 
-export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalProps) {
+export default function AuthModal({
+  isOpen,
+  onClose,
+  initialMode = 'login',
+}: AuthModalProps) {
   const router = useRouter();
   const firstInputRef = useRef<HTMLInputElement>(null);
+
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot' | 'reset'>('login');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState('customer');
-  
-  // Login form state
-  const [loginData, setLoginData] = useState({
-    email: '',
-    password: '',
-  });
-  
-  // Signup form state
+
+  const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [signupData, setSignupData] = useState({
     fullName: '',
     email: '',
@@ -46,8 +59,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     vehicleNumber: '',
     drivingLicense: '',
   });
-
-  // Forgot password state
   const [forgotEmail, setForgotEmail] = useState('');
   const [resetData, setResetData] = useState({
     token: '',
@@ -55,32 +66,22 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     confirmPassword: '',
   });
 
-  // Handle ESC key
+  // ESC + body scroll lock
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
+      if (e.key === 'Escape' && isOpen) onClose();
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, [isOpen, onClose]);
 
-  // Reset mode when modal opens
   useEffect(() => {
     if (isOpen) {
       setMode(initialMode === 'login' ? 'login' : 'signup');
       setSelectedRole('customer');
       setForgotEmail('');
       setResetData({ token: '', newPassword: '', confirmPassword: '' });
-      // Focus first input after modal opens
-      setTimeout(() => firstInputRef.current?.focus(), 100);
-    }
-  }, [isOpen, initialMode]);
-
-  // Prevent body scroll
-  useEffect(() => {
-    if (isOpen) {
+      setTimeout(() => firstInputRef.current?.focus(), 80);
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -88,121 +89,62 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen]);
+  }, [isOpen, initialMode]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🔵 Login attempt started');
-    console.log('🔵 Login data:', { email: loginData.email, password: '***' });
-    
     setLoading(true);
     try {
-      console.log('🔵 Calling auth.login...');
       const response = await auth.login(loginData);
-      console.log('🔵 Login response received:', { 
-        token: !!response.token, 
-        user: !!response.user,
-        userData: response.user 
-      });
-      
-      // ✅ Validate response has user and token
       if (!response.user || !response.token) {
-        console.error('❌ No user or token in response:', response);
         toast.error('Login failed: User data missing');
-        setLoading(false);
         return;
       }
-      
-      // Store auth data
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
-      
-      console.log('🔵 Token stored:', !!localStorage.getItem('token'));
-      console.log('🔵 User stored:', !!localStorage.getItem('user'));
-      console.log('🔵 User role:', response.user.role);
-      
-      // Force a small delay to ensure localStorage is written
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Dispatch auth event
+      await new Promise((r) => setTimeout(r, 80));
       window.dispatchEvent(new Event('auth-change'));
-      console.log('🔵 Auth-change event dispatched');
-      
-      toast.success('Login successful!');
+      toast.success('Welcome back!');
       onClose();
-      
-      // ✅ Use the user from response
-      const userRole = response.user.role;
-      console.log('🔵 User role for redirect:', userRole);
-      
+      const role = response.user.role;
       setTimeout(() => {
-        console.log('🔵 Redirecting to role:', userRole);
-        switch (userRole) {
-          case 'admin': 
-            router.replace('/admin/dashboard');
-            break;
-          case 'owner': 
-            router.replace('/owner/dashboard');
-            break;
-          case 'agent': 
-            router.replace('/agent/dashboard');
-            break;
-          default: 
-            router.replace('/');
-            break;
-        }
-      }, 300);
-      
+        if (role === 'admin') router.replace('/admin/dashboard');
+        else if (role === 'owner') router.replace('/owner/dashboard');
+        else if (role === 'agent') router.replace('/agent/dashboard');
+        else router.replace('/');
+      }, 200);
     } catch (error: any) {
-      console.log('🔴 Login error:', error);
-      console.log('🔴 Error response:', error.response?.data);
-      
-      const errorMessage = error.response?.data?.message || 
-                          error.message || 
-                          'Login failed. Please check your credentials.';
-      toast.error(errorMessage);
+      toast.error(
+        error.response?.data?.message || error.message || 'Invalid credentials',
+      );
     } finally {
-      console.log('🔵 Setting loading to false');
       setLoading(false);
     }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🔵 Signup attempt started');
     setLoading(true);
     try {
       const response = await auth.register(signupData);
-      console.log('🔵 Signup response:', { token: !!response.token, user: !!response.user });
-      
       if (!response.user || !response.token) {
-        console.error('❌ No user or token in signup response:', response);
-        toast.error('Registration failed: User data missing');
-        setLoading(false);
+        toast.error('Registration failed');
         return;
       }
-      
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
-      
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((r) => setTimeout(r, 80));
       window.dispatchEvent(new Event('auth-change'));
-      
-      toast.success('Registration successful!');
+      toast.success('Account created!');
       onClose();
-      
-      const userRole = response.user.role;
+      const role = response.user.role;
       setTimeout(() => {
-        switch (userRole) {
-          case 'admin': router.replace('/admin/dashboard'); break;
-          case 'owner': router.replace('/owner/dashboard'); break;
-          case 'agent': router.replace('/agent/dashboard'); break;
-          default: router.replace('/'); break;
-        }
-      }, 300);
-      
+        if (role === 'admin') router.replace('/admin/dashboard');
+        else if (role === 'owner') router.replace('/owner/dashboard');
+        else if (role === 'agent') router.replace('/agent/dashboard');
+        else router.replace('/');
+      }, 200);
     } catch (error: any) {
-      console.log('🔴 Signup error:', error);
       toast.error(error.response?.data?.message || 'Registration failed');
     } finally {
       setLoading(false);
@@ -214,7 +156,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     setLoading(true);
     try {
       await api.post('/auth/forgot-password', { email: forgotEmail });
-      toast.success('Reset link sent to your email!');
+      toast.success('Reset link sent to your email');
       setMode('login');
       setForgotEmail('');
     } catch (error: any) {
@@ -226,23 +168,21 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (resetData.newPassword !== resetData.confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+    if (resetData.newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
     setLoading(true);
     try {
-      if (resetData.newPassword !== resetData.confirmPassword) {
-        toast.error('Passwords do not match');
-        setLoading(false);
-        return;
-      }
-      if (resetData.newPassword.length < 6) {
-        toast.error('Password must be at least 6 characters');
-        setLoading(false);
-        return;
-      }
       await api.post('/auth/reset-password', {
         token: resetData.token,
         newPassword: resetData.newPassword,
       });
-      toast.success('Password reset successful! Please login.');
+      toast.success('Password reset successful');
       setMode('login');
       setResetData({ token: '', newPassword: '', confirmPassword: '' });
     } catch (error: any) {
@@ -252,494 +192,392 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     }
   };
 
-  const handleSocialLogin = (provider: string) => {
-    toast.success(`Connecting with ${provider}...`);
-    // Add your social login logic here
-  };
-
-  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 bg-black/50 z-200 flex items-center justify-center p-4"
-      onClick={handleBackdropClick}
+    <div
+      className="fixed inset-0 z-200 flex items-center justify-center p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="auth-modal-title"
     >
-      <div className="bg-white rounded-2xl w-full max-w-md mx-auto overflow-hidden shadow-xl relative max-h-[90vh] flex flex-col">
-        {/* Close button */}
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
+
+      {/* Modal */}
+      <div className="relative w-full max-w-105 bg-white rounded-3xl shadow-2xl shadow-slate-900/20 overflow-hidden max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-200">
+        {/* Close */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1 hover:bg-gray-100 rounded-full transition z-10 focus:outline-none focus:ring-2 focus:ring-orange-500"
-          aria-label="Close authentication modal"
+          className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition"
+          aria-label="Close"
         >
-          <X className="w-5 h-5 text-gray-400" aria-hidden="true" />
+          <X className="w-4 h-4 text-slate-500" />
         </button>
 
-        {/* Back button for forgot/reset modes */}
+        {/* Back (forgot / reset) */}
         {(mode === 'forgot' || mode === 'reset') && (
           <button
             onClick={() => setMode('login')}
-            className="absolute top-4 left-4 p-1 hover:bg-gray-100 rounded-full transition z-10 focus:outline-none focus:ring-2 focus:ring-orange-500"
-            aria-label="Go back to login"
+            className="absolute top-4 left-4 z-10 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition"
+            aria-label="Back"
           >
-            <ArrowLeft className="w-5 h-5 text-gray-400" aria-hidden="true" />
+            <ArrowLeft className="w-4 h-4 text-slate-500" />
           </button>
         )}
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6 pt-8">
-          {/* Logo */}
-          <div className="text-center mb-6">
-            <div className="flex justify-center mb-3">
-              <Image 
-                src="/logo.png" 
-                alt="QuickBite" 
-                width={64} 
-                height={64} 
-                className="w-16 h-16 object-contain"
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-6 pt-8 pb-6">
+          {/* Logo + Title */}
+          <div className="text-center mb-7">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-orange-50 mb-4">
+              <Image
+                src="/logo.png"
+                alt="QuickBite"
+                width={36}
+                height={36}
+                className="object-contain"
                 priority
               />
             </div>
-            <h1 id="auth-modal-title" className="text-3xl font-bold text-orange-500">QuickBite</h1>
-            <p className="text-sm text-gray-500 mt-2">
-              {mode === 'login' && 'Welcome back! Sign in to continue'}
-              {mode === 'signup' && 'Create your account to get started'}
-              {mode === 'forgot' && 'Reset your password'}
-              {mode === 'reset' && 'Create new password'}
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              {mode === 'login' && 'Welcome back'}
+              {mode === 'signup' && 'Create account'}
+              {mode === 'forgot' && 'Reset password'}
+              {mode === 'reset' && 'New password'}
+            </h1>
+            <p className="text-sm text-slate-500 mt-1.5">
+              {mode === 'login' && 'Sign in to continue to QuickBite'}
+              {mode === 'signup' && 'Join QuickBite in under a minute'}
+              {mode === 'forgot' && "We'll send you a reset link"}
+              {mode === 'reset' && 'Choose a strong new password'}
             </p>
           </div>
 
-          {/* Mode Toggle - Only for login/signup */}
+          {/* Tabs */}
           {(mode === 'login' || mode === 'signup') && (
-            <div className="flex gap-2 bg-gray-100 rounded-full p-1 mb-6" role="tablist">
+            <div className="flex p-1 bg-slate-100 rounded-2xl mb-6">
               <button
                 onClick={() => setMode('login')}
-                className={`flex-1 py-2 rounded-full text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                   mode === 'login'
-                    ? 'bg-white text-orange-500 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-800'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
                 }`}
-                role="tab"
-                aria-selected={mode === 'login'}
-                aria-controls="login-panel"
-                id="login-tab"
               >
                 Log in
               </button>
               <button
                 onClick={() => setMode('signup')}
-                className={`flex-1 py-2 rounded-full text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                   mode === 'signup'
-                    ? 'bg-white text-orange-500 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-800'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
                 }`}
-                role="tab"
-                aria-selected={mode === 'signup'}
-                aria-controls="signup-panel"
-                id="signup-tab"
               >
                 Sign up
               </button>
             </div>
           )}
 
-          {/* Login Form */}
+          {/* ── LOGIN ── */}
           {mode === 'login' && (
-            <form onSubmit={handleLogin} className="space-y-4" id="login-panel" role="tabpanel" aria-labelledby="login-tab">
+            <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label htmlFor="login-email" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email Address <span className="text-red-500" aria-hidden="true">*</span>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  Email
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
-                    id="login-email"
                     ref={firstInputRef}
                     type="email"
                     required
-                    placeholder="Enter your email"
-                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                    placeholder="you@example.com"
                     value={loginData.email}
-                    onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-                    aria-required="true"
-                    autoComplete="email"
+                    onChange={(e) =>
+                      setLoginData({ ...loginData, email: e.target.value })
+                    }
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 transition"
                   />
                 </div>
               </div>
+
               <div>
-                <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 mb-1">
-                  Password <span className="text-red-500" aria-hidden="true">*</span>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
-                    id="login-password"
                     type={showPassword ? 'text' : 'password'}
                     required
-                    placeholder="Enter your password"
-                    className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                    placeholder="••••••••"
                     value={loginData.password}
-                    onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                    aria-required="true"
-                    autoComplete="current-password"
+                    onChange={(e) =>
+                      setLoginData({ ...loginData, password: e.target.value })
+                    }
+                    className="w-full pl-10 pr-11 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 transition"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-full p-1"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
                   >
                     {showPassword ? (
-                      <EyeOff className="w-4 h-4 text-gray-400" aria-hidden="true" />
+                      <EyeOff className="w-4 h-4" />
                     ) : (
-                      <Eye className="w-4 h-4 text-gray-400" aria-hidden="true" />
+                      <Eye className="w-4 h-4" />
                     )}
                   </button>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setMode('forgot')}
-                className="text-sm text-orange-500 hover:text-orange-600 text-right w-full focus:outline-none focus:ring-2 focus:ring-orange-500 rounded px-2 py-1"
-                aria-label="Forgot password"
-              >
-                Forgot password?
-              </button>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setMode('forgot')}
+                  className="text-xs font-medium text-orange-600 hover:text-orange-700"
+                >
+                  Forgot password?
+                </button>
+              </div>
+
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-                aria-busy={loading}
+                className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold shadow-lg shadow-orange-500/25 transition disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {loading ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Logging in...
-                  </div>
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Signing in...
+                  </>
                 ) : (
-                  'Log in'
+                  'Sign in'
                 )}
               </button>
             </form>
           )}
 
-          {/* Signup Form */}
+          {/* ── SIGNUP ── */}
           {mode === 'signup' && (
-            <form onSubmit={handleSignup} className="space-y-3" id="signup-panel" role="tabpanel" aria-labelledby="signup-tab">
+            <form onSubmit={handleSignup} className="space-y-3.5">
+              {/* Role pills */}
+              <div className="grid grid-cols-3 gap-2 mb-1">
+                {[
+                  { id: 'customer', label: 'Order', emoji: '🍔' },
+                  { id: 'owner', label: 'Partner', emoji: '🏪' },
+                  { id: 'agent', label: 'Deliver', emoji: '🛵' },
+                ].map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedRole(r.id);
+                      setSignupData({ ...signupData, role: r.id });
+                    }}
+                    className={`relative flex flex-col items-center gap-1 py-3 rounded-2xl border text-xs font-medium transition ${
+                      selectedRole === r.id
+                        ? 'border-orange-400 bg-orange-50 text-orange-700 ring-2 ring-orange-500/20'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    <span className="text-lg">{r.emoji}</span>
+                    {r.label}
+                    {selectedRole === r.id && (
+                      <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white" />
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
               <div>
-                <label htmlFor="signup-name" className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name <span className="text-red-500" aria-hidden="true">*</span>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  Full name
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
-                    id="signup-name"
                     type="text"
                     required
-                    placeholder="Enter your full name"
-                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                    placeholder="Your name"
                     value={signupData.fullName}
-                    onChange={(e) => setSignupData({ ...signupData, fullName: e.target.value })}
-                    aria-required="true"
-                    autoComplete="name"
+                    onChange={(e) =>
+                      setSignupData({ ...signupData, fullName: e.target.value })
+                    }
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 transition"
                   />
                 </div>
               </div>
+
               <div>
-                <label htmlFor="signup-email" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email Address <span className="text-red-500" aria-hidden="true">*</span>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  Email
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
-                    id="signup-email"
                     type="email"
                     required
-                    placeholder="Enter your email"
-                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                    placeholder="you@example.com"
                     value={signupData.email}
-                    onChange={(e) => setSignupData({ ...signupData, email: e.target.value })}
-                    aria-required="true"
-                    autoComplete="email"
+                    onChange={(e) =>
+                      setSignupData({ ...signupData, email: e.target.value })
+                    }
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 transition"
                   />
                 </div>
               </div>
+
               <div>
-                <label htmlFor="signup-password" className="block text-sm font-medium text-gray-700 mb-1">
-                  Password <span className="text-red-500" aria-hidden="true">*</span>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
-                    id="signup-password"
                     type={showPassword ? 'text' : 'password'}
                     required
-                    placeholder="Create a password (min 6 characters)"
-                    className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-                    value={signupData.password}
-                    onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
-                    aria-required="true"
-                    autoComplete="new-password"
                     minLength={6}
+                    placeholder="Min 6 characters"
+                    value={signupData.password}
+                    onChange={(e) =>
+                      setSignupData({ ...signupData, password: e.target.value })
+                    }
+                    className="w-full pl-10 pr-11 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 transition"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-full p-1"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
                   >
                     {showPassword ? (
-                      <EyeOff className="w-4 h-4 text-gray-400" aria-hidden="true" />
+                      <EyeOff className="w-4 h-4" />
                     ) : (
-                      <Eye className="w-4 h-4 text-gray-400" aria-hidden="true" />
+                      <Eye className="w-4 h-4" />
                     )}
                   </button>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">Password must be at least 6 characters</p>
               </div>
+
               <div>
-                <label htmlFor="signup-phone" className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone Number <span className="text-red-500" aria-hidden="true">*</span>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  Phone
                 </label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
+                  <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
-                    id="signup-phone"
                     type="tel"
                     required
-                    placeholder="Enter your phone number"
-                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                    placeholder="01XXXXXXXXX"
                     value={signupData.phone}
-                    onChange={(e) => setSignupData({ ...signupData, phone: e.target.value })}
-                    aria-required="true"
-                    autoComplete="tel"
-                  />
-                </div>
-              </div>
-              <div>
-                <label htmlFor="signup-address" className="block text-sm font-medium text-gray-700 mb-1">
-                  Address
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
-                  <input
-                    id="signup-address"
-                    type="text"
-                    placeholder="Enter your address (optional)"
-                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-                    value={signupData.address}
-                    onChange={(e) => setSignupData({ ...signupData, address: e.target.value })}
-                    autoComplete="street-address"
+                    onChange={(e) =>
+                      setSignupData({ ...signupData, phone: e.target.value })
+                    }
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 transition"
                   />
                 </div>
               </div>
 
-              {/* Role Selection */}
-              <div className="space-y-2 pt-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  I want to:
-                </label>
-                <div className="space-y-2" role="radiogroup" aria-label="Account type">
-                  <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-orange-50 transition focus-within:ring-2 focus-within:ring-orange-500">
-                    <input
-                      type="radio"
-                      name="role"
-                      value="customer"
-                      checked={selectedRole === 'customer'}
-                      onChange={() => {
-                        setSelectedRole('customer');
-                        setSignupData({ ...signupData, role: 'customer' });
-                      }}
-                      className="w-4 h-4 text-orange-500"
-                      aria-label="Order Food"
-                    />
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-800">Order Food</p>
-                      <p className="text-xs text-gray-500">Browse and order from restaurants</p>
-                    </div>
-                    <span className="text-2xl" aria-hidden="true">🍔</span>
-                  </label>
-
-                  <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-orange-50 transition focus-within:ring-2 focus-within:ring-orange-500">
-                    <input
-                      type="radio"
-                      name="role"
-                      value="owner"
-                      checked={selectedRole === 'owner'}
-                      onChange={() => {
-                        setSelectedRole('owner');
-                        setSignupData({ ...signupData, role: 'owner' });
-                      }}
-                      className="w-4 h-4 text-orange-500"
-                      aria-label="Partner with us"
-                    />
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-800">Partner with us</p>
-                      <p className="text-xs text-gray-500">List your restaurant and reach more customers</p>
-                    </div>
-                    <span className="text-2xl" aria-hidden="true">🏪</span>
-                  </label>
-
-                  <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-orange-50 transition focus-within:ring-2 focus-within:ring-orange-500">
-                    <input
-                      type="radio"
-                      name="role"
-                      value="agent"
-                      checked={selectedRole === 'agent'}
-                      onChange={() => {
-                        setSelectedRole('agent');
-                        setSignupData({ ...signupData, role: 'agent' });
-                      }}
-                      className="w-4 h-4 text-orange-500"
-                      aria-label="Become a Delivery Partner"
-                    />
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-800">Become a Delivery Partner</p>
-                      <p className="text-xs text-gray-500">Earn money by delivering food</p>
-                    </div>
-                    <span className="text-2xl" aria-hidden="true">🛵</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Restaurant Owner Fields */}
+              {/* Owner extra fields */}
               {selectedRole === 'owner' && (
-                <div className="space-y-3 border-t pt-3">
-                  <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-                    <Briefcase className="w-4 h-4 text-orange-500" aria-hidden="true" />
-                    Restaurant Information
-                  </h3>
-                  <div>
-                    <label htmlFor="owner-business-name" className="block text-sm font-medium text-gray-700 mb-1">
-                      Restaurant/Business Name <span className="text-red-500" aria-hidden="true">*</span>
-                    </label>
-                    <input
-                      id="owner-business-name"
-                      type="text"
-                      required
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                      placeholder="Enter restaurant name"
-                      value={signupData.businessName}
-                      onChange={(e) => setSignupData({ ...signupData, businessName: e.target.value })}
-                      aria-required="true"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="owner-business-address" className="block text-sm font-medium text-gray-700 mb-1">
-                      Restaurant Address <span className="text-red-500" aria-hidden="true">*</span>
-                    </label>
-                    <input
-                      id="owner-business-address"
-                      type="text"
-                      required
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                      placeholder="Enter restaurant address"
-                      value={signupData.businessAddress}
-                      onChange={(e) => setSignupData({ ...signupData, businessAddress: e.target.value })}
-                      aria-required="true"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="owner-tax-id" className="block text-sm font-medium text-gray-700 mb-1">
-                      Tax ID (optional)
-                    </label>
-                    <input
-                      id="owner-tax-id"
-                      type="text"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                      placeholder="Enter tax ID"
-                      value={signupData.taxId}
-                      onChange={(e) => setSignupData({ ...signupData, taxId: e.target.value })}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
-                    <AlertCircle className="w-4 h-4" aria-hidden="true" />
-                    <span>Your application will be reviewed within 2-3 business days</span>
+                <div className="space-y-3 pt-2 border-t border-slate-100">
+                  <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                    <Briefcase className="w-3.5 h-3.5 text-orange-500" />
+                    Restaurant details
+                  </p>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Restaurant name"
+                    value={signupData.businessName}
+                    onChange={(e) =>
+                      setSignupData({ ...signupData, businessName: e.target.value })
+                    }
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+                  />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Restaurant address"
+                    value={signupData.businessAddress}
+                    onChange={(e) =>
+                      setSignupData({
+                        ...signupData,
+                        businessAddress: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+                  />
+                  <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 rounded-xl p-3">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    Application reviewed within 2–3 business days
                   </div>
                 </div>
               )}
 
-              {/* Delivery Agent Fields */}
+              {/* Agent extra fields */}
               {selectedRole === 'agent' && (
-                <div className="space-y-3 border-t pt-3">
-                  <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-                    <Truck className="w-4 h-4 text-orange-500" aria-hidden="true" />
-                    Delivery Partner Information
-                  </h3>
-                  <div>
-                    <label htmlFor="agent-nid" className="block text-sm font-medium text-gray-700 mb-1">
-                      NID Number <span className="text-red-500" aria-hidden="true">*</span>
-                    </label>
-                    <input
-                      id="agent-nid"
-                      type="text"
-                      required
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                      placeholder="Enter NID number"
-                      value={signupData.nidNumber}
-                      onChange={(e) => setSignupData({ ...signupData, nidNumber: e.target.value })}
-                      aria-required="true"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="agent-vehicle-type" className="block text-sm font-medium text-gray-700 mb-1">
-                      Vehicle Type <span className="text-red-500" aria-hidden="true">*</span>
-                    </label>
-                    <select
-                      id="agent-vehicle-type"
-                      required
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                      value={signupData.vehicleType}
-                      onChange={(e) => setSignupData({ ...signupData, vehicleType: e.target.value })}
-                      aria-required="true"
-                    >
-                      <option value="">Select Vehicle Type</option>
-                      <option value="bike">Motorcycle</option>
-                      <option value="scooter">Scooter</option>
-                      <option value="car">Car</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="agent-vehicle-number" className="block text-sm font-medium text-gray-700 mb-1">
-                      Vehicle Number Plate <span className="text-red-500" aria-hidden="true">*</span>
-                    </label>
-                    <input
-                      id="agent-vehicle-number"
-                      type="text"
-                      required
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                      placeholder="Enter vehicle number"
-                      value={signupData.vehicleNumber}
-                      onChange={(e) => setSignupData({ ...signupData, vehicleNumber: e.target.value })}
-                      aria-required="true"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="agent-license" className="block text-sm font-medium text-gray-700 mb-1">
-                      Driving License Number <span className="text-red-500" aria-hidden="true">*</span>
-                    </label>
-                    <input
-                      id="agent-license"
-                      type="text"
-                      required
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                      placeholder="Enter driving license number"
-                      value={signupData.drivingLicense}
-                      onChange={(e) => setSignupData({ ...signupData, drivingLicense: e.target.value })}
-                      aria-required="true"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
-                    <AlertCircle className="w-4 h-4" aria-hidden="true" />
-                    <span>Your application will be verified within 3-5 business days</span>
+                <div className="space-y-3 pt-2 border-t border-slate-100">
+                  <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5 text-orange-500" />
+                    Delivery partner details
+                  </p>
+                  <input
+                    type="text"
+                    required
+                    placeholder="NID number"
+                    value={signupData.nidNumber}
+                    onChange={(e) =>
+                      setSignupData({ ...signupData, nidNumber: e.target.value })
+                    }
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+                  />
+                  <select
+                    required
+                    value={signupData.vehicleType}
+                    onChange={(e) =>
+                      setSignupData({ ...signupData, vehicleType: e.target.value })
+                    }
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+                  >
+                    <option value="">Vehicle type</option>
+                    <option value="bike">Motorcycle</option>
+                    <option value="scooter">Scooter</option>
+                    <option value="car">Car</option>
+                  </select>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Vehicle number plate"
+                    value={signupData.vehicleNumber}
+                    onChange={(e) =>
+                      setSignupData({
+                        ...signupData,
+                        vehicleNumber: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+                  />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Driving license number"
+                    value={signupData.drivingLicense}
+                    onChange={(e) =>
+                      setSignupData({
+                        ...signupData,
+                        drivingLicense: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+                  />
+                  <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 rounded-xl p-3">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    Verified within 3–5 business days
                   </div>
                 </div>
               )}
@@ -747,191 +585,168 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-                aria-busy={loading}
+                className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold shadow-lg shadow-orange-500/25 transition disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
               >
                 {loading ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Creating account...
-                  </div>
+                  </>
+                ) : selectedRole === 'customer' ? (
+                  'Create account'
+                ) : selectedRole === 'owner' ? (
+                  'Apply as Partner'
                 ) : (
-                  selectedRole === 'customer' ? 'Sign up' : 
-                  selectedRole === 'owner' ? 'Apply as Restaurant' : 'Apply as Delivery Partner'
+                  'Apply as Rider'
                 )}
               </button>
             </form>
           )}
 
-          {/* Forgot Password Form */}
+          {/* ── FORGOT ── */}
           {mode === 'forgot' && (
             <form onSubmit={handleForgotPassword} className="space-y-4">
-              <p className="text-sm text-gray-600 text-center mb-4">
-                Enter your email address and we'll send you a link to reset your password.
+              <p className="text-sm text-slate-500 text-center">
+                Enter your email and we’ll send a reset link.
               </p>
               <div>
-                <label htmlFor="forgot-email" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email Address <span className="text-red-500" aria-hidden="true">*</span>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  Email
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
-                    id="forgot-email"
                     type="email"
                     required
-                    placeholder="Enter your email"
-                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                    placeholder="you@example.com"
                     value={forgotEmail}
                     onChange={(e) => setForgotEmail(e.target.value)}
-                    aria-required="true"
-                    autoComplete="email"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
                   />
                 </div>
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-                aria-busy={loading}
+                className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold shadow-lg shadow-orange-500/25 transition disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {loading ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Sending...
-                  </div>
+                  </>
                 ) : (
-                  'Send Reset Link'
+                  'Send reset link'
                 )}
               </button>
             </form>
           )}
 
-          {/* Reset Password Form */}
+          {/* ── RESET ── */}
           {mode === 'reset' && (
             <form onSubmit={handleResetPassword} className="space-y-4">
-              <p className="text-sm text-gray-600 text-center mb-4">
-                Create a new password for your account.
-              </p>
               <div>
-                <label htmlFor="reset-token" className="block text-sm font-medium text-gray-700 mb-1">
-                  Reset Token <span className="text-red-500" aria-hidden="true">*</span>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  Reset token
                 </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
-                  <input
-                    id="reset-token"
-                    type="text"
-                    required
-                    placeholder="Enter reset token"
-                    className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-                    value={resetData.token}
-                    onChange={(e) => setResetData({ ...resetData, token: e.target.value })}
-                    aria-required="true"
-                  />
-                </div>
+                <input
+                  type="text"
+                  required
+                  placeholder="Paste token from email"
+                  value={resetData.token}
+                  onChange={(e) =>
+                    setResetData({ ...resetData, token: e.target.value })
+                  }
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+                />
               </div>
               <div>
-                <label htmlFor="reset-new-password" className="block text-sm font-medium text-gray-700 mb-1">
-                  New Password <span className="text-red-500" aria-hidden="true">*</span>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  New password
                 </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
-                  <input
-                    id="reset-new-password"
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    placeholder="Enter new password (min 6 characters)"
-                    className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-                    value={resetData.newPassword}
-                    onChange={(e) => setResetData({ ...resetData, newPassword: e.target.value })}
-                    aria-required="true"
-                    autoComplete="new-password"
-                    minLength={6}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-full p-1"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-4 h-4 text-gray-400" aria-hidden="true" />
-                    ) : (
-                      <Eye className="w-4 h-4 text-gray-400" aria-hidden="true" />
-                    )}
-                  </button>
-                </div>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  minLength={6}
+                  placeholder="Min 6 characters"
+                  value={resetData.newPassword}
+                  onChange={(e) =>
+                    setResetData({ ...resetData, newPassword: e.target.value })
+                  }
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+                />
               </div>
               <div>
-                <label htmlFor="reset-confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
-                  Confirm New Password <span className="text-red-500" aria-hidden="true">*</span>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  Confirm password
                 </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
-                  <input
-                    id="reset-confirm-password"
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    placeholder="Confirm new password"
-                    className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-                    value={resetData.confirmPassword}
-                    onChange={(e) => setResetData({ ...resetData, confirmPassword: e.target.value })}
-                    aria-required="true"
-                    autoComplete="new-password"
-                  />
-                </div>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  placeholder="Repeat password"
+                  value={resetData.confirmPassword}
+                  onChange={(e) =>
+                    setResetData({
+                      ...resetData,
+                      confirmPassword: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+                />
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-                aria-busy={loading}
+                className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold shadow-lg shadow-orange-500/25 transition disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {loading ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Resetting...
-                  </div>
+                  </>
                 ) : (
-                  'Reset Password'
+                  'Reset password'
                 )}
               </button>
             </form>
           )}
 
-          {/* Divider - Only for login/signup */}
+          {/* Divider + Google */}
           {(mode === 'login' || mode === 'signup') && (
             <>
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200"></div>
+                  <div className="w-full border-t border-slate-200" />
                 </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-white text-gray-500">or continue with</span>
+                <div className="relative flex justify-center">
+                  <span className="px-3 bg-white text-xs text-slate-400">
+                    or continue with
+                  </span>
                 </div>
               </div>
 
-              {/* Social Login - Only Google */}
-              <div className="space-y-2">
-                <button 
-                  onClick={() => handleSocialLogin('Google')}
-                  className="w-full flex items-center justify-center gap-3 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition group focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  aria-label="Continue with Google"
-                >
-                  <FaGoogle className="w-5 h-5 text-red-500" aria-hidden="true" />
-                  <span className="text-sm font-medium text-gray-700">Continue with Google</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => toast.success('Google sign-in coming soon')}
+                className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition text-sm font-medium text-slate-700"
+              >
+                <FaGoogle className="w-4 h-4 text-red-500" />
+                Google
+              </button>
             </>
           )}
 
-          {/* Terms - Only for login/signup */}
+          {/* Terms */}
           {(mode === 'login' || mode === 'signup') && (
-            <p className="text-center text-xs text-gray-400 mt-6">
-              By continuing, you agree to our{' '}
-              <a href="#" className="text-orange-500 hover:underline" aria-label="Terms of Service">Terms of Service</a>{' '}
+            <p className="text-center text-[11px] text-slate-400 mt-6 leading-relaxed">
+              By continuing you agree to our{' '}
+              <a href="#" className="text-orange-600 hover:underline">
+                Terms
+              </a>{' '}
               and{' '}
-              <a href="#" className="text-orange-500 hover:underline" aria-label="Privacy Policy">Privacy Policy</a>
+              <a href="#" className="text-orange-600 hover:underline">
+                Privacy Policy
+              </a>
             </p>
           )}
         </div>

@@ -1,3 +1,4 @@
+// components/Footer.tsx
 'use client';
 
 import Link from 'next/link';
@@ -8,161 +9,213 @@ import { FaFacebook, FaTwitter, FaInstagram, FaYoutube } from 'react-icons/fa';
 export default function Footer() {
   const currentYear = new Date().getFullYear();
   const pathname = usePathname();
-  
-  // Check if on dashboard pages (admin, owner, agent)
-  const isDashboardPage = pathname?.startsWith('/admin') || 
-                          pathname?.startsWith('/owner') || 
-                          pathname?.startsWith('/agent');
-  
-  // Check if on settings page
+
+  const isDashboardPage =
+    pathname?.startsWith('/admin') ||
+    pathname?.startsWith('/owner') ||
+    pathname?.startsWith('/agent');
   const isSettingsPage = pathname === '/settings';
-  
-  // Check if on notifications page
   const isNotificationsPage = pathname === '/notifications';
-  
-  // Check if on auth pages (login/register)
   const isAuthPage = pathname === '/login' || pathname === '/register';
-  
-  // Check if on cart page
   const isCartPage = pathname === '/cart';
-  
-  // Check if on checkout page
   const isCheckoutPage = pathname === '/checkout';
-  
-  // Check if on orders page (customer orders)
   const isOrdersPage = pathname?.startsWith('/orders');
-  
-  // Check if on profile page
   const isProfilePage = pathname === '/profile';
-  
-  // Don't show footer on any of these pages
-  const shouldHideFooter = isDashboardPage || 
-                           isSettingsPage || 
-                           isNotificationsPage || 
-                           isAuthPage || 
-                           isCartPage || 
-                           isCheckoutPage || 
-                           isOrdersPage || 
-                           isProfilePage;
-  
-  if (shouldHideFooter) {
-    return null;
-  }
+
+  const shouldHideFooter =
+    isDashboardPage ||
+    isSettingsPage ||
+    isNotificationsPage ||
+    isAuthPage ||
+    isCartPage ||
+    isCheckoutPage ||
+    isOrdersPage ||
+    isProfilePage;
+
+  if (shouldHideFooter) return null;
 
   return (
-    <footer className="bg-gray-900 text-white mt-16">
-      {/* Main Footer - Only for marketing/customer pages */}
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          
-          {/* Column 1 - Brand & About */}
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <img src="/logo.png" alt="QuickBite Logo" className="w-10 h-10 object-contain bg-white rounded-full p-1" />
-              <span className="text-2xl font-bold text-orange-500">QuickBite</span>
-            </div>
-            <p className="text-gray-400 text-sm mb-4 leading-relaxed">
-              Delivering happiness to your doorstep. Order from the best restaurants in town with lightning-fast delivery.
-            </p>
-            <div className="flex gap-3">
-              <a href="#" className="w-9 h-9 bg-gray-800 rounded-full flex items-center justify-center hover:bg-orange-500 transition">
-                <FaFacebook className="w-4 h-4" />
-              </a>
-              <a href="#" className="w-9 h-9 bg-gray-800 rounded-full flex items-center justify-center hover:bg-orange-500 transition">
-                <FaTwitter className="w-4 h-4" />
-              </a>
-              <a href="#" className="w-9 h-9 bg-gray-800 rounded-full flex items-center justify-center hover:bg-orange-500 transition">
-                <FaInstagram className="w-4 h-4" />
-              </a>
-              <a href="#" className="w-9 h-9 bg-gray-800 rounded-full flex items-center justify-center hover:bg-orange-500 transition">
-                <FaYoutube className="w-4 h-4" />
-              </a>
-            </div>
-          </div>
-
-          {/* Column 2 - Company */}
-          <div>
-            <h3 className="font-semibold text-lg mb-4">Company</h3>
-            <ul className="space-y-2">
-              <li><Link href="/about" className="text-gray-400 hover:text-orange-500 transition text-sm">About Us</Link></li>
-              <li><Link href="/careers" className="text-gray-400 hover:text-orange-500 transition text-sm">Careers</Link></li>
-              <li><Link href="/blog" className="text-gray-400 hover:text-orange-500 transition text-sm">Blog</Link></li>
-              <li><Link href="/press" className="text-gray-400 hover:text-orange-500 transition text-sm">Press</Link></li>
-              <li><Link href="/investors" className="text-gray-400 hover:text-orange-500 transition text-sm">Investors</Link></li>
-            </ul>
-          </div>
-
-          {/* Column 3 - Support */}
-          <div>
-            <h3 className="font-semibold text-lg mb-4">Support</h3>
-            <ul className="space-y-2">
-              <li><Link href="/help" className="text-gray-400 hover:text-orange-500 transition text-sm">Help Center</Link></li>
-              <li><Link href="/contact" className="text-gray-400 hover:text-orange-500 transition text-sm">Contact Us</Link></li>
-              <li><Link href="/privacy" className="text-gray-400 hover:text-orange-500 transition text-sm">Privacy Policy</Link></li>
-              <li><Link href="/terms" className="text-gray-400 hover:text-orange-500 transition text-sm">Terms of Service</Link></li>
-              <li><Link href="/refund" className="text-gray-400 hover:text-orange-500 transition text-sm">Refund Policy</Link></li>
-            </ul>
-          </div>
-
-          {/* Column 4 - Contact & App */}
-          <div>
-            <h3 className="font-semibold text-lg mb-4">Get in Touch</h3>
-            <ul className="space-y-3">
-              <li className="flex items-center gap-3 text-gray-400 text-sm">
-                <MapPin className="w-4 h-4 text-orange-500" />
-                <span>Dhaka, Bangladesh</span>
-              </li>
-              <li className="flex items-center gap-3 text-gray-400 text-sm">
-                <Phone className="w-4 h-4 text-orange-500" />
-                <span>+880 1234 567890</span>
-              </li>
-              <li className="flex items-center gap-3 text-gray-400 text-sm">
-                <Mail className="w-4 h-4 text-orange-500" />
-                <span>support@quickbite.com</span>
-              </li>
-            </ul>
-            
-            {/* Download App */}
-            <div className="mt-6">
-              <h4 className="text-sm font-semibold mb-3">Download App</h4>
-              <div className="flex gap-3">
-                <a href="#" className="bg-gray-800 px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-700 transition">
-                  <Apple className="w-5 h-5" />
-                  <div>
-                    <div className="text-[10px] text-gray-400">App Store</div>
-                    <div className="text-xs font-semibold">iOS</div>
-                  </div>
-                </a>
-                <a href="#" className="bg-gray-800 px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-700 transition">
-                  <Smartphone className="w-5 h-5" />
-                  <div>
-                    <div className="text-[10px] text-gray-400">Google Play</div>
-                    <div className="text-xs font-semibold">Android</div>
-                  </div>
-                </a>
+    <footer className="bg-slate-950 text-white mt-20">
+      {/* Main */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-14">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8">
+          {/* Brand */}
+          <div className="sm:col-span-2 lg:col-span-1">
+            <div className="flex items-center gap-2.5 mb-5">
+              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center p-1.5">
+                <img
+                  src="/logo.png"
+                  alt="QuickBite"
+                  className="w-full h-full object-contain"
+                />
               </div>
+              <span className="text-xl font-bold text-orange-500 tracking-tight">
+                QuickBite
+              </span>
+            </div>
+            <p className="text-slate-400 text-sm leading-relaxed mb-6 max-w-xs">
+              Delivering happiness to your doorstep. Order from the best
+              restaurants with lightning-fast delivery.
+            </p>
+            <div className="flex gap-2.5">
+              {[
+                { Icon: FaFacebook, href: '#' },
+                { Icon: FaTwitter, href: '#' },
+                { Icon: FaInstagram, href: '#' },
+                { Icon: FaYoutube, href: '#' },
+              ].map(({ Icon, href }, i) => (
+                <a
+                  key={i}
+                  href={href}
+                  className="w-9 h-9 rounded-xl bg-white/5 hover:bg-orange-500 flex items-center justify-center transition-colors"
+                >
+                  <Icon className="w-4 h-4" />
+                </a>
+              ))}
+            </div>
+          </div>
+
+          {/* Company */}
+          <div>
+            <h3 className="text-sm font-semibold text-white mb-4 tracking-wide">
+              Company
+            </h3>
+            <ul className="space-y-2.5">
+              {[
+                { label: 'About Us', href: '/about' },
+                { label: 'Careers', href: '/careers' },
+                { label: 'Blog', href: '/blog' },
+                { label: 'Press', href: '/press' },
+                { label: 'Investors', href: '/investors' },
+              ].map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-slate-400 hover:text-orange-400 transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Support */}
+          <div>
+            <h3 className="text-sm font-semibold text-white mb-4 tracking-wide">
+              Support
+            </h3>
+            <ul className="space-y-2.5">
+              {[
+                { label: 'Help Center', href: '/help' },
+                { label: 'Contact Us', href: '/contact' },
+                { label: 'Privacy Policy', href: '/privacy' },
+                { label: 'Terms of Service', href: '/terms' },
+                { label: 'Refund Policy', href: '/refund' },
+              ].map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-slate-400 hover:text-orange-400 transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Contact + App */}
+          <div>
+            <h3 className="text-sm font-semibold text-white mb-4 tracking-wide">
+              Get in touch
+            </h3>
+            <ul className="space-y-3 mb-6">
+              <li className="flex items-center gap-2.5 text-sm text-slate-400">
+                <MapPin className="w-4 h-4 text-orange-500 shrink-0" />
+                Dhaka, Bangladesh
+              </li>
+              <li className="flex items-center gap-2.5 text-sm text-slate-400">
+                <Phone className="w-4 h-4 text-orange-500 shrink-0" />
+                +880 1234 567890
+              </li>
+              <li className="flex items-center gap-2.5 text-sm text-slate-400">
+                <Mail className="w-4 h-4 text-orange-500 shrink-0" />
+                support@quickbite.com
+              </li>
+            </ul>
+
+            <p className="text-xs font-medium text-slate-500 mb-3">
+              Download the app
+            </p>
+            <div className="flex gap-2.5">
+              <a
+                href="#"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition border border-white/5"
+              >
+                <Apple className="w-5 h-5" />
+                <div>
+                  <div className="text-[10px] text-slate-500 leading-none">
+                    App Store
+                  </div>
+                  <div className="text-xs font-semibold leading-tight mt-0.5">
+                    iOS
+                  </div>
+                </div>
+              </a>
+              <a
+                href="#"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition border border-white/5"
+              >
+                <Smartphone className="w-5 h-5" />
+                <div>
+                  <div className="text-[10px] text-slate-500 leading-none">
+                    Google Play
+                  </div>
+                  <div className="text-xs font-semibold leading-tight mt-0.5">
+                    Android
+                  </div>
+                </div>
+              </a>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Divider */}
-        <div className="border-t border-gray-800 mt-10 pt-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-4">
-              <Globe className="w-4 h-4 text-gray-500" />
-              <select className="bg-gray-800 text-white text-sm px-3 py-1 rounded-lg border border-gray-700 focus:outline-none focus:border-orange-500">
-                <option>English (EN)</option>
-                <option>বাংলা (BN)</option>
-              </select>
-            </div>
-            <div className="text-gray-500 text-sm">
-              © {currentYear} QuickBite. All rights reserved.
-            </div>
-            <div className="flex gap-4 text-sm">
-              <Link href="/privacy" className="text-gray-500 hover:text-orange-500">Privacy</Link>
-              <Link href="/terms" className="text-gray-500 hover:text-orange-500">Terms</Link>
-              <Link href="/sitemap" className="text-gray-500 hover:text-orange-500">Sitemap</Link>
-            </div>
+      {/* Bottom bar */}
+      <div className="border-t border-white/5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Globe className="w-3.5 h-3.5 text-slate-500" />
+            <select className="bg-transparent text-sm text-slate-400 border-none focus:outline-none cursor-pointer">
+              <option className="bg-slate-900">English (EN)</option>
+              <option className="bg-slate-900">বাংলা (BN)</option>
+            </select>
+          </div>
+
+          <p className="text-sm text-slate-500">
+            © {currentYear} QuickBite. All rights reserved.
+          </p>
+
+          <div className="flex gap-5 text-sm">
+            <Link
+              href="/privacy"
+              className="text-slate-500 hover:text-orange-400 transition-colors"
+            >
+              Privacy
+            </Link>
+            <Link
+              href="/terms"
+              className="text-slate-500 hover:text-orange-400 transition-colors"
+            >
+              Terms
+            </Link>
+            <Link
+              href="/sitemap"
+              className="text-slate-500 hover:text-orange-400 transition-colors"
+            >
+              Sitemap
+            </Link>
           </div>
         </div>
       </div>

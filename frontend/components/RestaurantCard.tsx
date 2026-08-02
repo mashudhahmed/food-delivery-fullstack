@@ -4,7 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { Star, Heart } from "lucide-react";
 import { useFavoritesStore } from "@/stores/favoritesStore";
-import { toast } from "sonner";
+import { auth } from "@/lib/auth";
+import { toast } from "sonner"; // or "react-hot-toast" if you prefer
 
 interface RestaurantCardProps {
   restaurant: {
@@ -27,12 +28,26 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
   const isFavorite = items.some((i) => i.id === restaurant.id);
   const isClosed = restaurant.isOpen === false;
 
-  // Support both field names coming from backend
   const imageSrc = restaurant.imageUrl || restaurant.image || null;
 
   const handleFavorite = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // ✅ Not logged in → prompt to log in, do NOT toggle
+    if (!auth.isAuthenticated()) {
+      toast.error("Please log in to add favorites", {
+        description: "Sign in to save restaurants you love.",
+        action: {
+          label: "Log in",
+          onClick: () => {
+            // Dispatch a custom event that Navbar listens to, or open AuthModal
+            window.dispatchEvent(new CustomEvent("open-auth-modal", { detail: { mode: "login" } }));
+          },
+        },
+      });
+      return;
+    }
 
     toggleFavorite({
       id: restaurant.id,
@@ -71,6 +86,7 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
         <button
           onClick={handleFavorite}
           className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-sm hover:scale-110 transition z-10"
+          aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
         >
           <Heart
             className={`w-4 h-4 transition ${

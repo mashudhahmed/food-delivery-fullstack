@@ -1,3 +1,4 @@
+// components/LogoutModal.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -10,18 +11,14 @@ interface LogoutModalProps {
 }
 
 export default function LogoutModal({ isOpen, onClose, onConfirm }: LogoutModalProps) {
-  // Handle ESC key press
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
+      if (e.key === 'Escape' && isOpen) onClose();
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, [isOpen, onClose]);
 
-  // Prevent body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -33,60 +30,58 @@ export default function LogoutModal({ isOpen, onClose, onConfirm }: LogoutModalP
     };
   }, [isOpen]);
 
-  // Handle click outside to close
-  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 bg-black/50 z-200 flex items-center justify-center"
-      onClick={handleBackdropClick}
+    <div
+      className="fixed inset-0 z-200 flex items-center justify-center p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="logout-title"
     >
-      <div className="bg-white rounded-2xl w-full max-w-sm mx-4 overflow-hidden shadow-xl">
-        {/* Close button */}
-        <div className="flex justify-end pt-4 pr-4">
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-full transition"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5 text-gray-400" />
-          </button>
-        </div>
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
 
-        {/* Icon */}
-        <div className="flex justify-center mb-4">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
-            <LogOut className="w-8 h-8 text-red-500" />
+      {/* Modal */}
+      <div className="relative w-full max-w-90 bg-white rounded-3xl shadow-2xl shadow-slate-900/20 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        {/* Close */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition"
+          aria-label="Close"
+        >
+          <X className="w-4 h-4 text-slate-500" />
+        </button>
+
+        <div className="px-6 pt-10 pb-6 text-center">
+          {/* Icon */}
+          <div className="mx-auto mb-5 w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center">
+            <LogOut className="w-7 h-7 text-red-500" />
           </div>
+
+          {/* Title */}
+          <h2 id="logout-title" className="text-xl font-bold text-slate-900 tracking-tight">
+            Log out?
+          </h2>
+
+          {/* Message */}
+          <p className="mt-2 text-sm text-slate-500 leading-relaxed">
+            You’ll need to sign in again to access your orders, favorites, and account.
+          </p>
         </div>
 
-        {/* Title */}
-        <h3 className="text-xl font-semibold text-center text-gray-800 mb-2">
-          Logging out?
-        </h3>
-
-        {/* Message */}
-        <p className="text-center text-gray-500 mb-6 px-6">
-          Thanks for stopping by. See you again soon!
-        </p>
-
-        {/* Buttons */}
-        <div className="flex border-t border-gray-100">
+        {/* Actions */}
+        <div className="px-6 pb-6 flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 py-4 text-gray-600 font-medium hover:bg-gray-50 transition rounded-bl-2xl"
+            className="flex-1 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="flex-1 py-4 text-red-600 font-medium hover:bg-red-50 transition rounded-br-2xl border-l border-gray-100"
+            className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold shadow-lg shadow-red-500/20 transition"
           >
             Log out
           </button>

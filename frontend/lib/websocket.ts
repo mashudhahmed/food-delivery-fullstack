@@ -45,9 +45,7 @@ export const disconnectSocket = () => {
 
 export const getSocket = () => socket;
 
-// ────────────────────────────────────────────────
-// Compatibility object (so old imports still work)
-// ────────────────────────────────────────────────
+// Compatibility object used by NotificationInitializer
 export const wsService = {
   connect: connectSocket,
   disconnect: disconnectSocket,
