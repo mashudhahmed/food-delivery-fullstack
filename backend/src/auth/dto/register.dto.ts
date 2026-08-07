@@ -1,3 +1,4 @@
+// src/auth/dto/register.dto.ts
 import {
   IsEmail,
   IsString,
@@ -6,6 +7,7 @@ import {
   IsOptional,
   Matches,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 import { UserRole } from '../../users/entities/user.entity';
 
@@ -44,31 +46,34 @@ export class RegisterDto {
   @IsOptional()
   role?: UserRole;
 
-  @IsOptional()
+  // ── Restaurant Owner Fields ──
+  @ValidateIf(o => o.role === UserRole.OWNER)
   @IsString()
-  businessName?: string;
+  @MinLength(2)
+  businessName!: string;
 
-  @IsOptional()
+  @ValidateIf(o => o.role === UserRole.OWNER)
   @IsString()
-  businessAddress?: string;
+  businessAddress!: string;
 
-  @IsOptional()
+  @ValidateIf(o => o.role === UserRole.OWNER)
   @IsString()
-  taxId?: string;
+  taxId!: string;
 
-  @IsOptional()
+  // ── Delivery Agent Fields ──
+  @ValidateIf(o => o.role === UserRole.AGENT)
   @IsString()
-  nidNumber?: string;
+  nidNumber!: string;
 
-  @IsOptional()
+  @ValidateIf(o => o.role === UserRole.AGENT)
   @IsString()
-  vehicleType?: string;
+  vehicleType!: string;
 
-  @IsOptional()
+  @ValidateIf(o => o.role === UserRole.AGENT)
   @IsString()
-  vehicleNumber?: string;
+  vehicleNumber!: string;
 
-  @IsOptional()
+  @ValidateIf(o => o.role === UserRole.AGENT)
   @IsString()
-  drivingLicense?: string;
+  drivingLicense!: string;
 }

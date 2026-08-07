@@ -1,5 +1,18 @@
-import { IsArray, IsString, ValidateNested, IsNumber, Min, IsOptional, IsObject, IsEmail } from 'class-validator';
+import {
+  IsArray,
+  IsString,
+  ValidateNested,
+  IsNumber,
+  Min,
+  IsOptional,
+  IsObject,
+  IsEmail,
+  ArrayMinSize,
+  ArrayMaxSize,
+} from 'class-validator';
 import { Type } from 'class-transformer';
+import { ValidateNestedArray } from '../../common/decorators/validate-nested-array.decorator';
+import { ValidateStringLength } from '../../common/decorators/validate-string-length.decorator';
 
 class OrderItemDto {
   @IsString()
@@ -7,11 +20,13 @@ class OrderItemDto {
 
   @IsNumber()
   @Min(1)
+  @Min(1)
   quantity: number;
 }
 
 class CustomerInfoDto {
   @IsString()
+  @ValidateStringLength(2, 100)
   fullName: string;
 
   @IsOptional()
@@ -19,6 +34,7 @@ class CustomerInfoDto {
   email?: string;
 
   @IsString()
+  @ValidateStringLength(10, 15)
   phone: string;
 }
 
@@ -27,15 +43,15 @@ export class CreateOrderDto {
   restaurantId: string;
 
   @IsString()
+  @ValidateStringLength(5, 500)
   deliveryAddress: string;
 
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => OrderItemDto)
+  @ValidateNestedArray(() => OrderItemDto, 1, 50)
   items: OrderItemDto[];
 
   @IsOptional()
   @IsString()
+  @ValidateStringLength(0, 200)
   deliveryInstructions?: string;
 
   @IsOptional()
@@ -45,5 +61,6 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsString()
+  @ValidateStringLength(0, 50)
   paymentMethod?: string;
 }

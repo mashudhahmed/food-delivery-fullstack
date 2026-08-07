@@ -43,6 +43,33 @@ export class User {
   @Column({ nullable: true })
   address: string;
 
+  // Profile Picture
+  @Column({ nullable: true })
+  profilePicture: string;
+
+  @Column({ nullable: true })
+  profilePicturePublicId: string;
+
+  // Email Change
+  @Column({ nullable: true })
+  pendingEmail: string;
+
+  @Column({ nullable: true })
+  emailChangeToken: string;
+
+  @Column({ nullable: true })
+  emailChangeTokenExpires: Date;
+
+  // Two-Factor Authentication
+  @Column({ default: false })
+  twoFactorEnabled: boolean;
+
+  @Column({ nullable: true })
+  twoFactorSecret: string;
+
+  @Column({ nullable: true })
+  twoFactorBackupCodes: string; // JSON array
+
   @Column({
     type: 'enum',
     enum: UserRole,
@@ -57,7 +84,6 @@ export class User {
   })
   status: UserStatus;
 
-  // Soft delete flag
   @Column({ default: false })
   isDeleted: boolean;
 
@@ -122,7 +148,7 @@ export class User {
   @OneToMany(() => Order, (order) => order.agent)
   agentOrders: Order[];
 
-  @OneToMany(() => Review, (review) => review.customer)
+  @OneToMany(() => Review, (review) => review.user)
   reviews: Review[];
 
   @OneToMany(() => RefreshToken, (rt) => rt.user)

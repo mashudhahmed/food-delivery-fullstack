@@ -18,6 +18,7 @@ export class ReviewsController {
 
   @Get('restaurant/:restaurantId')
   getRestaurantReviews(@Param('restaurantId') restaurantId: string) {
-    return this.reviewsService.getRestaurantReviews(restaurantId);
+    // FIXED: Calling 'findByRestaurant' instead of 'getRestaurantReviews'
+    return this.reviewsService.findByRestaurant(restaurantId);
   }
 }

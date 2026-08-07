@@ -20,6 +20,7 @@ import { UserRole } from '../users/entities/user.entity';
 import { ApiTags, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { CloudinaryUploadResult } from '../cloudinary/cloudinary.service';
 import { Express } from 'express';
+import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('uploads')
 @Controller('uploads')
@@ -30,6 +31,7 @@ export class UploadsController {
 
   @Post('restaurant')
   @Roles(UserRole.OWNER, UserRole.ADMIN)
+  @Throttle({ short: { limit: 5, ttl: 60000 } }) // 5 uploads per minute
   @UseInterceptors(FileInterceptor('image'))
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -49,6 +51,7 @@ export class UploadsController {
 
   @Post('menu-item')
   @Roles(UserRole.OWNER, UserRole.ADMIN)
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
   @UseInterceptors(FileInterceptor('image'))
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -67,6 +70,7 @@ export class UploadsController {
   }
 
   @Post('profile')
+  @Throttle({ short: { limit: 3, ttl: 60000 } })
   @UseInterceptors(FileInterceptor('image'))
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -86,6 +90,7 @@ export class UploadsController {
 
   @Post('general')
   @Roles(UserRole.OWNER, UserRole.ADMIN, UserRole.AGENT)
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
   @UseInterceptors(FileInterceptor('image'))
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -111,6 +116,7 @@ export class UploadsController {
 
   @Delete(':publicId')
   @Roles(UserRole.OWNER, UserRole.ADMIN)
+  @Throttle({ short: { limit: 10, ttl: 60000 } })
   async deleteFile(@Param('publicId') publicId: string): Promise<{ success: boolean }> {
     return this.uploadsService.deleteFile(publicId);
   }

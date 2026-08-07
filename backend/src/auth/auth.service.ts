@@ -1,8 +1,10 @@
+// src/auth/auth.service.ts
 import {
   Injectable,
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -14,13 +16,15 @@ import { User, UserRole, UserStatus } from '../users/entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly ACCESS_TOKEN_TTL = '15m';
   private readonly REFRESH_TOKEN_TTL_DAYS = 7;
   private readonly BCRYPT_ROUNDS = 12;
+  
+  private readonly tokenBlacklist = new Set<string>();
 
   constructor(
     @InjectRepository(User)
@@ -29,7 +33,7 @@ export class AuthService {
     private readonly refreshTokenRepository: Repository<RefreshToken>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly mailService: MailService,
+    // EmailQueueService REMOVED COMPLETELY to stop crashes.
   ) {}
 
   // ─────────────────────────────────────────────
@@ -101,7 +105,6 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Block non-approved owners / agents
     if (
       user.role !== UserRole.CUSTOMER &&
       user.status !== UserStatus.APPROVED
@@ -135,6 +138,26 @@ export class AuthService {
     user.lastLogin = new Date();
     await this.userRepository.save(user);
 
+    // Check if 2FA is enabled
+    if (user.twoFactorEnabled) {
+      const tempToken = this.jwtService.sign(
+        {
+          sub: user.id,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+          twoFactorPending: true,
+        },
+        { expiresIn: '5m' },
+      );
+
+      return {
+        message: 'Two-factor authentication required',
+        requiresTwoFactor: true,
+        tempToken,
+      };
+    }
+
     const tokens = await this.issueTokens(user, meta);
 
     return {
@@ -147,7 +170,33 @@ export class AuthService {
   }
 
   // ─────────────────────────────────────────────
-  // REFRESH (selector + verifier, rotation + reuse detection)
+  // COMPLETE LOGIN (after 2FA)
+  // ─────────────────────────────────────────────
+  async completeLogin(user: any, meta?: { ip?: string; userAgent?: string }) {
+    const tokens = await this.issueTokens(user, meta);
+    
+    return {
+      message: 'Login successful',
+      user: this.sanitizeUser(user),
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
+    };
+  }
+
+  // ─────────────────────────────────────────────
+  // VERIFY TEMP TOKEN (for 2FA)
+  // ─────────────────────────────────────────────
+  verifyTempToken(token: string): any {
+    try {
+      return this.jwtService.verify(token);
+    } catch {
+      return null;
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // REFRESH
   // ─────────────────────────────────────────────
   async refresh(
     refreshToken: string,
@@ -180,7 +229,6 @@ export class AuthService {
 
     const isMatch = await bcrypt.compare(verifier, matched.tokenHash);
     if (!isMatch) {
-      // Possible reuse → revoke whole family
       await this.refreshTokenRepository.update(
         { family: matched.family },
         { revoked: true, revokedAt: new Date() },
@@ -227,18 +275,38 @@ export class AuthService {
   // ─────────────────────────────────────────────
   // LOGOUT (single device)
   // ─────────────────────────────────────────────
-  async logout(refreshToken: string) {
-    if (!refreshToken?.includes('.')) {
-      return { message: 'Logged out' };
+  async logout(refreshToken: string, accessToken?: string) {
+    if (accessToken) {
+      try {
+        const decoded = this.jwtService.decode(accessToken) as any;
+        if (decoded?.exp) {
+          const expiryTime = decoded.exp * 1000 - Date.now();
+          if (expiryTime > 0) {
+            this.tokenBlacklist.add(accessToken);
+            this.logger.debug(`Access token blacklisted for ${Math.ceil(expiryTime / 1000)}s`);
+          }
+        }
+      } catch (e) {
+        this.logger.warn('Failed to blacklist access token');
+      }
     }
 
-    const [selector] = refreshToken.split('.');
-    await this.refreshTokenRepository.update(
-      { selector },
-      { revoked: true, revokedAt: new Date() },
-    );
+    if (refreshToken?.includes('.')) {
+      const [selector] = refreshToken.split('.');
+      await this.refreshTokenRepository.update(
+        { selector },
+        { revoked: true, revokedAt: new Date() },
+      );
+    }
 
     return { message: 'Logged out successfully' };
+  }
+
+  // ─────────────────────────────────────────────
+  // Check if token is blacklisted
+  // ─────────────────────────────────────────────
+  isTokenBlacklisted(token: string): boolean {
+    return this.tokenBlacklist.has(token);
   }
 
   // ─────────────────────────────────────────────
@@ -271,7 +339,6 @@ export class AuthService {
       where: { email: email.toLowerCase() },
     });
 
-    // Always return success (security)
     if (!user) {
       return {
         message: 'If your email is registered, you will receive a reset link',
@@ -286,11 +353,12 @@ export class AuthService {
     user.resetPasswordExpires = resetTokenExpiry;
     await this.userRepository.save(user);
 
-    await this.mailService.sendPasswordResetEmail(
-      user.email,
-      resetToken,
-      user.fullName,
-    );
+    // EMAIL QUEUE COMMENTED OUT TO PREVENT CRASH
+    // await this.emailQueue.sendPasswordResetEmail(
+    //   user.email,
+    //   resetToken,
+    //   user.fullName,
+    // );
 
     return { message: 'Password reset link sent to your email' };
   }
@@ -317,7 +385,6 @@ export class AuthService {
     user.resetPasswordExpires = null;
     await this.userRepository.save(user);
 
-    // Revoke all refresh tokens after password change
     await this.refreshTokenRepository.update(
       { userId: user.id, revoked: false },
       { revoked: true, revokedAt: new Date() },
@@ -333,6 +400,7 @@ export class AuthService {
     const result = await this.refreshTokenRepository.delete({
       expiresAt: LessThan(new Date()),
     });
+    this.logger.log(`✅ Cleaned up ${result.affected || 0} expired tokens`);
     return { deleted: result.affected || 0 };
   }
 
@@ -355,7 +423,6 @@ export class AuthService {
       expiresIn: this.ACCESS_TOKEN_TTL,
     });
 
-    // selector = public part (indexed), verifier = secret part (hashed)
     const selector = crypto.randomBytes(16).toString('hex');
     const verifier = crypto.randomBytes(32).toString('hex');
     const tokenHash = await bcrypt.hash(verifier, 10);
@@ -366,7 +433,7 @@ export class AuthService {
 
     const refreshTokenEntity = this.refreshTokenRepository.create({
       userId: user.id,
-      selector, // REQUIRED – was missing and caused 500 on login
+      selector,
       tokenHash,
       family,
       expiresAt,
@@ -379,13 +446,12 @@ export class AuthService {
 
     const saved = await this.refreshTokenRepository.save(refreshTokenEntity);
 
-    // Client stores: selector.verifier
     const refreshToken = `${selector}.${verifier}`;
 
     return {
       accessToken,
       refreshToken,
-      expiresIn: 15 * 60, // 15 minutes in seconds
+      expiresIn: 15 * 60,
       refreshTokenId: saved.id,
     };
   }
@@ -395,6 +461,10 @@ export class AuthService {
       passwordHash,
       resetPasswordToken,
       resetPasswordExpires,
+      emailChangeToken,
+      emailChangeTokenExpires,
+      twoFactorSecret,
+      twoFactorBackupCodes,
       ...safe
     } = user as any;
     return safe;

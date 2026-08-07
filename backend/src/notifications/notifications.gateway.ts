@@ -16,9 +16,7 @@ import { Injectable, Logger } from '@nestjs/common';
 @WebSocketGateway({
   namespace: '/notifications',
   cors: {
-    origin: process.env.FRONTEND_URL
-      ? process.env.FRONTEND_URL.split(',').map((o) => o.trim())
-      : true,
+    origin: process.env.ALLOWED_ORIGINS?.split(',') || true,
     credentials: true,
   },
 })
@@ -30,9 +28,7 @@ export class NotificationsGateway
   server: Server;
 
   private readonly logger = new Logger(NotificationsGateway.name);
-
-  // socketId → userId
-  private readonly connectedClients = new Map<string, string>();
+  private readonly connectedClients = new Map<string, string>(); // socketId → userId
 
   constructor(
     private readonly jwtService: JwtService,
@@ -66,16 +62,15 @@ export class NotificationsGateway
       client.data.userId = userId;
       client.data.role = payload.role;
 
-      // Private room for this user
       client.join(`user:${userId}`);
 
       this.connectedClients.set(client.id, userId);
 
       this.logger.log(
-        `Client connected → userId: ${userId} | socket: ${client.id}`,
+        `✅ Client connected → userId: ${userId} | socket: ${client.id}`,
       );
     } catch (err) {
-      this.logger.warn(`Invalid token from ${client.id} → disconnect`);
+      this.logger.warn(`❌ Invalid token from ${client.id} → disconnect`);
       client.disconnect(true);
     }
   }
@@ -84,36 +79,25 @@ export class NotificationsGateway
     const userId = this.connectedClients.get(client.id);
     this.connectedClients.delete(client.id);
 
+    // Clean up rooms
     if (userId) {
-      this.logger.log(`Client disconnected → userId: ${userId}`);
+      client.leave(`user:${userId}`);
+      this.logger.log(`❌ Client disconnected → userId: ${userId} | socket: ${client.id}`);
     }
   }
 
-  /**
-   * Main method used by NotificationsService
-   * (matches the existing call: sendNotificationToUser)
-   */
   sendNotificationToUser(userId: string, payload: any) {
     this.server.to(`user:${userId}`).emit('notification', payload);
   }
 
-  /**
-   * Alias / helper used in other places
-   */
   notifyUser(userId: string, event: string, data: any) {
     this.server.to(`user:${userId}`).emit(event, data);
   }
 
-  /**
-   * Notify multiple users
-   */
   notifyUsers(userIds: string[], event: string, data: any) {
     userIds.forEach((id) => this.notifyUser(id, event, data));
   }
 
-  /**
-   * Broadcast to all connected clients (use carefully)
-   */
   broadcast(event: string, data: any) {
     this.server.emit(event, data);
   }
@@ -131,5 +115,15 @@ export class NotificationsGateway
     if (!client.data.userId) return;
     client.join(room);
     return { event: 'joined', data: { room } };
+  }
+
+  // Get active connections count
+  getActiveConnections(): number {
+    return this.connectedClients.size;
+  }
+
+  // Get user by socket ID
+  getUserBySocketId(socketId: string): string | undefined {
+    return this.connectedClients.get(socketId);
   }
 }

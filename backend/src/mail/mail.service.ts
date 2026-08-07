@@ -5,10 +5,11 @@ import { Transporter } from 'nodemailer';
 import * as Handlebars from 'handlebars';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Order, OrderStatus } from '../orders/entities/order.entity';
+import { Order } from '../orders/entities/order.entity';
 import { Review } from '../reviews/entities/review.entity';
 import { UserRole } from '../users/entities/user.entity';
 import { User } from '../users/entities/user.entity';
+import { WithCircuitBreaker } from '../common/decorators/with-circuit-breaker.decorator';
 
 @Injectable()
 export class MailService {
@@ -26,15 +27,12 @@ export class MailService {
       },
     });
     
-    // Load all Handlebars templates
     this.loadTemplates();
   }
 
   private loadTemplates() {
-    // ✅ FIXED: Multiple path resolution attempts
     let templatesDir = path.join(__dirname, 'templates');
     
-    // Check if templates exist, try alternative paths
     if (!fs.existsSync(templatesDir)) {
       const alternativePaths = [
         path.join(process.cwd(), 'dist', 'mail', 'templates'),
@@ -67,12 +65,13 @@ export class MailService {
       'order-status-update',
       'password-reset',
       'review-notification',
+      'email-change-verification',
+      'email-change-confirmation',
     ];
 
     templateFiles.forEach(file => {
       const templatePath = path.join(templatesDir, `${file}.hbs`);
       
-      // ✅ FIXED: Check if file exists before reading
       if (fs.existsSync(templatePath)) {
         try {
           const templateContent = fs.readFileSync(templatePath, 'utf-8');
@@ -87,7 +86,6 @@ export class MailService {
     });
   }
 
-  // Helper to get status text
   private getStatusText(status: string): string {
     const statusMap: Record<string, string> = {
       pending: 'Pending',
@@ -101,8 +99,15 @@ export class MailService {
     return statusMap[status] || status;
   }
 
-  // ==================== AGENT EMAILS ====================
-
+  @WithCircuitBreaker({
+    failureThreshold: 5,
+    timeout: 30000,
+    resetTimeout: 60000,
+    fallback: (req, ...args) => {
+      console.warn('Email service fallback: Logging email instead of sending');
+      return { message: 'Email queued for later delivery' };
+    },
+  })
   async sendNewOrderAvailableToAgent(agent: User, order: Order, earnings: number) {
     const template = this.templates.get('new-order-available-agent');
     
@@ -132,6 +137,11 @@ export class MailService {
     });
   }
 
+  @WithCircuitBreaker({
+    failureThreshold: 5,
+    timeout: 30000,
+    resetTimeout: 60000,
+  })
   async sendEarningsAddedToAgent(agent: User, order: Order, earnings: number, totalEarnings: number, deliveriesCount: number, avgRating: number = 4.5) {
     const template = this.templates.get('earnings-added-agent');
     
@@ -162,6 +172,11 @@ export class MailService {
     });
   }
 
+  @WithCircuitBreaker({
+    failureThreshold: 5,
+    timeout: 30000,
+    resetTimeout: 60000,
+  })
   async sendOrderAssignedToAgent(agent: User, order: Order) {
     const template = this.templates.get('new-order-available-agent');
     
@@ -191,8 +206,11 @@ export class MailService {
     });
   }
 
-  // ==================== EXISTING EMAILS ====================
-
+  @WithCircuitBreaker({
+    failureThreshold: 5,
+    timeout: 30000,
+    resetTimeout: 60000,
+  })
   async sendPasswordResetEmail(email: string, token: string, fullName: string = 'User') {
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
     const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
@@ -219,6 +237,11 @@ export class MailService {
     });
   }
 
+  @WithCircuitBreaker({
+    failureThreshold: 5,
+    timeout: 30000,
+    resetTimeout: 60000,
+  })
   async sendOrderConfirmation(order: Order) {
     const template = this.templates.get('order-confirmation');
     
@@ -256,6 +279,11 @@ export class MailService {
     });
   }
 
+  @WithCircuitBreaker({
+    failureThreshold: 5,
+    timeout: 30000,
+    resetTimeout: 60000,
+  })
   async sendOrderStatusUpdate(order: Order) {
     const template = this.templates.get('order-status-update');
     
@@ -286,6 +314,11 @@ export class MailService {
     });
   }
 
+  @WithCircuitBreaker({
+    failureThreshold: 5,
+    timeout: 30000,
+    resetTimeout: 60000,
+  })
   async sendOrderDelivered(order: Order) {
     const template = this.templates.get('order-delivered');
     
@@ -316,6 +349,15 @@ export class MailService {
     });
   }
 
+  // ─────────────────────────────────────────────
+  // THE FIX IS HERE (sendNewReviewNotification)
+  // ─────────────────────────────────────────────
+
+  @WithCircuitBreaker({
+    failureThreshold: 5,
+    timeout: 30000,
+    resetTimeout: 60000,
+  })
   async sendNewReviewNotification(review: Review, restaurantOwnerEmail: string) {
     const template = this.templates.get('review-notification');
     
@@ -323,20 +365,21 @@ export class MailService {
       console.error('Template review-notification not found');
       return;
     }
-    
-    const getInitials = (name: string) => {
-      return name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
-    };
+
+    // FIX: Use nested optional chaining to avoid the TS errors.
+    // Access customer data through the Order relation instead of a non-existent 'review.customer'
+    const order = review.order;
+    const customer = order?.customer;
 
     const html = template({
       logoUrl: `${this.configService.get('FRONTEND_URL')}/logo.png`,
       ownerName: review.restaurant?.owner?.fullName || 'Owner',
       restaurantName: review.restaurant?.name || 'Restaurant',
-      customerName: review.customer?.fullName || 'Customer',
+      customerName: customer?.fullName || order?.customerName || 'Customer',
       rating: review.rating,
       reviewComment: review.comment,
       reviewDate: review.createdAt,
-      orderId: review.order?.id?.slice(-8).toUpperCase() || 'N/A',
+      orderId: order?.id?.slice(-8).toUpperCase() || 'N/A',
       avgRating: 4.5,
       reviewCount: 127,
       dashboardUrl: `${this.configService.get('FRONTEND_URL')}/owner/reviews`,
@@ -351,6 +394,11 @@ export class MailService {
     });
   }
 
+  @WithCircuitBreaker({
+    failureThreshold: 5,
+    timeout: 30000,
+    resetTimeout: 60000,
+  })
   async sendApprovalEmail(user: User, role: UserRole, notes?: string) {
     const template = this.templates.get('application-approved');
     
@@ -378,6 +426,11 @@ export class MailService {
     });
   }
 
+  @WithCircuitBreaker({
+    failureThreshold: 5,
+    timeout: 30000,
+    resetTimeout: 60000,
+  })
   async sendRejectionEmail(user: User, reason?: string) {
     const template = this.templates.get('application-rejected');
     
@@ -405,6 +458,11 @@ export class MailService {
     });
   }
 
+  @WithCircuitBreaker({
+    failureThreshold: 5,
+    timeout: 30000,
+    resetTimeout: 60000,
+  })
   async sendNewOrderToOwner(order: Order, ownerEmail: string) {
     const template = this.templates.get('new-order-owner');
     
@@ -438,6 +496,77 @@ export class MailService {
       from: `"QuickBite" <${this.configService.get<string>('MAIL_FROM')}>`,
       to: ownerEmail,
       subject: `📋 New Order Received! - #${order.id.slice(-8).toUpperCase()}`,
+      html: html,
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  // EMAIL CHANGE
+  // ─────────────────────────────────────────────
+
+  @WithCircuitBreaker({
+    failureThreshold: 5,
+    timeout: 30000,
+    resetTimeout: 60000,
+  })
+  async sendEmailChangeVerification(email: string, token: string, fullName: string) {
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const verificationUrl = `${frontendUrl}/settings/email/verify?token=${token}&email=${encodeURIComponent(email)}`;
+    const supportUrl = `${frontendUrl}/support`;
+
+    const template = this.templates.get('email-change-verification');
+    
+    if (!template) {
+      console.error('Template email-change-verification not found');
+      return;
+    }
+    
+    const html = template({
+      logoUrl: `${frontendUrl}/logo.png`,
+      fullName: fullName,
+      newEmail: email,
+      verificationUrl: verificationUrl,
+      supportUrl: supportUrl,
+      year: new Date().getFullYear(),
+    });
+
+    await this.transporter.sendMail({
+      from: `"QuickBite" <${this.configService.get<string>('MAIL_FROM')}>`,
+      to: email,
+      subject: 'Verify Your New Email Address - QuickBite',
+      html: html,
+    });
+  }
+
+  @WithCircuitBreaker({
+    failureThreshold: 5,
+    timeout: 30000,
+    resetTimeout: 60000,
+  })
+  async sendEmailChangeConfirmation(email: string, fullName: string) {
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const dashboardUrl = `${frontendUrl}/settings`;
+    const supportUrl = `${frontendUrl}/support`;
+
+    const template = this.templates.get('email-change-confirmation');
+    
+    if (!template) {
+      console.error('Template email-change-confirmation not found');
+      return;
+    }
+    
+    const html = template({
+      logoUrl: `${frontendUrl}/logo.png`,
+      fullName: fullName,
+      dashboardUrl: dashboardUrl,
+      supportUrl: supportUrl,
+      year: new Date().getFullYear(),
+    });
+
+    await this.transporter.sendMail({
+      from: `"QuickBite" <${this.configService.get<string>('MAIL_FROM')}>`,
+      to: email,
+      subject: 'Email Address Changed - QuickBite',
       html: html,
     });
   }

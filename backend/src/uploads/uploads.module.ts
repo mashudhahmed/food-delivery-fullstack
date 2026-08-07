@@ -4,10 +4,13 @@ import { memoryStorage } from 'multer';
 import { UploadsController } from './uploads.controller';
 import { UploadsService } from './uploads.service';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
+import { AuthModule } from '../auth/auth.module';
+import { ImageValidatorService } from '../common/services/image-validator.service';
 
 @Module({
   imports: [
     CloudinaryModule,
+    AuthModule,
     MulterModule.register({
       storage: memoryStorage(),
       fileFilter: (req, file, callback) => {
@@ -15,7 +18,7 @@ import { CloudinaryModule } from '../cloudinary/cloudinary.module';
           return callback(new Error('Invalid file'), false);
         }
 
-        const allowedTypes = /jpeg|jpg|png|gif|webp/;
+        const allowedTypes = /jpeg|jpg|png|gif|webp|svg/;
         const ext = file.originalname.split('.').pop()?.toLowerCase() || '';
         const isValidExt = allowedTypes.test(ext);
         const isValidMime = allowedTypes.test(file.mimetype);
@@ -32,7 +35,7 @@ import { CloudinaryModule } from '../cloudinary/cloudinary.module';
     }),
   ],
   controllers: [UploadsController],
-  providers: [UploadsService],
+  providers: [UploadsService, ImageValidatorService], // Add ImageValidatorService
   exports: [UploadsService],
 })
 export class UploadsModule {}

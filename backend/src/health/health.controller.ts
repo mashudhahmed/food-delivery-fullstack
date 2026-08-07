@@ -6,6 +6,7 @@ import {
   DiskHealthIndicator,
   MemoryHealthIndicator,
 } from '@nestjs/terminus';
+import { DatabasePoolHealthIndicator } from '../common/health/database-pool.health';
 
 @Controller('health')
 export class HealthController {
@@ -14,6 +15,7 @@ export class HealthController {
     private db: TypeOrmHealthIndicator,
     private disk: DiskHealthIndicator,
     private memory: MemoryHealthIndicator,
+    private dbPool: DatabasePoolHealthIndicator,
   ) {}
 
   @Get()
@@ -21,8 +23,10 @@ export class HealthController {
   check() {
     return this.health.check([
       () => this.db.pingCheck('database', { timeout: 3000 }),
+      () => this.dbPool.checkPoolHealth('database_pool'),
+      () => this.dbPool.checkConnectionTimeout('database_timeout'),
       () => this.disk.checkStorage('storage', { thresholdPercent: 0.9, path: '/' }),
-      () => this.memory.checkHeap('memory_heap', 300 * 1024 * 1024), // 300MB
+      () => this.memory.checkHeap('memory_heap', 300 * 1024 * 1024),
     ]);
   }
 
@@ -37,6 +41,7 @@ export class HealthController {
   readiness() {
     return this.health.check([
       () => this.db.pingCheck('database', { timeout: 3000 }),
+      () => this.dbPool.checkPoolHealth('database_pool'),
     ]);
   }
 }

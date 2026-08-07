@@ -2,39 +2,75 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { CloudinaryService, CloudinaryUploadResult } from '../cloudinary/cloudinary.service';
 import { Express } from 'express';
+import { ImageValidatorService } from '../common/services/image-validator.service';
 
 @Injectable()
 export class UploadsService {
   private readonly logger = new Logger(UploadsService.name);
 
-  constructor(private cloudinaryService: CloudinaryService) {}
+  constructor(
+    private cloudinaryService: CloudinaryService,
+    private imageValidator: ImageValidatorService,
+  ) {}
 
   async uploadRestaurantImage(file: Express.Multer.File): Promise<CloudinaryUploadResult> {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
-    return this.cloudinaryService.uploadRestaurantImage(file);
+
+    await this.imageValidator.validateImage(file);
+    const sanitizedBuffer = await this.imageValidator.sanitizeImage(file);
+    const sanitizedFile = {
+      ...file,
+      buffer: sanitizedBuffer,
+    };
+
+    return this.cloudinaryService.uploadRestaurantImage(sanitizedFile);
   }
 
   async uploadMenuItemImage(file: Express.Multer.File): Promise<CloudinaryUploadResult> {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
-    return this.cloudinaryService.uploadMenuItemImage(file);
+
+    await this.imageValidator.validateImage(file);
+    const sanitizedBuffer = await this.imageValidator.sanitizeImage(file);
+    const sanitizedFile = {
+      ...file,
+      buffer: sanitizedBuffer,
+    };
+
+    return this.cloudinaryService.uploadMenuItemImage(sanitizedFile);
   }
 
   async uploadProfileImage(file: Express.Multer.File): Promise<CloudinaryUploadResult> {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
-    return this.cloudinaryService.uploadProfileImage(file);
+
+    await this.imageValidator.validateImage(file);
+    const sanitizedBuffer = await this.imageValidator.sanitizeImage(file);
+    const sanitizedFile = {
+      ...file,
+      buffer: sanitizedBuffer,
+    };
+
+    return this.cloudinaryService.uploadProfileImage(sanitizedFile);
   }
 
   async uploadGeneralImage(file: Express.Multer.File, folder: string = 'general'): Promise<CloudinaryUploadResult> {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
-    return this.cloudinaryService.uploadImage(file, folder);
+
+    await this.imageValidator.validateImage(file);
+    const sanitizedBuffer = await this.imageValidator.sanitizeImage(file);
+    const sanitizedFile = {
+      ...file,
+      buffer: sanitizedBuffer,
+    };
+
+    return this.cloudinaryService.uploadImage(sanitizedFile, folder);
   }
 
   async deleteFile(publicId: string): Promise<{ success: boolean }> {

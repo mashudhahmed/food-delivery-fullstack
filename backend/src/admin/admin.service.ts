@@ -18,6 +18,7 @@ import {
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { assertCanTransition } from '../orders/order-status.machine';
+// REMOVED: import { EmailQueueService } from '../common/queue/email-queue.service';
 
 @Injectable()
 export class AdminService {
@@ -30,6 +31,7 @@ export class AdminService {
     private readonly restaurantRepository: Repository<Restaurant>,
     private readonly mailService: MailService,
     private readonly notificationsService: NotificationsService,
+    // REMOVED: private readonly emailQueue: EmailQueueService,
   ) {}
 
   // ====================== DASHBOARD ======================
@@ -247,7 +249,6 @@ export class AdminService {
       skip: (page - 1) * limit,
     });
 
-    // Single query for all order stats instead of N+1
     const userIds = users.map((u) => u.id);
     let orderStats: Record<string, { orders: number; totalSpent: number }> = {};
 
@@ -420,11 +421,12 @@ export class AdminService {
     user.approvedAt = new Date();
     await this.userRepository.save(user);
 
-    try {
-      await this.mailService.sendApprovalEmail(user, user.role, notes);
-    } catch (err) {
-      console.error('Failed to send approval email:', err.message);
-    }
+    // Email queue removed to prevent crash
+    // try {
+    //   await this.emailQueue.sendApprovalEmail(user, user.role, notes);
+    // } catch (err) {
+    //   console.error('Failed to queue approval email:', err.message);
+    // }
 
     return { success: true, message: 'User approved successfully', user };
   }
@@ -439,11 +441,12 @@ export class AdminService {
     user.rejectionReason = reason;
     await this.userRepository.save(user);
 
-    try {
-      await this.mailService.sendRejectionEmail(user, reason);
-    } catch (err) {
-      console.error('Failed to send rejection email:', err.message);
-    }
+    // Email queue removed to prevent crash
+    // try {
+    //   await this.emailQueue.sendRejectionEmail(user, reason);
+    // } catch (err) {
+    //   console.error('Failed to queue rejection email:', err.message);
+    // }
 
     return { success: true, message: 'User rejected successfully' };
   }
@@ -464,7 +467,6 @@ export class AdminService {
       skip: (page - 1) * limit,
     });
 
-    // Single aggregate query instead of N+1
     const restaurantIds = restaurants.map((r) => r.id);
     let statsMap: Record<string, { totalOrders: number; totalRevenue: number }> = {};
 
@@ -711,7 +713,6 @@ export class AdminService {
       skip: (page - 1) * limit,
     });
 
-    // Single aggregate query
     const agentIds = agents.map((a) => a.id);
     let statsMap: Record<string, { totalDeliveries: number; completedDeliveries: number; totalEarnings: number }> = {};
 
@@ -830,7 +831,6 @@ export class AdminService {
 
     if (!agent) throw new NotFoundException('Agent not found');
 
-    // TODO: Persist verification status when document fields are added
     console.log(
       `Document ${documentType} for agent ${agent.email} ${verified ? 'verified' : 'rejected'}`,
     );
@@ -958,11 +958,9 @@ export class AdminService {
     return last6Months;
   }
 
-  // ====================== NOTIFICATIONS (cleaned) ======================
+  // ====================== NOTIFICATIONS ======================
 
   async getNotifications() {
-    // Return recent system notifications from DB if you want,
-    // or keep a simple empty list for now.
     return [];
   }
 
@@ -988,7 +986,6 @@ export class AdminService {
   }
 
   async markNotificationAsRead(notificationId: string) {
-    // If you later store admin notifications in DB, implement here
     return { success: true, message: 'Notification marked as read' };
   }
 

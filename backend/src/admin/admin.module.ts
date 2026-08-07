@@ -8,12 +8,14 @@ import { Restaurant } from '../restaurants/entities/restaurant.entity';
 import { MenuItem } from '../menu/entities/menu-item.entity';
 import { MailModule } from '../mail/mail.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { AuthModule } from '../auth/auth.module'; // 👈 add
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, Order, Restaurant, MenuItem]),
     MailModule,
     NotificationsModule,
+    AuthModule, // 👈 add
   ],
   controllers: [AdminController],
   providers: [AdminService],

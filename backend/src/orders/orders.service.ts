@@ -9,9 +9,9 @@ import { Repository, In, DataSource, IsNull } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateMultiOrderDto } from './dto/create-multi-order.dto';
 import { MenuService } from '../menu/menu.service';
 import { RestaurantsService } from '../restaurants/restaurants.service';
-import { MailService } from '../mail/mail.service';
 import { UserRole } from '../users/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { assertCanTransition } from './order-status.machine';
@@ -25,13 +25,13 @@ export class OrdersService {
     private readonly orderItemRepository: Repository<OrderItem>,
     private readonly menuService: MenuService,
     private readonly restaurantsService: RestaurantsService,
-    private readonly mailService: MailService,
+    // REMOVED: private readonly mailService: MailService,
     private readonly notificationsService: NotificationsService,
     private readonly dataSource: DataSource,
   ) {}
 
   // ─────────────────────────────────────────────
-  // CREATE ORDER (fully transactional)
+  // CREATE SINGLE ORDER (existing)
   // ─────────────────────────────────────────────
   async createOrder(customerId: string, createOrderDto: CreateOrderDto) {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -125,12 +125,6 @@ export class OrdersService {
       }
 
       try {
-        await this.mailService.sendOrderConfirmation(completeOrder);
-      } catch (err) {
-        console.error('Email sending failed:', err.message);
-      }
-
-      try {
         await this.notificationsService.notifyOrderPlaced(
           customerId,
           savedOrder.id,
@@ -154,7 +148,195 @@ export class OrdersService {
   }
 
   // ─────────────────────────────────────────────
-  // UPDATE ORDER STATUS (with status machine)
+  // CREATE MULTI-RESTAURANT ORDER (NEW)
+  // ─────────────────────────────────────────────
+  async createMultiRestaurantOrder(
+    customerId: string,
+    createMultiOrderDto: CreateMultiOrderDto,
+  ) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    const createdOrders: Order[] = [];
+    const allErrors: string[] = [];
+
+    try {
+      const { restaurants, deliveryAddress, deliveryInstructions, customerInfo, paymentMethod } = createMultiOrderDto;
+
+      // Process each restaurant's cart
+      for (const restaurantCart of restaurants) {
+        try {
+          const restaurant = await this.restaurantsService.findOne(restaurantCart.restaurantId);
+
+          if (!restaurant.isOpen) {
+            allErrors.push(`"${restaurant.name}" is currently closed`);
+            continue;
+          }
+
+          if (restaurant.isDeleted) {
+            allErrors.push(`"${restaurant.name}" is no longer available`);
+            continue;
+          }
+
+          // Calculate subtotal for this restaurant
+          let subtotal = 0;
+          const orderItemsData: Partial<OrderItem>[] = [];
+
+          for (const item of restaurantCart.items) {
+            const menuItem = await this.menuService.getMenuItem(item.menuItemId);
+
+            if (!menuItem.isAvailable) {
+              allErrors.push(`"${menuItem.name}" from "${restaurant.name}" is not available`);
+              continue;
+            }
+
+            if (menuItem.restaurantId !== restaurantCart.restaurantId) {
+              allErrors.push(`"${menuItem.name}" does not belong to "${restaurant.name}"`);
+              continue;
+            }
+
+            const itemTotal = Number(menuItem.price) * item.quantity;
+            subtotal += itemTotal;
+
+            orderItemsData.push({
+              menuItemId: item.menuItemId,
+              quantity: item.quantity,
+              unitPrice: menuItem.price,
+            });
+          }
+
+          if (orderItemsData.length === 0) {
+            allErrors.push(`"${restaurant.name}" has no valid items in cart`);
+            continue;
+          }
+
+          // Calculate fees per restaurant
+          const deliveryFee = 50;
+          const platformFee = 20;
+          const totalAmount = subtotal + deliveryFee + platformFee;
+
+          // Create individual order for this restaurant
+          const order = this.orderRepository.create({
+            customerId,
+            restaurantId: restaurantCart.restaurantId,
+            deliveryAddress,
+            subtotal,
+            deliveryFee,
+            platformFee,
+            totalAmount,
+            status: OrderStatus.PENDING,
+            deliveryInstructions: restaurantCart.deliveryInstructions || deliveryInstructions || null,
+            customerName: customerInfo?.fullName || null,
+            customerEmail: customerInfo?.email || null,
+            customerPhone: customerInfo?.phone || null,
+            paymentMethod: paymentMethod || null,
+          });
+
+          const savedOrder = await queryRunner.manager.save(order);
+
+          // Save order items
+          for (const itemData of orderItemsData) {
+            const orderItem = this.orderItemRepository.create({
+              ...itemData,
+              orderId: savedOrder.id,
+            });
+            await queryRunner.manager.save(orderItem);
+          }
+
+          // Get complete order with relations
+          const completeOrder = await this.orderRepository.findOne({
+            where: { id: savedOrder.id },
+            relations: ['customer', 'restaurant', 'items', 'items.menuItem'],
+          });
+
+          if (completeOrder) {
+            createdOrders.push(completeOrder);
+          }
+
+          try {
+            await this.notificationsService.notifyOrderPlaced(customerId, savedOrder.id);
+            await this.notificationsService.notifyNewOrder(restaurant.ownerId, savedOrder.id, restaurant.name);
+          } catch (err) {
+            console.error('Notification failed for order', savedOrder.id, err.message);
+          }
+
+        } catch (error) {
+          allErrors.push(`Error processing "${restaurantCart.restaurantId}": ${error.message}`);
+        }
+      }
+
+      if (createdOrders.length === 0) {
+        await queryRunner.rollbackTransaction();
+        throw new BadRequestException(
+          `No orders could be placed. Errors: ${allErrors.join('; ')}`
+        );
+      }
+
+      await queryRunner.commitTransaction();
+
+      // Calculate total summary
+      const totalAmount = createdOrders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
+      const totalItems = createdOrders.reduce((sum, o) => 
+        sum + (o.items?.reduce((s, i) => s + i.quantity, 0) || 0), 0
+      );
+
+      return {
+        message: `${createdOrders.length} order(s) placed successfully`,
+        orders: createdOrders,
+        summary: {
+          totalAmount,
+          totalItems,
+          restaurantCount: createdOrders.length,
+          orderIds: createdOrders.map(o => o.id),
+        },
+        errors: allErrors.length > 0 ? allErrors : undefined,
+      };
+
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // GET ALL ORDERS FROM MULTI-RESTAURANT CHECKOUT
+  // ─────────────────────────────────────────────
+  async getMultiRestaurantOrders(customerId: string, orderIds: string[]) {
+    if (!orderIds || orderIds.length === 0) {
+      throw new BadRequestException('No order IDs provided');
+    }
+
+    const orders = await this.orderRepository.find({
+      where: { 
+        id: In(orderIds),
+        customerId,
+      },
+      relations: ['restaurant', 'items', 'items.menuItem', 'agent'],
+      order: { placedAt: 'DESC' },
+    });
+
+    if (orders.length !== orderIds.length) {
+      throw new NotFoundException('Some orders not found or not owned by you');
+    }
+
+    return {
+      orders,
+      summary: {
+        totalOrders: orders.length,
+        totalAmount: orders.reduce((sum, o) => sum + Number(o.totalAmount), 0),
+        statuses: orders.reduce((acc, o) => {
+          acc[o.status] = (acc[o.status] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>),
+      },
+    };
+  }
+
+  // ─────────────────────────────────────────────
+  // UPDATE ORDER STATUS
   // ─────────────────────────────────────────────
   async updateOrderStatus(
     id: string,
@@ -190,12 +372,6 @@ export class OrdersService {
     const previousStatus = order.status;
     order.status = status;
     await this.orderRepository.save(order);
-
-    try {
-      await this.mailService.sendOrderStatusUpdate(order);
-    } catch (err) {
-      console.error('Failed to send status update email:', err.message);
-    }
 
     try {
       await this.notificationsService.notifyOrderStatusUpdate(
@@ -408,12 +584,6 @@ export class OrdersService {
       if (orderStatus === OrderStatus.DELIVERED) {
         const earnings = order.deliveryFee || 50;
 
-        try {
-          await this.mailService.sendOrderDelivered(order);
-        } catch (err) {
-          console.error('Failed to send delivered email:', err.message);
-        }
-
         await this.notificationsService.notifyAgentEarnings(
           agentId,
           orderId,
@@ -480,8 +650,32 @@ export class OrdersService {
   }
 
   // ─────────────────────────────────────────────
+  // CANCEL MULTI-RESTAURANT ORDER
+  // ─────────────────────────────────────────────
+  async cancelMultiRestaurantOrders(orderIds: string[], userId: string, userRole: UserRole) {
+    const results = [];
+    const errors = [];
+
+    for (const orderId of orderIds) {
+      try {
+        const result = await this.cancelOrder(orderId, userId, userRole);
+        results.push({ orderId, success: true, ...result });
+      } catch (error) {
+        errors.push({ orderId, error: error.message });
+      }
+    }
+
+    return {
+      message: `${results.length} order(s) cancelled successfully`,
+      results,
+      errors: errors.length > 0 ? errors : undefined,
+    };
+  }
+
+  // ─────────────────────────────────────────────
   // OWNER ANALYTICS
   // ─────────────────────────────────────────────
+
   async getOwnerAnalytics(
     ownerId: string,
     restaurantId?: string,
@@ -686,5 +880,9 @@ export class OrdersService {
       popularItems: [],
       categoryData: [],
     };
+  }
+
+  async getRestaurantsByOwner(ownerId: string) {
+    return this.restaurantsService.findByOwnerId(ownerId);
   }
 }

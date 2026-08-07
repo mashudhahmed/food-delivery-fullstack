@@ -1,6 +1,11 @@
-// backend/src/menu/menu.service.ts
-
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+// src/menu/menu.service.ts
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MenuItem } from './entities/menu-item.entity';
@@ -11,17 +16,26 @@ import { UserRole } from '../users/entities/user.entity';
 
 @Injectable()
 export class MenuService {
+  private readonly logger = new Logger(MenuService.name);
+
   constructor(
     @InjectRepository(MenuItem)
     private menuItemRepository: Repository<MenuItem>,
     private restaurantsService: RestaurantsService,
   ) {}
 
-  async createMenuItem(restaurantId: string, createMenuItemDto: CreateMenuItemDto, userId: string, userRole: UserRole) {
+  async createMenuItem(
+    restaurantId: string,
+    createMenuItemDto: CreateMenuItemDto,
+    userId: string,
+    userRole: UserRole,
+  ) {
     const restaurant = await this.restaurantsService.findOne(restaurantId);
 
     if (restaurant.ownerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('You do not have permission to modify this restaurant\'s menu');
+      throw new ForbiddenException(
+        "You do not have permission to modify this restaurant's menu",
+      );
     }
 
     const menuItem = this.menuItemRepository.create({
@@ -48,12 +62,21 @@ export class MenuService {
     return menuItem;
   }
 
-  async updateMenuItem(id: string, updateData: UpdateMenuItemDto, userId: string, userRole: UserRole) {
+  async updateMenuItem(
+    id: string,
+    updateData: UpdateMenuItemDto,
+    userId: string,
+    userRole: UserRole,
+  ) {
     const menuItem = await this.getMenuItem(id);
-    const restaurant = await this.restaurantsService.findOne(menuItem.restaurantId);
+    const restaurant = await this.restaurantsService.findOne(
+      menuItem.restaurantId,
+    );
 
     if (restaurant.ownerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('You do not have permission to update this menu item');
+      throw new ForbiddenException(
+        'You do not have permission to update this menu item',
+      );
     }
 
     Object.assign(menuItem, updateData);
@@ -61,29 +84,35 @@ export class MenuService {
   }
 
   async deleteMenuItem(id: string, userId: string, userRole: UserRole) {
-    console.log('Deleting menu item:', id);
-    
+    this.logger.debug(`Deleting menu item: ${id}`);
+
     const menuItem = await this.getMenuItem(id);
-    console.log('Found menu item:', menuItem);
-    
-    const restaurant = await this.restaurantsService.findOne(menuItem.restaurantId);
-    console.log('Restaurant owner:', restaurant.ownerId, 'User:', userId);
+    this.logger.debug(`Found menu item: ${JSON.stringify(menuItem)}`);
+
+    const restaurant = await this.restaurantsService.findOne(
+      menuItem.restaurantId,
+    );
+    this.logger.debug(
+      `Restaurant owner: ${restaurant.ownerId}, User: ${userId}`,
+    );
 
     if (restaurant.ownerId !== userId && userRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('You do not have permission to delete this menu item');
+      throw new ForbiddenException(
+        'You do not have permission to delete this menu item',
+      );
     }
 
     try {
       const result = await this.menuItemRepository.delete(id);
-      console.log('Delete result:', result);
-      
+      this.logger.debug(`Delete result: ${JSON.stringify(result)}`);
+
       if (result.affected === 0) {
         throw new NotFoundException('Menu item not found');
       }
-      
+
       return { message: 'Menu item deleted successfully', success: true };
     } catch (error) {
-      console.error('Delete error:', error);
+      this.logger.error('Delete error:', error);
       throw new BadRequestException('Failed to delete menu item');
     }
   }

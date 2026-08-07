@@ -98,9 +98,22 @@ export class RestaurantsService {
     return { message: 'Restaurant deleted successfully' };
   }
 
+  // ── UPDATE RATING (called by ReviewsService) ──
+
+  /**
+   * Update the average rating of a restaurant
+   */
   async updateRestaurantRating(restaurantId: string, averageRating: number) {
     await this.restaurantRepository.update(restaurantId, {
       rating: averageRating,
     });
+  }
+
+  /**
+   * Alias for updateRestaurantRating
+   * Used by ReviewsService to match its method name
+   */
+  async updateRating(restaurantId: string, averageRating: number) {
+    return this.updateRestaurantRating(restaurantId, averageRating);
   }
 }
