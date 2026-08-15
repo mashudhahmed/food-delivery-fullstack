@@ -169,7 +169,7 @@ const isProd = process.env.NODE_ENV === 'production';
     AdminModule,
     NotificationsModule,
     FavoritesModule,
-    QueueModule,
+    //QueueModule,
     PerformanceModule,
     AuditLogModule,
   ],
