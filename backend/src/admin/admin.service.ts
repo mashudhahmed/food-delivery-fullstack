@@ -18,7 +18,6 @@ import {
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { assertCanTransition } from '../orders/order-status.machine';
-// REMOVED: import { EmailQueueService } from '../common/queue/email-queue.service';
 
 @Injectable()
 export class AdminService {
@@ -31,7 +30,6 @@ export class AdminService {
     private readonly restaurantRepository: Repository<Restaurant>,
     private readonly mailService: MailService,
     private readonly notificationsService: NotificationsService,
-    // REMOVED: private readonly emailQueue: EmailQueueService,
   ) {}
 
   // ====================== DASHBOARD ======================
@@ -390,16 +388,12 @@ export class AdminService {
 
   // ====================== PENDING APPROVALS ======================
 
+  // ✅ OPTIMIZED: Removed the select limitation to ensure all fields are returned
   async getPendingApprovals() {
     const pendingUsers = await this.userRepository.find({
       where: [
         { role: UserRole.OWNER, status: UserStatus.PENDING, isDeleted: false },
         { role: UserRole.AGENT, status: UserStatus.PENDING, isDeleted: false },
-      ],
-      select: [
-        'id', 'fullName', 'email', 'phone', 'role', 'createdAt',
-        'businessName', 'businessAddress', 'nidNumber',
-        'vehicleType', 'vehicleNumber', 'drivingLicense',
       ],
       order: { createdAt: 'ASC' },
     });
@@ -421,12 +415,11 @@ export class AdminService {
     user.approvedAt = new Date();
     await this.userRepository.save(user);
 
-    // Email queue removed to prevent crash
-    // try {
-    //   await this.emailQueue.sendApprovalEmail(user, user.role, notes);
-    // } catch (err) {
-    //   console.error('Failed to queue approval email:', err.message);
-    // }
+    try {
+      await this.mailService.sendApprovalEmail(user, user.role as UserRole, notes);
+    } catch (err) {
+      console.error('Failed to send approval email:', err.message);
+    }
 
     return { success: true, message: 'User approved successfully', user };
   }
@@ -441,12 +434,11 @@ export class AdminService {
     user.rejectionReason = reason;
     await this.userRepository.save(user);
 
-    // Email queue removed to prevent crash
-    // try {
-    //   await this.emailQueue.sendRejectionEmail(user, reason);
-    // } catch (err) {
-    //   console.error('Failed to queue rejection email:', err.message);
-    // }
+    try {
+      await this.mailService.sendRejectionEmail(user, reason);
+    } catch (err) {
+      console.error('Failed to send rejection email:', err.message);
+    }
 
     return { success: true, message: 'User rejected successfully' };
   }

@@ -16,6 +16,7 @@ import { User, UserRole, UserStatus } from '../users/entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
@@ -33,7 +34,7 @@ export class AuthService {
     private readonly refreshTokenRepository: Repository<RefreshToken>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    // EmailQueueService REMOVED COMPLETELY to stop crashes.
+    private readonly mailService: MailService,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -61,13 +62,36 @@ export class AuthService {
       status = UserStatus.PENDING;
     }
 
-    const user = this.userRepository.create({
-      ...registerDto,
+    // ✅ FIXED: Exclude undefined optional fields from the User creation object
+    const userData: Partial<User> = {
+      fullName: registerDto.fullName,
       email: registerDto.email.toLowerCase(),
       passwordHash: hashedPassword,
       role: registerDto.role || UserRole.CUSTOMER,
       status,
-    });
+      phone: registerDto.phone,
+      address: registerDto.address,
+    };
+
+    // Only add optional Owner fields if they exist
+    if (registerDto.role === UserRole.OWNER) {
+      userData.businessName = registerDto.businessName;
+      userData.businessAddress = registerDto.businessAddress;
+      // ✅ FIXED: Only add taxId if it was actually provided
+      if (registerDto.taxId) {
+        userData.taxId = registerDto.taxId;
+      }
+    }
+
+    // Only add optional Agent fields if they exist
+    if (registerDto.role === UserRole.AGENT) {
+      userData.nidNumber = registerDto.nidNumber;
+      userData.vehicleType = registerDto.vehicleType;
+      userData.vehicleNumber = registerDto.vehicleNumber;
+      userData.drivingLicense = registerDto.drivingLicense;
+    }
+
+    const user = this.userRepository.create(userData);
 
     await this.userRepository.save(user);
 
@@ -353,12 +377,16 @@ export class AuthService {
     user.resetPasswordExpires = resetTokenExpiry;
     await this.userRepository.save(user);
 
-    // EMAIL QUEUE COMMENTED OUT TO PREVENT CRASH
-    // await this.emailQueue.sendPasswordResetEmail(
-    //   user.email,
-    //   resetToken,
-    //   user.fullName,
-    // );
+    // Send email directly using MailService
+    try {
+      await this.mailService.sendPasswordResetEmail(
+        user.email,
+        resetToken,
+        user.fullName,
+      );
+    } catch (err) {
+      this.logger.error('Failed to send password reset email:', err.message);
+    }
 
     return { message: 'Password reset link sent to your email' };
   }

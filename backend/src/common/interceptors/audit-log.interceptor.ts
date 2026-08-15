@@ -1,3 +1,4 @@
+// src/common/interceptors/audit-log.interceptor.ts
 import {
   Injectable,
   NestInterceptor,
@@ -54,7 +55,7 @@ export class AuditLogInterceptor implements NestInterceptor {
           request,
           false,
           error.message,
-          { duration, errorStatus: error.status },
+          { duration, responseStatus: error.status ?? context.switchToHttp().getResponse().statusCode },
         );
         throw error;
       }),
@@ -63,7 +64,6 @@ export class AuditLogInterceptor implements NestInterceptor {
 
   private getResource(url: string): string {
     const parts = url.split('/').filter(Boolean);
-    // Return the first meaningful part
     if (parts.length > 1) {
       return parts[0] || 'unknown';
     }
@@ -71,7 +71,6 @@ export class AuditLogInterceptor implements NestInterceptor {
   }
 
   private getResourceId(url: string, params: any): string | null {
-    // Try to extract ID from params
     const idFields = ['id', 'userId', 'restaurantId', 'orderId', 'productId'];
     for (const field of idFields) {
       if (params[field]) {
@@ -79,7 +78,6 @@ export class AuditLogInterceptor implements NestInterceptor {
       }
     }
 
-    // Try from URL
     const parts = url.split('/').filter(Boolean);
     if (parts.length > 1) {
       const lastPart = parts[parts.length - 1];
@@ -114,7 +112,6 @@ export class AuditLogInterceptor implements NestInterceptor {
   private sanitizeBody(body: any): any {
     if (!body) return null;
     const sanitized = { ...body };
-    // Remove sensitive data
     delete sanitized.password;
     delete sanitized.currentPassword;
     delete sanitized.newPassword;
@@ -127,7 +124,6 @@ export class AuditLogInterceptor implements NestInterceptor {
   private sanitizeResponse(response: any): any {
     if (!response) return null;
     const sanitized = { ...response };
-    // Remove sensitive data
     delete sanitized.passwordHash;
     delete sanitized.resetPasswordToken;
     delete sanitized.resetPasswordExpires;

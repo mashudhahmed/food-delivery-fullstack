@@ -22,7 +22,11 @@
     "migration:generate": "ts-node ./node_modules/typeorm/cli.js migration:generate -d src/database/data-source.ts",
     "migration:run": "ts-node ./node_modules/typeorm/cli.js migration:run -d src/database/data-source.ts",
     "migration:revert": "ts-node ./node_modules/typeorm/cli.js migration:revert -d src/database/data-source.ts",
+    "migration:run:neon": "cross-env NODE_ENV=neon ts-node ./node_modules/typeorm/cli.js migration:run -d src/database/data-source.ts",
+    "migration:revert:neon": "cross-env NODE_ENV=neon ts-node ./node_modules/typeorm/cli.js migration:revert -d src/database/data-source.ts",
+    "migration:show:neon": "cross-env NODE_ENV=neon ts-node ./node_modules/typeorm/cli.js migration:show -d src/database/data-source.ts",
     "seed:admin": "ts-node src/database/seeds/admin.seed.ts",
+    "seed:admin:neon": "cross-env NODE_ENV=neon ts-node src/database/seeds/admin.seed.ts",
     "typeorm": "ts-node ./node_modules/typeorm/cli.js",
     "seed:open-restaurants": "ts-node src/database/seeds/open-restaurants.seed.ts",
     "seed:images": "ts-node src/database/seeds/restaurant-images.seed.ts"

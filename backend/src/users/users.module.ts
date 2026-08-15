@@ -1,3 +1,4 @@
+// src/users/users.module.ts
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
@@ -13,10 +14,10 @@ import { TwoFactorService } from '../common/services/two-factor.service';
     TypeOrmModule.forFeature([User]),
     forwardRef(() => AuthModule),
     CloudinaryModule,
-    NotificationPreferencesModule,
+    NotificationPreferencesModule, // ✅ This is already imported
   ],
   controllers: [UsersController],
   providers: [UsersService, TwoFactorService],
-  exports: [TypeOrmModule, UsersService, NotificationPreferencesModule],
+  exports: [TypeOrmModule, UsersService, NotificationPreferencesModule], // ✅ Already exported
 })
 export class UsersModule {}

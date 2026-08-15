@@ -56,9 +56,11 @@ export class RegisterDto {
   @IsString()
   businessAddress!: string;
 
+  // ✅ FIXED: Added @IsOptional() so the field is no longer required
   @ValidateIf(o => o.role === UserRole.OWNER)
+  @IsOptional()
   @IsString()
-  taxId!: string;
+  taxId?: string;
 
   // ── Delivery Agent Fields ──
   @ValidateIf(o => o.role === UserRole.AGENT)

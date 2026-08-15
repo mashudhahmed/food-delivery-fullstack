@@ -53,7 +53,7 @@ export class ReviewsService {
 
     // 4. Check if user already reviewed this order
     const existingReview = await this.reviewRepository.findOne({
-      where: { orderId, userId },
+      where: { orderId, customerId: userId },
     });
 
     if (existingReview) {
@@ -62,7 +62,7 @@ export class ReviewsService {
 
     // 5. Create the review
     const review = this.reviewRepository.create({
-      userId,
+      customerId: userId,
       orderId,
       restaurantId,
       rating,
@@ -84,7 +84,7 @@ export class ReviewsService {
 
   async findAll(page = 1, limit = 20) {
     const [reviews, total] = await this.reviewRepository.findAndCount({
-      relations: ['user', 'restaurant'],
+      relations: ['customer', 'restaurant'],
       order: { createdAt: 'DESC' },
       take: limit,
       skip: (page - 1) * limit,
@@ -106,7 +106,7 @@ export class ReviewsService {
   async findByRestaurant(restaurantId: string, page = 1, limit = 20) {
     const [reviews, total] = await this.reviewRepository.findAndCount({
       where: { restaurantId },
-      relations: ['user'],
+      relations: ['customer'],
       order: { createdAt: 'DESC' },
       take: limit,
       skip: (page - 1) * limit,
@@ -128,7 +128,7 @@ export class ReviewsService {
 
   async findByUser(userId: string, page = 1, limit = 20) {
     const [reviews, total] = await this.reviewRepository.findAndCount({
-      where: { userId },
+      where: { customerId: userId },
       relations: ['restaurant'],
       order: { createdAt: 'DESC' },
       take: limit,
@@ -151,7 +151,7 @@ export class ReviewsService {
   async findOne(id: string) {
     const review = await this.reviewRepository.findOne({
       where: { id },
-      relations: ['user', 'restaurant'],
+      relations: ['customer', 'restaurant'],
     });
 
     if (!review) {
@@ -174,7 +174,7 @@ export class ReviewsService {
     const review = await this.findOne(id);
 
     // Check permissions (only the user who wrote it OR admin)
-    if (review.userId !== userId && userRole !== 'admin') {
+    if (review.customerId !== userId && userRole !== 'admin') {
       throw new ForbiddenException(
         'You do not have permission to update this review',
       );
@@ -213,7 +213,7 @@ export class ReviewsService {
     const review = await this.findOne(id);
 
     // Check permissions
-    if (review.userId !== userId && userRole !== 'admin') {
+    if (review.customerId !== userId && userRole !== 'admin') {
       throw new ForbiddenException(
         'You do not have permission to delete this review',
       );
@@ -334,7 +334,7 @@ export class ReviewsService {
 
   async getRecentReviews(limit = 10) {
     return this.reviewRepository.find({
-      relations: ['user', 'restaurant'],
+      relations: ['customer', 'restaurant'],
       order: { createdAt: 'DESC' },
       take: limit,
     });
@@ -345,7 +345,7 @@ export class ReviewsService {
       where: {
         createdAt: Between(startDate, endDate),
       },
-      relations: ['user', 'restaurant'],
+      relations: ['customer', 'restaurant'],
       order: { createdAt: 'DESC' },
     });
   }

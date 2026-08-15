@@ -1,3 +1,8 @@
+// src/database/seeds/admin.seed.ts
+import { config } from 'dotenv';
+import { resolve } from 'path';
+config({ path: resolve(__dirname, '../../../.env.local') });
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../app.module';
 import { UsersService } from '../../users/users.service';
@@ -28,14 +33,13 @@ async function seed() {
     // 3. Manually create the admin user
     const hashedPassword = await bcrypt.hash('Admin@123456', 12);
 
-    // FIXED: Used the actual User entity creation syntax that satisfies TypeScript
     const adminUser = usersService['userRepository'].create({
       email: 'admin@fooddelivery.com',
       passwordHash: hashedPassword,
       fullName: 'System Administrator',
       phone: '+8801711111111',
       role: UserRole.ADMIN,
-      status: UserStatus.APPROVED, // <--- CRITICAL FIX: Use the enum UserStatus.APPROVED
+      status: UserStatus.APPROVED,
       isDeleted: false,
     });
 

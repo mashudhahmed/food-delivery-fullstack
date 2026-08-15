@@ -1,3 +1,4 @@
+// src/common/providers/database.provider.ts
 import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -16,20 +17,24 @@ export class DatabaseProvider implements OnApplicationShutdown {
   }
 
   private monitorConnection(): void {
-    // Check connection every 30 seconds
-    setInterval(async () => {
-      if (this.isShuttingDown) return;
+    try {
+      // Check connection every 30 seconds
+      setInterval(async () => {
+        if (this.isShuttingDown) return;
 
-      try {
-        const isConnected = this.dataSource.isInitialized && this.dataSource.isConnected;
-        if (!isConnected) {
-          this.logger.warn('Database connection lost - attempting to reconnect...');
-          await this.reconnect();
+        try {
+          const isConnected = this.dataSource.isInitialized && this.dataSource.isConnected;
+          if (!isConnected) {
+            this.logger.warn('Database connection lost - attempting to reconnect...');
+            await this.reconnect();
+          }
+        } catch (error) {
+          this.logger.error('Connection monitoring error:', error);
         }
-      } catch (error) {
-        this.logger.error('Connection monitoring error:', error);
-      }
-    }, 30000);
+      }, 30000);
+    } catch (error) {
+      this.logger.error('Failed to start connection monitor:', error);
+    }
   }
 
   private async reconnect(): Promise<void> {

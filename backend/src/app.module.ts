@@ -26,7 +26,7 @@ import { AuthService } from './auth/auth.service';
 import { AuditLog } from './common/entities/audit-log.entity';
 import { AuditLogModule } from './common/audit-log/audit-log.module';
 import { DatabaseProvider } from './common/providers/database.provider';
-import { CacheModule } from './common/cache/cache.module'; // 👈 add
+import { CacheModule } from './common/cache/cache.module';
 import { FeatureFlagsService } from './common/services/feature-flags.service';
 import { QueueModule } from './common/queue/queue.module';
 import { PerformanceModule } from './performance/performance.module';
@@ -48,7 +48,7 @@ const isProd = process.env.NODE_ENV === 'production';
             : '.env.local',
     }),
 
-    // Event Emitter (needed for PerformanceService and any other EventEmitter2 consumers)
+    // Event Emitter
     EventEmitterModule.forRoot(),
 
     // Database
@@ -155,7 +155,7 @@ const isProd = process.env.NODE_ENV === 'production';
     ]),
 
     // Feature modules
-    CacheModule, // 👈 add — global, provides CacheService + RedisProvider
+    CacheModule,
     CloudinaryModule,
     HealthModule,
     AuthModule,
@@ -177,8 +177,6 @@ const isProd = process.env.NODE_ENV === 'production';
   providers: [
     AppService,
     DatabaseProvider,
-    // RedisProvider removed — now provided globally by CacheModule
-    // CacheService removed — now provided globally by CacheModule
     FeatureFlagsService,
     {
       provide: APP_GUARD,
@@ -209,32 +207,42 @@ export class AppModule implements OnApplicationBootstrap {
   }
 
   private scheduleTokenCleanup() {
-    const now = new Date();
-    const twoAM = new Date();
-    twoAM.setHours(2, 0, 0, 0);
+    try {
+      const now = new Date();
+      const twoAM = new Date();
+      twoAM.setHours(2, 0, 0, 0);
 
-    let delay = twoAM.getTime() - now.getTime();
-    if (delay < 0) {
-      delay += 24 * 60 * 60 * 1000;
-    }
+      let delay = twoAM.getTime() - now.getTime();
+      if (delay < 0) {
+        delay += 24 * 60 * 60 * 1000;
+      }
 
-    setTimeout(() => {
-      this.logger.log('🔄 Running scheduled token cleanup...');
-      this.authService.cleanupExpiredTokens().then(result => {
-        this.logger.log(`✅ Cleaned up ${result.deleted} expired tokens`);
-      }).catch(err => {
-        this.logger.error('❌ Token cleanup failed:', err);
-      });
+      // ✅ Schedule the first cleanup
+      setTimeout(() => {
+        this.logger.log('🔄 Running scheduled token cleanup...');
+        this.authService.cleanupExpiredTokens()
+          .then(result => {
+            this.logger.log(`✅ Cleaned up ${result.deleted} expired tokens`);
+          })
+          .catch(err => {
+            this.logger.error('❌ Token cleanup failed:', err);
+          });
+      }, delay);
 
+      // ✅ Schedule daily cleanup
       setInterval(() => {
-        this.authService.cleanupExpiredTokens().then(result => {
-          this.logger.log(`✅ Cleaned up ${result.deleted} expired tokens`);
-        }).catch(err => {
-          this.logger.error('❌ Token cleanup failed:', err);
-        });
+        this.authService.cleanupExpiredTokens()
+          .then(result => {
+            this.logger.log(`✅ Cleaned up ${result.deleted} expired tokens`);
+          })
+          .catch(err => {
+            this.logger.error('❌ Token cleanup failed:', err);
+          });
       }, 24 * 60 * 60 * 1000);
-    }, delay);
 
-    this.logger.log(`⏰ Token cleanup scheduled for ${twoAM.toLocaleString()}`);
+      this.logger.log(`⏰ Token cleanup scheduled for ${twoAM.toLocaleString()}`);
+    } catch (error) {
+      this.logger.error('❌ Failed to schedule token cleanup:', error);
+    }
   }
 }

@@ -148,7 +148,8 @@ export class User {
   @OneToMany(() => Order, (order) => order.agent)
   agentOrders: Order[];
 
-  @OneToMany(() => Review, (review) => review.user)
+  // ✅ FIXED: Use 'customer' instead of 'user' to match the Review entity
+  @OneToMany(() => Review, (review) => review.customer)
   reviews: Review[];
 
   @OneToMany(() => RefreshToken, (rt) => rt.user)

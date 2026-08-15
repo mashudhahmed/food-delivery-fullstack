@@ -1,3 +1,4 @@
+// src/auth/auth.module.ts - Full file with fix
 import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -9,7 +10,8 @@ import { LocalStrategy } from './strategies/local.strategy';
 import { User } from '../users/entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { QueueModule } from '../common/queue/queue.module';
-import { UsersModule } from '../users/users.module'; // 👈 add
+import { UsersModule } from '../users/users.module';
+import { MailModule } from '../mail/mail.module'; // 👈 ADD THIS
 
 @Module({
   imports: [
@@ -23,7 +25,8 @@ import { UsersModule } from '../users/users.module'; // 👈 add
       }),
     }),
     QueueModule,
-    forwardRef(() => UsersModule), // 👈 add
+    forwardRef(() => UsersModule),
+    MailModule, // 👈 ADD THIS
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, LocalStrategy],

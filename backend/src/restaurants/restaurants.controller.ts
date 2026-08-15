@@ -1,3 +1,4 @@
+// src/restaurants/restaurants.controller.ts
 import {
   Controller,
   Get,
@@ -23,11 +24,11 @@ import { CacheInterceptor } from '../common/interceptors/cache.interceptor';
 import { CacheService } from '../common/services/cache.service';
 
 @ApiTags('restaurants')
-@Controller('restaurants')
+@Controller('restaurants') // ✅ This maps to /api/v1/restaurants with global prefix
 export class RestaurantsController {
   constructor(
     private readonly restaurantsService: RestaurantsService,
-    private readonly cacheService: CacheService, // Add this
+    private readonly cacheService: CacheService,
   ) {}
 
   @Post()
@@ -36,13 +37,12 @@ export class RestaurantsController {
   @ApiBearerAuth()
   async create(@Body() createRestaurantDto: CreateRestaurantDto, @Request() req) {
     const result = await this.restaurantsService.create(createRestaurantDto, req.user.id);
-    // Clear cache for restaurants list
     await this.cacheService.deletePattern('cache:/restaurants*');
     return result;
   }
 
-  @Get()
-  @UseInterceptors(CacheInterceptor) // Add cache interceptor
+  @Get() // ✅ This maps to GET /api/v1/restaurants
+  @UseInterceptors(CacheInterceptor)
   @ApiQuery({ name: 'cuisineType', required: false })
   @ApiQuery({ name: 'isOpen', required: false })
   @ApiQuery({ name: 'ownerId', required: false })
@@ -82,7 +82,6 @@ export class RestaurantsController {
       req.user.id,
       req.user.role,
     );
-    // Clear cache
     await this.cacheService.deletePattern(`cache:/restaurants/${id}`);
     await this.cacheService.deletePattern('cache:/restaurants*');
     return result;
@@ -94,9 +93,17 @@ export class RestaurantsController {
   @ApiBearerAuth()
   async remove(@Param('id') id: string, @Request() req) {
     const result = await this.restaurantsService.remove(id, req.user.id, req.user.role);
-    // Clear cache
     await this.cacheService.deletePattern(`cache:/restaurants/${id}`);
     await this.cacheService.deletePattern('cache:/restaurants*');
     return result;
+  }
+
+  // ✅ Debug endpoint to verify API is working
+  @Get('debug')
+  debug() {
+    return {
+      message: 'Restaurants API is working',
+      timestamp: new Date().toISOString(),
+    };
   }
 }
