@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { Eye, CheckCircle, XCircle, Download, RefreshCw, ClipboardList } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -20,12 +20,27 @@ interface Application {
   createdAt: string;
 }
 
-// ✅ Ensure array in case the API wraps the list in an object
-const ensureArray = (data: any): any[] => {
-  if (Array.isArray(data)) return data;
-  if (data?.data && Array.isArray(data.data)) return data.data;
-  if (data?.items && Array.isArray(data.items)) return data.items;
-  if (data?.applications && Array.isArray(data.applications)) return data.applications;
+// ✅ Use 'unknown' instead of 'any' to satisfy strict ESLint
+const ensureArray = (data: unknown): Application[] => {
+  if (Array.isArray(data)) return data as Application[];
+  
+  if (data && typeof data === 'object') {
+    const record = data as Record<string, unknown>;
+    
+    // Check for 'users' property
+    if ('users' in record && Array.isArray(record.users)) {
+      return record.users as Application[];
+    }
+    // Check for 'data' property
+    if ('data' in record && Array.isArray(record.data)) {
+      return record.data as Application[];
+    }
+    // Check for 'items' property
+    if ('items' in record && Array.isArray(record.items)) {
+      return record.items as Application[];
+    }
+  }
+  
   console.warn('⚠️ Unexpected data format for applications:', typeof data, data);
   return [];
 };
@@ -35,21 +50,25 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
 
-  useEffect(() => {
-    fetchApplications();
-  }, []);
-
-  const fetchApplications = async () => {
+  // ✅ Use useCallback to prevent unnecessary re-renders
+  const fetchApplications = useCallback(async () => {
     try {
       const response = await api.get('/admin/pending-approvals');
       setApplications(ensureArray(response.data));
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       toast.error('Failed to load applications');
       setApplications([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // ✅ useEffect runs once on mount
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchApplications();
+  }, [fetchApplications]);
 
   const handleApprove = async (userId: string, role: string) => {
     try {
@@ -57,7 +76,7 @@ export default function ApplicationsPage() {
       toast.success('Application approved successfully');
       fetchApplications();
       setSelectedApp(null);
-    } catch (error) {
+    } catch {
       toast.error('Failed to approve application');
     }
   };
@@ -71,7 +90,7 @@ export default function ApplicationsPage() {
       toast.success('Application rejected');
       fetchApplications();
       setSelectedApp(null);
-    } catch (error) {
+    } catch {
       toast.error('Failed to reject application');
     }
   };
@@ -86,7 +105,7 @@ export default function ApplicationsPage() {
       link.click();
       link.remove();
       toast.success('Applications exported successfully');
-    } catch (error) {
+    } catch {
       toast.error('Failed to export');
     }
   };

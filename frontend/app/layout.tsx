@@ -14,7 +14,6 @@ const inter = Inter({
   preload: true,
 });
 
-// ✅ Move viewport and themeColor to separate export
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,

@@ -1,7 +1,6 @@
-// components/AuthModal.tsx
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import {
   X,
   Mail,
@@ -17,19 +16,53 @@ import {
   Check,
   Loader2,
 } from 'lucide-react';
-import { auth } from '@/lib/auth';
+import { auth, type RegisterData } from '@/lib/auth';
+import { getUserFriendlyError, logError } from '@/lib/error-handler';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { FaGoogle } from 'react-icons/fa';
 import Image from 'next/image';
 import { api } from '@/lib/api';
 
+// ==================== TYPES ====================
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialMode?: 'login' | 'signup';
 }
 
+interface SignupFormData {
+  fullName: string;
+  email: string;
+  password: string;
+  phone: string;
+  role: 'customer' | 'owner' | 'agent';
+  businessName: string;
+  businessAddress: string;
+  taxId: string;
+  nidNumber: string;
+  vehicleType: string;
+  vehicleNumber: string;
+  drivingLicense: string;
+}
+
+// ==================== INITIAL STATES ====================
+const initialSignupData: SignupFormData = {
+  fullName: '',
+  email: '',
+  password: '',
+  phone: '',
+  role: 'customer',
+  businessName: '',
+  businessAddress: '',
+  taxId: '',
+  nidNumber: '',
+  vehicleType: '',
+  vehicleNumber: '',
+  drivingLicense: '',
+};
+
+// ==================== COMPONENT ====================
 export default function AuthModal({
   isOpen,
   onClose,
@@ -37,28 +70,17 @@ export default function AuthModal({
 }: AuthModalProps) {
   const router = useRouter();
   const firstInputRef = useRef<HTMLInputElement>(null);
+  const isFirstRender = useRef(true);
+  const isMounted = useRef(true);
 
-  const [mode, setMode] = useState<'login' | 'signup' | 'forgot' | 'reset'>('login');
+  // ===== State =====
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot' | 'reset' | '2fa'>('login');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState('customer');
+  const [selectedRole, setSelectedRole] = useState<'customer' | 'owner' | 'agent'>('customer');
 
   const [loginData, setLoginData] = useState({ email: '', password: '' });
-  const [signupData, setSignupData] = useState({
-    fullName: '',
-    email: '',
-    password: '',
-    phone: '',
-    address: '',
-    role: 'customer',
-    businessName: '',
-    businessAddress: '',
-    taxId: '',
-    nidNumber: '',
-    vehicleType: '',
-    vehicleNumber: '',
-    drivingLicense: '',
-  });
+  const [signupData, setSignupData] = useState<SignupFormData>(initialSignupData);
   const [forgotEmail, setForgotEmail] = useState('');
   const [resetData, setResetData] = useState({
     token: '',
@@ -66,7 +88,50 @@ export default function AuthModal({
     confirmPassword: '',
   });
 
-  // ESC + body scroll lock
+  // ===== 2FA State =====
+  const [tempToken, setTempToken] = useState('');
+  const [twoFactorToken, setTwoFactorToken] = useState('');
+
+  // ===== Cleanup on unmount =====
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      setLoading(false);
+    };
+  }, []);
+
+  // ===== Reset state when modal opens =====
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      document.body.style.overflow = 'unset';
+      return;
+    }
+
+    document.body.style.overflow = 'hidden';
+
+    if (isFirstRender.current || initialMode === 'login') {
+      const newMode = initialMode === 'login' ? 'login' : 'signup';
+      setMode(newMode);
+      setSelectedRole('customer');
+      setSignupData(initialSignupData);
+      setForgotEmail('');
+      setResetData({ token: '', newPassword: '', confirmPassword: '' });
+      setLoginData({ email: '', password: '' });
+      setLoading(false);
+      setTempToken('');
+      setTwoFactorToken('');
+      isFirstRender.current = false;
+    }
+
+    setTimeout(() => firstInputRef.current?.focus(), 80);
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, initialMode]);
+
+  // ===== ESC key =====
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) onClose();
@@ -75,125 +140,388 @@ export default function AuthModal({
     return () => window.removeEventListener('keydown', handleEsc);
   }, [isOpen, onClose]);
 
-  useEffect(() => {
-    if (isOpen) {
-      setMode(initialMode === 'login' ? 'login' : 'signup');
-      setSelectedRole('customer');
-      setForgotEmail('');
-      setResetData({ token: '', newPassword: '', confirmPassword: '' });
-      setTimeout(() => firstInputRef.current?.focus(), 80);
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen, initialMode]);
-
+  // ==================== LOGIN HANDLER ====================
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (loading) return;
+
+    if (!loginData.email || !loginData.password) {
+      toast.error('Please enter both email and password');
+      return;
+    }
+
     setLoading(true);
+
     try {
       const response = await auth.login(loginData);
-      if (!response.user || !response.token) {
-        toast.error('Login failed: User data missing');
+
+      if (!isMounted.current) return;
+
+      // Check if 2FA is required
+      if (response.requiresTwoFactor) {
+        setMode('2fa');
+        setTempToken(response.tempToken || '');
+        setLoading(false);
         return;
       }
+
+      if (!response.user || !response.token) {
+        toast.error('Login failed: Invalid response from server');
+        setLoading(false);
+        return;
+      }
+
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
+
       await new Promise((r) => setTimeout(r, 80));
       window.dispatchEvent(new Event('auth-change'));
+
       toast.success('Welcome back!');
       onClose();
+
       const role = response.user.role;
-      setTimeout(() => {
-        if (role === 'admin') router.replace('/admin/dashboard');
-        else if (role === 'owner') router.replace('/owner/dashboard');
-        else if (role === 'agent') router.replace('/agent/dashboard');
-        else router.replace('/');
-      }, 200);
-    } catch (error: any) {
-      toast.error(
-        error.response?.data?.message || error.message || 'Invalid credentials',
-      );
-    } finally {
+      const redirectMap: Record<string, string> = {
+        admin: '/admin/dashboard',
+        owner: '/owner/dashboard',
+        agent: '/agent/dashboard',
+      };
+      const redirectPath = redirectMap[role] || '/';
+      setTimeout(() => router.replace(redirectPath), 200);
+
+      setLoading(false);
+    } catch (error) {
+      if (!isMounted.current) return;
+      logError(error, 'AuthModal.login');
+      toast.error(getUserFriendlyError(error));
       setLoading(false);
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // ==================== 2FA VERIFICATION ====================
+  const handle2FAVerification = async () => {
+    if (!twoFactorToken.trim()) {
+      toast.error('Please enter your 2FA code');
+      return;
+    }
+
+    if (twoFactorToken.length !== 6 || !/^\d{6}$/.test(twoFactorToken)) {
+      toast.error('Please enter a valid 6-digit code');
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await auth.register(signupData);
-      if (!response.user || !response.token) {
-        toast.error('Registration failed');
+      const response = await api.post('/auth/login/2fa', {
+        tempToken,
+        token: twoFactorToken,
+      });
+
+      const { accessToken, refreshToken, user } = response.data?.data || response.data;
+
+      if (!accessToken || !user) {
+        toast.error('Invalid response from server');
+        setLoading(false);
         return;
       }
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
-      await new Promise((r) => setTimeout(r, 80));
+
+      localStorage.setItem('token', accessToken);
+      localStorage.setItem('user', JSON.stringify(user));
+
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken);
+      }
+
       window.dispatchEvent(new Event('auth-change'));
-      toast.success('Account created!');
+      toast.success('Login successful!');
       onClose();
-      const role = response.user.role;
-      setTimeout(() => {
-        if (role === 'admin') router.replace('/admin/dashboard');
-        else if (role === 'owner') router.replace('/owner/dashboard');
-        else if (role === 'agent') router.replace('/agent/dashboard');
-        else router.replace('/');
-      }, 200);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Registration failed');
+
+      const redirectMap: Record<string, string> = {
+        admin: '/admin/dashboard',
+        owner: '/owner/dashboard',
+        agent: '/agent/dashboard',
+      };
+      const redirectPath = redirectMap[user.role] || '/';
+      setTimeout(() => router.replace(redirectPath), 200);
+    } catch (error) {
+      toast.error('Invalid 2FA code. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  // ==================== SIGNUP HANDLER ====================
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (loading) return;
+
+    // Required fields
+    if (!signupData.fullName.trim()) {
+      toast.error('Full name is required');
+      return;
+    }
+    if (!signupData.email.trim()) {
+      toast.error('Email is required');
+      return;
+    }
+    if (!signupData.password) {
+      toast.error('Password is required');
+      return;
+    }
+    if (!signupData.phone.trim()) {
+      toast.error('Phone number is required');
+      return;
+    }
+
+    // Password strength
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(signupData.password)) {
+      toast.error(
+        'Password must contain uppercase, lowercase, number, and special character (@$!%*?&)',
+      );
+      return;
+    }
+
+    // Bangladeshi phone
+    const phoneRegex = /^(\+8801|01)[3-9]\d{8}$/;
+    if (!phoneRegex.test(signupData.phone)) {
+      toast.error('Please enter a valid Bangladeshi phone number (01XXXXXXXXX)');
+      return;
+    }
+
+    // Email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(signupData.email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    // Owner extra validation
+    if (signupData.role === 'owner') {
+      if (!signupData.businessName.trim()) {
+        toast.error('Restaurant name is required');
+        return;
+      }
+      if (!signupData.businessAddress.trim()) {
+        toast.error('Restaurant address is required');
+        return;
+      }
+    }
+
+    // Agent extra validation
+    if (signupData.role === 'agent') {
+      if (!signupData.nidNumber.trim()) {
+        toast.error('NID number is required');
+        return;
+      }
+      if (!signupData.vehicleType) {
+        toast.error('Vehicle type is required');
+        return;
+      }
+      if (!signupData.vehicleNumber.trim()) {
+        toast.error('Vehicle number is required');
+        return;
+      }
+      if (!signupData.drivingLicense.trim()) {
+        toast.error('Driving license is required');
+        return;
+      }
+    }
+
+    setLoading(true);
+
+    try {
+      const payload: RegisterData = {
+        fullName: signupData.fullName.trim(),
+        email: signupData.email.trim().toLowerCase(),
+        password: signupData.password,
+        phone: signupData.phone.trim(),
+        role: signupData.role,
+      };
+
+      if (signupData.role === 'owner') {
+        payload.businessName = signupData.businessName.trim();
+        payload.businessAddress = signupData.businessAddress.trim();
+        if (signupData.taxId) payload.taxId = signupData.taxId.trim();
+      }
+
+      if (signupData.role === 'agent') {
+        payload.nidNumber = signupData.nidNumber.trim();
+        payload.vehicleType = signupData.vehicleType;
+        payload.vehicleNumber = signupData.vehicleNumber.trim();
+        payload.drivingLicense = signupData.drivingLicense.trim();
+      }
+
+      const response = await auth.register(payload);
+
+      if (!isMounted.current) return;
+
+      // Safety check
+      if (!response?.user) {
+        toast.error('Registration failed: Invalid response from server');
+        setLoading(false);
+        return;
+      }
+
+      // ===== Owner / Agent → needs admin approval =====
+      if (response.requiresApproval) {
+        toast.success(
+          response.message ||
+            'Application submitted! Please wait for admin approval.',
+        );
+        onClose();
+        router.push('/pending-approval');
+        setLoading(false);
+        return;
+      }
+
+      // ===== Customer → auto login =====
+      if (response.token || response.accessToken) {
+        localStorage.setItem(
+          'token',
+          (response.token || response.accessToken) as string,
+        );
+      }
+
+      localStorage.setItem('user', JSON.stringify(response.user));
+
+      await new Promise((r) => setTimeout(r, 80));
+      window.dispatchEvent(new Event('auth-change'));
+
+      toast.success(response.message || 'Account created successfully!');
+      onClose();
+
+      const role = response.user.role;
+      const redirectMap: Record<string, string> = {
+        admin: '/admin/dashboard',
+        owner: '/owner/dashboard',
+        agent: '/agent/dashboard',
+      };
+      const redirectPath = redirectMap[role] || '/';
+      setTimeout(() => router.replace(redirectPath), 200);
+
+      setLoading(false);
+    } catch (error) {
+      if (!isMounted.current) return;
+
+      // ✅ FIXED: Correctly extract the error message from the AxiosError
+      let message = 'Registration failed';
+
+      // Type guard to safely access nested response data
+      const isAxiosError = (err: any): err is { response?: { data?: { message?: string | string[] } } } => {
+        return err && typeof err === 'object' && 'response' in err;
+      };
+
+      if (isAxiosError(error) && error.response?.data?.message) {
+        if (Array.isArray(error.response.data.message)) {
+          message = error.response.data.message.join(', ');
+        } else {
+          message = error.response.data.message;
+        }
+      } else if (error instanceof Error) {
+        message = error.message;
+      }
+
+      toast.error(message);
+      setLoading(false);
+    }
+  };
+
+  // ==================== FORGOT PASSWORD ====================
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (loading) return;
+
+    if (!forgotEmail.trim()) {
+      toast.error('Please enter your email');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(forgotEmail)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
     setLoading(true);
+
     try {
-      await api.post('/auth/forgot-password', { email: forgotEmail });
+      await api.post('/auth/forgot-password', { email: forgotEmail.trim() });
       toast.success('Reset link sent to your email');
       setMode('login');
       setForgotEmail('');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to send reset link');
+    } catch (error) {
+      if (!isMounted.current) return;
+      logError(error, 'AuthModal.forgotPassword');
+      toast.error(getUserFriendlyError(error));
     } finally {
       setLoading(false);
     }
   };
 
+  // ==================== RESET PASSWORD ====================
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (resetData.newPassword !== resetData.confirmPassword) {
       toast.error('Passwords do not match');
       return;
     }
-    if (resetData.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters');
+
+    if (resetData.newPassword.length < 8) {
+      toast.error('Password must be at least 8 characters');
       return;
     }
+
+    if (!resetData.token.trim()) {
+      toast.error('Reset token is required');
+      return;
+    }
+
+    if (loading) return;
+
     setLoading(true);
+
     try {
       await api.post('/auth/reset-password', {
-        token: resetData.token,
+        token: resetData.token.trim(),
         newPassword: resetData.newPassword,
       });
       toast.success('Password reset successful');
       setMode('login');
       setResetData({ token: '', newPassword: '', confirmPassword: '' });
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to reset password');
+    } catch (error) {
+      if (!isMounted.current) return;
+      logError(error, 'AuthModal.resetPassword');
+      toast.error(getUserFriendlyError(error));
     } finally {
       setLoading(false);
     }
   };
 
+  // ===== RENDER HELPERS =====
+  const handleRoleSelect = useCallback(
+    (role: 'customer' | 'owner' | 'agent') => {
+      setSelectedRole(role);
+      setSignupData((prev) => ({ ...prev, role }));
+    },
+    [],
+  );
+
+  const handleSignupChange = useCallback(
+    <K extends keyof SignupFormData>(field: K, value: SignupFormData[K]) => {
+      setSignupData((prev) => ({ ...prev, [field]: value }));
+    },
+    [],
+  );
+
   if (!isOpen) return null;
 
+  // ==================== RENDER ====================
   return (
     <div
       className="fixed inset-0 z-200 flex items-center justify-center p-4"
@@ -215,10 +543,14 @@ export default function AuthModal({
           <X className="w-4 h-4 text-slate-500" />
         </button>
 
-        {/* Back (forgot / reset) */}
-        {(mode === 'forgot' || mode === 'reset') && (
+        {/* Back button for forgot/reset/2fa */}
+        {(mode === 'forgot' || mode === 'reset' || mode === '2fa') && (
           <button
-            onClick={() => setMode('login')}
+            onClick={() => {
+              setMode('login');
+              setTempToken('');
+              setTwoFactorToken('');
+            }}
             className="absolute top-4 left-4 z-10 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition"
             aria-label="Back"
           >
@@ -226,7 +558,7 @@ export default function AuthModal({
           </button>
         )}
 
-        {/* Scrollable body */}
+        {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 pt-8 pb-6">
           {/* Logo + Title */}
           <div className="text-center mb-7">
@@ -245,12 +577,14 @@ export default function AuthModal({
               {mode === 'signup' && 'Create account'}
               {mode === 'forgot' && 'Reset password'}
               {mode === 'reset' && 'New password'}
+              {mode === '2fa' && 'Two-Factor Authentication'}
             </h1>
             <p className="text-sm text-slate-500 mt-1.5">
               {mode === 'login' && 'Sign in to continue to QuickBite'}
               {mode === 'signup' && 'Join QuickBite in under a minute'}
               {mode === 'forgot' && "We'll send you a reset link"}
               {mode === 'reset' && 'Choose a strong new password'}
+              {mode === '2fa' && 'Enter the 6-digit code from your authenticator app'}
             </p>
           </div>
 
@@ -259,28 +593,28 @@ export default function AuthModal({
             <div className="flex p-1 bg-slate-100 rounded-2xl mb-6">
               <button
                 onClick={() => setMode('login')}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${(
                   mode === 'login'
                     ? 'bg-white text-slate-900 shadow-sm'
                     : 'text-slate-500 hover:text-slate-700'
-                }`}
+                )}`}
               >
                 Log in
               </button>
               <button
                 onClick={() => setMode('signup')}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${(
                   mode === 'signup'
                     ? 'bg-white text-slate-900 shadow-sm'
                     : 'text-slate-500 hover:text-slate-700'
-                }`}
+                )}`}
               >
                 Sign up
               </button>
             </div>
           )}
 
-          {/* ── LOGIN ── */}
+          {/* ===== LOGIN ===== */}
           {mode === 'login' && (
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
@@ -360,28 +694,70 @@ export default function AuthModal({
             </form>
           )}
 
-          {/* ── SIGNUP ── */}
+          {/* ===== 2FA VERIFICATION ===== */}
+          {mode === '2fa' && (
+            <div className="space-y-4">
+              <div className="text-center mb-2">
+                <div className="w-16 h-16 rounded-2xl bg-orange-50 flex items-center justify-center mx-auto mb-3">
+                  <Lock className="w-8 h-8 text-orange-600" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">Two-Factor Authentication</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Enter the 6-digit code from your authenticator app
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  Verification Code
+                </label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="000000"
+                  value={twoFactorToken}
+                  onChange={(e) => setTwoFactorToken(e.target.value.replace(/\D/g, ''))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-center text-2xl tracking-widest font-mono focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 transition"
+                  autoFocus
+                />
+              </div>
+
+              <button
+                onClick={handle2FAVerification}
+                disabled={loading}
+                className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold shadow-lg shadow-orange-500/25 transition disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  'Verify & Login'
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* ===== SIGNUP ===== */}
           {mode === 'signup' && (
             <form onSubmit={handleSignup} className="space-y-3.5">
-              {/* Role pills */}
+              {/* Role Pills */}
               <div className="grid grid-cols-3 gap-2 mb-1">
                 {[
-                  { id: 'customer', label: 'Order', emoji: '🍔' },
-                  { id: 'owner', label: 'Partner', emoji: '🏪' },
-                  { id: 'agent', label: 'Deliver', emoji: '🛵' },
+                  { id: 'customer' as const, label: 'Order', emoji: '🍔' },
+                  { id: 'owner' as const, label: 'Partner', emoji: '🏪' },
+                  { id: 'agent' as const, label: 'Deliver', emoji: '🛵' },
                 ].map((r) => (
                   <button
                     key={r.id}
                     type="button"
-                    onClick={() => {
-                      setSelectedRole(r.id);
-                      setSignupData({ ...signupData, role: r.id });
-                    }}
-                    className={`relative flex flex-col items-center gap-1 py-3 rounded-2xl border text-xs font-medium transition ${
+                    onClick={() => handleRoleSelect(r.id)}
+                    className={`relative flex flex-col items-center gap-1 py-3 rounded-2xl border text-xs font-medium transition ${(
                       selectedRole === r.id
                         ? 'border-orange-400 bg-orange-50 text-orange-700 ring-2 ring-orange-500/20'
                         : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                    }`}
+                    )}`}
                   >
                     <span className="text-lg">{r.emoji}</span>
                     {r.label}
@@ -394,6 +770,7 @@ export default function AuthModal({
                 ))}
               </div>
 
+              {/* Full Name */}
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">
                   Full name
@@ -406,13 +783,14 @@ export default function AuthModal({
                     placeholder="Your name"
                     value={signupData.fullName}
                     onChange={(e) =>
-                      setSignupData({ ...signupData, fullName: e.target.value })
+                      handleSignupChange('fullName', e.target.value)
                     }
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 transition"
                   />
                 </div>
               </div>
 
+              {/* Email */}
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">
                   Email
@@ -424,14 +802,13 @@ export default function AuthModal({
                     required
                     placeholder="you@example.com"
                     value={signupData.email}
-                    onChange={(e) =>
-                      setSignupData({ ...signupData, email: e.target.value })
-                    }
+                    onChange={(e) => handleSignupChange('email', e.target.value)}
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 transition"
                   />
                 </div>
               </div>
 
+              {/* Password */}
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">
                   Password
@@ -441,11 +818,11 @@ export default function AuthModal({
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
-                    minLength={6}
-                    placeholder="Min 6 characters"
+                    minLength={8}
+                    placeholder="Min 8 chars with uppercase, lowercase, number, special"
                     value={signupData.password}
                     onChange={(e) =>
-                      setSignupData({ ...signupData, password: e.target.value })
+                      handleSignupChange('password', e.target.value)
                     }
                     className="w-full pl-10 pr-11 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 transition"
                   />
@@ -461,8 +838,13 @@ export default function AuthModal({
                     )}
                   </button>
                 </div>
+                <p className="text-[10px] text-slate-400 mt-1.5">
+                  Must contain uppercase, lowercase, number, and special
+                  character (@$!%*?&)
+                </p>
               </div>
 
+              {/* Phone */}
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">
                   Phone
@@ -474,15 +856,13 @@ export default function AuthModal({
                     required
                     placeholder="01XXXXXXXXX"
                     value={signupData.phone}
-                    onChange={(e) =>
-                      setSignupData({ ...signupData, phone: e.target.value })
-                    }
+                    onChange={(e) => handleSignupChange('phone', e.target.value)}
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 transition"
                   />
                 </div>
               </div>
 
-              {/* Owner extra fields */}
+              {/* Owner Extra Fields */}
               {selectedRole === 'owner' && (
                 <div className="space-y-3 pt-2 border-t border-slate-100">
                   <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
@@ -495,7 +875,7 @@ export default function AuthModal({
                     placeholder="Restaurant name"
                     value={signupData.businessName}
                     onChange={(e) =>
-                      setSignupData({ ...signupData, businessName: e.target.value })
+                      handleSignupChange('businessName', e.target.value)
                     }
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
                   />
@@ -505,10 +885,7 @@ export default function AuthModal({
                     placeholder="Restaurant address"
                     value={signupData.businessAddress}
                     onChange={(e) =>
-                      setSignupData({
-                        ...signupData,
-                        businessAddress: e.target.value,
-                      })
+                      handleSignupChange('businessAddress', e.target.value)
                     }
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
                   />
@@ -519,7 +896,7 @@ export default function AuthModal({
                 </div>
               )}
 
-              {/* Agent extra fields */}
+              {/* Agent Extra Fields */}
               {selectedRole === 'agent' && (
                 <div className="space-y-3 pt-2 border-t border-slate-100">
                   <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
@@ -532,7 +909,7 @@ export default function AuthModal({
                     placeholder="NID number"
                     value={signupData.nidNumber}
                     onChange={(e) =>
-                      setSignupData({ ...signupData, nidNumber: e.target.value })
+                      handleSignupChange('nidNumber', e.target.value)
                     }
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
                   />
@@ -540,7 +917,7 @@ export default function AuthModal({
                     required
                     value={signupData.vehicleType}
                     onChange={(e) =>
-                      setSignupData({ ...signupData, vehicleType: e.target.value })
+                      handleSignupChange('vehicleType', e.target.value)
                     }
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
                   >
@@ -555,10 +932,7 @@ export default function AuthModal({
                     placeholder="Vehicle number plate"
                     value={signupData.vehicleNumber}
                     onChange={(e) =>
-                      setSignupData({
-                        ...signupData,
-                        vehicleNumber: e.target.value,
-                      })
+                      handleSignupChange('vehicleNumber', e.target.value)
                     }
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
                   />
@@ -568,10 +942,7 @@ export default function AuthModal({
                     placeholder="Driving license number"
                     value={signupData.drivingLicense}
                     onChange={(e) =>
-                      setSignupData({
-                        ...signupData,
-                        drivingLicense: e.target.value,
-                      })
+                      handleSignupChange('drivingLicense', e.target.value)
                     }
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
                   />
@@ -603,11 +974,11 @@ export default function AuthModal({
             </form>
           )}
 
-          {/* ── FORGOT ── */}
+          {/* ===== FORGOT PASSWORD ===== */}
           {mode === 'forgot' && (
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <p className="text-sm text-slate-500 text-center">
-                Enter your email and we’ll send a reset link.
+                Enter your email and we&apos;ll send a reset link.
               </p>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">
@@ -642,7 +1013,7 @@ export default function AuthModal({
             </form>
           )}
 
-          {/* ── RESET ── */}
+          {/* ===== RESET PASSWORD ===== */}
           {mode === 'reset' && (
             <form onSubmit={handleResetPassword} className="space-y-4">
               <div>
@@ -667,8 +1038,8 @@ export default function AuthModal({
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
-                  minLength={6}
-                  placeholder="Min 6 characters"
+                  minLength={8}
+                  placeholder="Min 8 characters"
                   value={resetData.newPassword}
                   onChange={(e) =>
                     setResetData({ ...resetData, newPassword: e.target.value })
@@ -711,7 +1082,7 @@ export default function AuthModal({
             </form>
           )}
 
-          {/* Divider + Google */}
+          {/* ===== DIVIDER + GOOGLE ===== */}
           {(mode === 'login' || mode === 'signup') && (
             <>
               <div className="relative my-6">
@@ -736,7 +1107,7 @@ export default function AuthModal({
             </>
           )}
 
-          {/* Terms */}
+          {/* ===== TERMS ===== */}
           {(mode === 'login' || mode === 'signup') && (
             <p className="text-center text-[11px] text-slate-400 mt-6 leading-relaxed">
               By continuing you agree to our{' '}

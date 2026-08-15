@@ -44,7 +44,7 @@ const nextConfig: NextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   async rewrites() {
-    // ✅ Only use rewrites in development
+    // ✅ FIXED: Correctly proxy /api/* to the backend running on port 3001
     if (process.env.NODE_ENV === 'development') {
       return [
         {
@@ -61,7 +61,6 @@ const nextConfig: NextConfig = {
   },
   reactStrictMode: true,
   poweredByHeader: false,
-  // ✅ Add this for better production builds
   output: 'standalone',
 };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { auth } from '@/lib/auth';
 import { unwrapPaginated, ensureArray } from '@/lib/unwrapPaginated';
@@ -8,14 +8,38 @@ import LoadingSkeleton from '@/components/LoadingSkeleton';
 import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import toast from 'react-hot-toast';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { isAxiosError } from 'axios';
+
+// Helper to safely get error messages
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (isAxiosError(error)) {
+    const data = error.response?.data as { message?: string } | undefined;
+    if (data?.message) return data.message;
+  }
+  return fallback;
+}
+
+interface Restaurant {
+  id: string;
+  name: string;
+}
+
+interface MenuItem {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+  isAvailable: boolean;
+}
 
 export default function OwnerMenuPage() {
-  const [restaurants, setRestaurants] = useState<any[]>([]);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState('');
-  const [menuItems, setMenuItems] = useState<any[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [editingItem, setEditingItem] = useState<any>(null);
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -27,55 +51,53 @@ export default function OwnerMenuPage() {
     isAvailable: true,
   });
 
-  useEffect(() => {
-    fetchRestaurants();
-  }, []);
-
-  useEffect(() => {
-    if (selectedRestaurantId) {
-      fetchMenu(selectedRestaurantId);
-    }
-  }, [selectedRestaurantId]);
-
-  async function fetchRestaurants() {
+  // ✅ UseCallback to prevent infinite loops
+  const fetchRestaurants = useCallback(async () => {
     try {
       setLoading(true);
       const currentUser = auth.getCurrentUser();
       if (!currentUser?.id) return;
 
-      const res = await api.get('/restaurants/owner/my');
-
-      // Safe for plain array OR interceptor-wrapped response
-      const list = ensureArray(res.data?.data ?? res.data);
-
+      const res = await api.get(`/restaurants?ownerId=${currentUser.id}`);
+      const list = ensureArray(res.data?.data ?? res.data) as Restaurant[];
       setRestaurants(list);
       if (list.length > 0) {
         setSelectedRestaurantId(list[0].id);
       }
     } catch (err) {
       console.error(err);
-      toast.error('Failed to load restaurants');
+      toast.error(getErrorMessage(err, 'Failed to load restaurants'));
       setRestaurants([]);
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  async function fetchMenu(restaurantId: string) {
+  const fetchMenu = useCallback(async (restaurantId: string) => {
     try {
       const res = await api.get(`/menu/restaurant/${restaurantId}`);
       const list = ensureArray(
         unwrapPaginated(res.data).items.length
           ? unwrapPaginated(res.data).items
           : res.data?.data ?? res.data,
-      );
+      ) as MenuItem[];
       setMenuItems(list);
     } catch (err) {
       console.error(err);
-      toast.error('Failed to load menu');
+      toast.error(getErrorMessage(err, 'Failed to load menu'));
       setMenuItems([]);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(() => fetchRestaurants());
+  }, [fetchRestaurants]);
+
+  useEffect(() => {
+    if (selectedRestaurantId) {
+      void Promise.resolve().then(() => fetchMenu(selectedRestaurantId));
+    }
+  }, [selectedRestaurantId, fetchMenu]);
 
   function openCreate() {
     setEditingItem(null);
@@ -89,7 +111,7 @@ export default function OwnerMenuPage() {
     setShowForm(true);
   }
 
-  function openEdit(item: any) {
+  function openEdit(item: MenuItem) {
     setEditingItem(item);
     setForm({
       name: item.name || '',
@@ -105,13 +127,16 @@ export default function OwnerMenuPage() {
     e.preventDefault();
     if (!selectedRestaurantId) return;
 
+    // restaurantId is NOT part of the payload — the backend's
+    // CreateMenuItemDto doesn't declare it (it comes from the
+    // :restaurantId route param), and forbidNonWhitelisted validation
+    // would reject the whole request if it were included in the body.
     const payload = {
       name: form.name.trim(),
       description: form.description.trim(),
       price: Number(form.price),
       category: form.category.trim(),
       isAvailable: form.isAvailable,
-      restaurantId: selectedRestaurantId,
     };
 
     try {
@@ -119,13 +144,14 @@ export default function OwnerMenuPage() {
         await api.patch(`/menu/${editingItem.id}`, payload);
         toast.success('Menu item updated');
       } else {
-        await api.post('/menu', payload);
+        // Real route is POST /menu/restaurant/:restaurantId, not POST /menu.
+        await api.post(`/menu/restaurant/${selectedRestaurantId}`, payload);
         toast.success('Menu item created');
       }
       setShowForm(false);
       fetchMenu(selectedRestaurantId);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to save');
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to save'));
     }
   }
 
@@ -137,8 +163,8 @@ export default function OwnerMenuPage() {
       toast.success('Item deleted');
       setDeleteId(null);
       fetchMenu(selectedRestaurantId);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to delete');
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to delete'));
     } finally {
       setDeleting(false);
     }
@@ -164,6 +190,7 @@ export default function OwnerMenuPage() {
               ))}
             </select>
           )}
+          {/* ✅ FIXED: Added onClick handler */}
           <button
             onClick={openCreate}
             disabled={!selectedRestaurantId}

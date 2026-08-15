@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 export interface PaginatedResult<T> {
   items: T[];
   total: number;

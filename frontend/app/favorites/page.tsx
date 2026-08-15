@@ -7,6 +7,7 @@ import { auth } from '@/lib/auth';
 import RestaurantCard from '@/components/RestaurantCard';
 import { Heart } from 'lucide-react';
 import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
 
 export default function FavoritesPage() {
   const router = useRouter();
@@ -29,26 +30,27 @@ export default function FavoritesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex items-center gap-3 mb-8">
-          <Heart className="w-7 h-7 text-red-500 fill-red-500" />
-          <h1 className="text-2xl font-bold text-gray-800">My Favorites</h1>
-        </div>
-
-        {items.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-2xl shadow-sm">
-            <Heart className="w-16 h-16 text-gray-200 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">No favorites yet</h2>
-            <p className="text-gray-500 mb-6">Start adding restaurants you love!</p>
-            <Link
-              href="/"
-              className="inline-block bg-orange-500 text-white px-6 py-2.5 rounded-full font-medium hover:bg-orange-600 transition"
-            >
-              Browse Restaurants
-            </Link>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
+      {items.length === 0 ? (
+        <div className="max-w-md w-full text-center">
+          {/* Subtle circle icon background like the Cart page */}
+          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Heart className="w-10 h-10 text-gray-400" />
           </div>
-        ) : (
+          
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">No favorites yet</h2>
+          <p className="text-gray-500 mb-8">Start adding restaurants you love!</p>
+          
+          <Link
+            href="/"
+            className="inline-flex items-center justify-center gap-2 bg-orange-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-orange-600 transition shadow-sm shadow-orange-200"
+          >
+            Browse Restaurants
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
+      ) : (
+        <div className="max-w-7xl mx-auto w-full">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {items.map((item) => (
               <RestaurantCard
@@ -63,8 +65,8 @@ export default function FavoritesPage() {
               />
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

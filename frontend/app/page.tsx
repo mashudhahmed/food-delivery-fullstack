@@ -93,19 +93,27 @@ function HomePageContent() {
     }
   }, [restaurants, searchQuery, filters, sortBy, isCheckingAuth]);
 
+  // ✅ UPDATED: fetchRestaurants with robust response handling and error management
   const fetchRestaurants = async () => {
     try {
       setLoading(true);
       const response = await api.get('/restaurants');
-      const restaurantData = response.data || [];
+      
+      // ✅ Handle different response formats (array, { data }, { items })
+      const restaurantData = response.data;
       const restaurantsArray = Array.isArray(restaurantData) 
         ? restaurantData 
-        : (restaurantData.data || restaurantData.items || []);
+        : (restaurantData?.data || restaurantData?.items || []);
+      
+      console.log('✅ Restaurants loaded:', restaurantsArray.length);
       setRestaurants(restaurantsArray);
       setFilteredRestaurants(restaurantsArray);
     } catch (error) {
       console.error('Failed to load restaurants:', error);
-      toast.error('Failed to load restaurants');
+      // ✅ Show user-friendly error message
+      toast.error('Failed to load restaurants. Please try again later.');
+      setRestaurants([]);
+      setFilteredRestaurants([]);
     } finally {
       setLoading(false);
     }

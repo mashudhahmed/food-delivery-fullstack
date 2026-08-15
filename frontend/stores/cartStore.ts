@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { MenuItem } from '@/types';
-import toast from 'react-hot-toast';
 
 export interface CartItem extends MenuItem {
   quantity: number;
@@ -26,11 +25,9 @@ export const useCartStore = create<CartStore>()(
       addItem: (item, restaurantName, quantity = 1) => {
         const items = get().items;
 
-        // Enforce single restaurant
-        if (items.length > 0 && items[0].restaurantId !== item.restaurantId) {
-          toast.error('You can only order from one restaurant at a time. Clear cart first.');
-          return;
-        }
+        // FIXED: REMOVED the single-restaurant lock.
+        // The backend supports multi-restaurant orders (/orders/multi).
+        // The checkout page will now handle splitting the payload correctly.
 
         const existingItem = items.find((i) => i.id === item.id);
 

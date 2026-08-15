@@ -74,16 +74,12 @@ const formatSafeNumber = (value: unknown): string => {
   return Math.round(num).toLocaleString();
 };
 
-const unwrap = <T,>(payload: unknown): T => {
-  if (
-    payload !== null &&
-    typeof payload === 'object' &&
-    'data' in payload &&
-    (payload as { data: unknown }).data !== undefined
-  ) {
-    return (payload as { data: T }).data;
-  }
-  return payload as T;
+// ✅ Fixed: No longer uses unwrap - directly accesses data property
+const ensureArray = (data: any): any[] => {
+  if (Array.isArray(data)) return data;
+  if (data?.data && Array.isArray(data.data)) return data.data;
+  if (data?.items && Array.isArray(data.items)) return data.items;
+  return [];
 };
 
 export default function OwnerAnalyticsPage() {
@@ -103,7 +99,7 @@ export default function OwnerAnalyticsPage() {
       }
 
       const restaurantsRes = await api.get(`/restaurants?ownerId=${currentUser.id}`);
-      const ownerRestaurants = unwrap<any[]>(restaurantsRes.data) || [];
+      const ownerRestaurants = restaurantsRes.data?.data || restaurantsRes.data || [];
       const list = Array.isArray(ownerRestaurants) ? ownerRestaurants : [];
 
       setRestaurants(list);
@@ -125,7 +121,8 @@ export default function OwnerAnalyticsPage() {
       }
 
       const res = await api.get('/orders/owner/analytics', { params });
-      const payload = unwrap<Partial<AnalyticsData>>(res.data) || {};
+      // ✅ Fixed: Directly access data property instead of using unwrap
+      const payload = res.data?.data || res.data || {};
 
       setAnalytics({
         ...emptyAnalytics,

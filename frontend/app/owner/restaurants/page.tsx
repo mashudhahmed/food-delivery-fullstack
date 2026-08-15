@@ -1,7 +1,6 @@
-// app/owner/restaurants/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { api } from '@/lib/api';
@@ -20,6 +19,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
+import { isAxiosError } from 'axios';
 import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 
 interface Restaurant {
@@ -34,12 +34,33 @@ interface Restaurant {
   imageUrl?: string;
 }
 
-// ✅ Helper to ensure array
-const ensureArray = (data: any): any[] => {
-  if (Array.isArray(data)) return data;
-  if (data?.data && Array.isArray(data.data)) return data.data;
-  if (data?.items && Array.isArray(data.items)) return data.items;
-  if (data?.restaurants && Array.isArray(data.restaurants)) return data.restaurants;
+// Extracts a user-facing message from an unknown error without resorting to `any`.
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (isAxiosError(error)) {
+    const data = error.response?.data as { message?: string } | undefined;
+    if (data?.message) return data.message;
+  }
+  return fallback;
+}
+
+// ✅ PRODUCTION-GRADE: Helper to safely unwrap data (Type-safe)
+const ensureArray = (data: unknown): Restaurant[] => {
+  if (Array.isArray(data)) return data as Restaurant[];
+  
+  if (data && typeof data === 'object') {
+    const record = data as Record<string, unknown>;
+    
+    if ('data' in record && Array.isArray(record.data)) {
+      return record.data as Restaurant[];
+    }
+    if ('items' in record && Array.isArray(record.items)) {
+      return record.items as Restaurant[];
+    }
+    if ('restaurants' in record && Array.isArray(record.restaurants)) {
+      return record.restaurants as Restaurant[];
+    }
+  }
+  
   console.warn('⚠️ Unexpected data format for restaurants:', typeof data, data);
   return [];
 };
@@ -51,7 +72,6 @@ const CUISINES = [
 
 export default function OwnerRestaurantsPage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -70,36 +90,40 @@ export default function OwnerRestaurantsPage() {
   const [restaurantToDelete, setRestaurantToDelete] = useState<Restaurant | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // ✅ 1. fetchRestaurants defined FIRST using useCallback
+  const fetchRestaurants = useCallback(async () => {
+    setLoading(true);
+    try {
+      const currentUser = auth.getCurrentUser();
+      if (!currentUser?.id) return;
+
+      const response = await api.get(`/restaurants?ownerId=${currentUser?.id}`);
+      
+      const data = response.data;
+      const restaurantsArray = ensureArray(data);
+
+      setRestaurants(restaurantsArray);
+    } catch (error) {
+      console.error('Failed to load restaurants:', error);
+      const message = getErrorMessage(error, 'Failed to load restaurants');
+      toast.error(message);
+      setRestaurants([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // ✅ 2. useEffect now correctly depends on fetchRestaurants and router
   useEffect(() => {
     const currentUser = auth.getCurrentUser();
     if (!currentUser || currentUser.role !== 'owner') {
       router.push('/');
       return;
     }
-    setUser(currentUser);
-    fetchRestaurants();
-  }, []);
-
-  const fetchRestaurants = async () => {
-    setLoading(true);
-    try {
-      const currentUser = auth.getCurrentUser();
-      const response = await api.get(`/restaurants?ownerId=${currentUser?.id}`);
-
-      // ✅ Ensure we have an array
-      const data = response.data;
-      const restaurantsArray = ensureArray(data);
-
-      console.log('🔵 Fetched restaurants:', restaurantsArray.length);
-      setRestaurants(restaurantsArray);
-    } catch (error) {
-      console.error('Failed to load restaurants:', error);
-      toast.error('Failed to load restaurants');
-      setRestaurants([]); // ✅ Set empty array on error
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Deferred to a microtask so fetchRestaurants' internal setLoading(true)
+    // doesn't run synchronously within the effect body.
+    void Promise.resolve().then(() => fetchRestaurants());
+  }, [router, fetchRestaurants]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,8 +139,8 @@ export default function OwnerRestaurantsPage() {
       setEditingRestaurant(null);
       setFormData({ name: '', description: '', address: '', phone: '', cuisineType: '' });
       fetchRestaurants();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Operation failed');
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Operation failed'));
     }
   };
 
@@ -125,7 +149,7 @@ export default function OwnerRestaurantsPage() {
       await api.patch(`/restaurants/${id}`, { isOpen: !currentStatus });
       toast.success(`Restaurant ${!currentStatus ? 'opened' : 'closed'}`);
       fetchRestaurants();
-    } catch (error) {
+    } catch {
       toast.error('Failed to update status');
     }
   };
@@ -145,9 +169,9 @@ export default function OwnerRestaurantsPage() {
       setShowDeleteModal(false);
       setRestaurantToDelete(null);
       fetchRestaurants();
-    } catch (error: any) {
-      const status = error.response?.status;
-      const message = error.response?.data?.message || 'Failed to delete restaurant';
+    } catch (error) {
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      const message = getErrorMessage(error, 'Failed to delete restaurant');
 
       if (status === 403) {
         toast.error('You do not have permission to delete this restaurant');

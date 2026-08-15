@@ -1,16 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Search, Download, RefreshCw, Eye, Filter, X, Package, Ban } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Pagination from '@/components/Pagination';
 import { unwrapPaginated } from '@/lib/unwrapPaginated';
 
-// ✅ Matches the FLAT shape actually returned by GET /admin/orders (adminService.getAllOrders),
-// which maps { id, orderNumber, customerName, customerEmail, restaurantName, agentName, ... } —
-// previously this interface expected nested customer/restaurant/deliveryAgent objects that
-// never existed on the list response, so every row silently rendered "N/A".
 interface OrderListItem {
   id: string;
   orderNumber: string;
@@ -24,25 +21,6 @@ interface OrderListItem {
   paymentMethod?: string;
 }
 
-// Full detail shape from GET /admin/orders/:id (adminService.getOrderDetails),
-// which DOES return nested relations plus line items.
-interface OrderDetail {
-  id: string;
-  status: string;
-  totalAmount: number;
-  subtotal: number;
-  deliveryFee: number;
-  platformFee: number;
-  deliveryAddress: string;
-  deliveryInstructions?: string;
-  placedAt: string;
-  paymentMethod?: string;
-  customer?: { fullName: string; email: string; phone?: string };
-  restaurant?: { name: string; address?: string };
-  agent?: { fullName: string };
-  items?: { id: string; name?: string; quantity: number; price: number }[];
-}
-
 const STATUS_META: Record<string, { text: string; color: string; ring: string; dot: string }> = {
   pending: { text: 'Order Placed', color: 'bg-amber-50 text-amber-700', ring: 'ring-amber-200', dot: 'bg-amber-500' },
   preparing: { text: 'Preparing', color: 'bg-blue-50 text-blue-700', ring: 'ring-blue-200', dot: 'bg-blue-500' },
@@ -53,22 +31,14 @@ const STATUS_META: Record<string, { text: string; color: string; ring: string; d
   cancelled: { text: 'Cancelled', color: 'bg-red-50 text-red-700', ring: 'ring-red-200', dot: 'bg-red-500' },
 };
 
-// Order the statuses actually move through, so the "update status" dropdown
-// only offers forward transitions (plus staying put) instead of any-to-any.
 const STATUS_FLOW = ['pending', 'preparing', 'ready', 'picked_up', 'on_the_way', 'delivered'];
 
 export default function OrdersPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [updatingStatus, setUpdatingStatus] = useState(false);
-
-  // ✅ Pagination — was fetching up to 100 orders in one shot and filtering
-  // client-side; now server-paginated (20/page) like the rest of the admin
-  // list pages.
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -85,8 +55,6 @@ export default function OrdersPage() {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      // ✅ Correct endpoint — GET /admin/orders (was calling /admin/orders/recent,
-      // which doesn't exist on the backend and 404'd every time).
       const params = new URLSearchParams({ limit: String(limit), page: String(page) });
       if (statusFilter !== 'all') params.append('status', statusFilter);
       const response = await api.get(`/admin/orders?${params.toString()}`);
@@ -99,47 +67,6 @@ export default function OrdersPage() {
       setOrders([]);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const openOrderDetail = async (orderId: string) => {
-    setDetailLoading(true);
-    try {
-      const response = await api.get(`/admin/orders/${orderId}`);
-      setSelectedOrder(response.data);
-    } catch (error) {
-      toast.error('Failed to load order details');
-    } finally {
-      setDetailLoading(false);
-    }
-  };
-
-  const handleUpdateStatus = async (newStatus: string) => {
-    if (!selectedOrder) return;
-    setUpdatingStatus(true);
-    try {
-      await api.patch(`/admin/orders/${selectedOrder.id}/status`, { status: newStatus });
-      toast.success(`Order status updated to ${getStatusMeta(newStatus).text}`);
-      setSelectedOrder({ ...selectedOrder, status: newStatus });
-      fetchOrders();
-    } catch (error) {
-      toast.error('Failed to update order status');
-    } finally {
-      setUpdatingStatus(false);
-    }
-  };
-
-  const handleCancelOrder = async () => {
-    if (!selectedOrder) return;
-    const reason = prompt('Reason for cancelling this order:');
-    if (!reason) return;
-    try {
-      await api.patch(`/admin/orders/${selectedOrder.id}/cancel`, { reason });
-      toast.success('Order cancelled');
-      setSelectedOrder({ ...selectedOrder, status: 'cancelled' });
-      fetchOrders();
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to cancel order');
     }
   };
 
@@ -162,8 +89,6 @@ export default function OrdersPage() {
 
   const safeOrders = Array.isArray(orders) ? orders : [];
 
-  // ⚠️ Search only refines the CURRENT page of results — with server-side
-  // pagination there's no full in-memory order list to search across.
   const filteredOrders = safeOrders.filter((order) => {
     const term = searchTerm.toLowerCase();
     return (
@@ -211,7 +136,6 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="mb-6 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -239,7 +163,6 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {/* Orders Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -266,11 +189,7 @@ export default function OrdersPage() {
                 filteredOrders.map((order) => {
                   const statusMeta = getStatusMeta(order.status);
                   return (
-                    <tr
-                      key={order.id}
-                      className="hover:bg-gray-50/60 cursor-pointer transition-colors"
-                      onClick={() => openOrderDetail(order.id)}
-                    >
+                    <tr key={order.id} className="hover:bg-gray-50/60 transition-colors">
                       <td className="px-6 py-4">
                         <div className="font-mono text-sm font-semibold text-gray-800">
                           {order.orderNumber || `#${order.id?.slice(-8).toUpperCase()}`}
@@ -295,11 +214,9 @@ export default function OrdersPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex justify-end">
+                          {/* ✅ FIXED: Added onClick to navigate to Order Detail page */}
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openOrderDetail(order.id);
-                            }}
+                            onClick={() => router.push(`/orders/${order.id}`)}
                             className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition"
                           >
                             <Eye className="w-4 h-4" />
@@ -316,125 +233,6 @@ export default function OrdersPage() {
       </div>
 
       <Pagination page={page} totalPages={totalPages} total={total} limit={limit} onPageChange={setPage} loading={loading} />
-
-      {/* Order Detail Modal */}
-      {(selectedOrder || detailLoading) && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-xl">
-            <div className="sticky top-0 bg-white p-5 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-gray-900">Order Details</h3>
-              <button
-                onClick={() => setSelectedOrder(null)}
-                className="p-1.5 hover:bg-gray-100 rounded-lg transition"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-
-            {detailLoading || !selectedOrder ? (
-              <div className="p-10 flex justify-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-500"></div>
-              </div>
-            ) : (
-              <>
-                <div className="p-6 space-y-4">
-                  <div>
-                    <p className="text-xs text-gray-400">Order ID</p>
-                    <p className="font-mono text-sm text-gray-800">{selectedOrder.id}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">Customer</p>
-                    <p className="font-medium text-sm text-gray-800">{selectedOrder.customer?.fullName}</p>
-                    <p className="text-sm text-gray-500">{selectedOrder.customer?.email}</p>
-                    <p className="text-sm text-gray-500">{selectedOrder.customer?.phone}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">Restaurant</p>
-                    <p className="font-medium text-sm text-gray-800">{selectedOrder.restaurant?.name}</p>
-                    <p className="text-sm text-gray-500">{selectedOrder.restaurant?.address}</p>
-                  </div>
-                  {selectedOrder.agent?.fullName && (
-                    <div>
-                      <p className="text-xs text-gray-400">Delivery Agent</p>
-                      <p className="font-medium text-sm text-gray-800">{selectedOrder.agent.fullName}</p>
-                    </div>
-                  )}
-                  {selectedOrder.items && selectedOrder.items.length > 0 && (
-                    <div>
-                      <p className="text-xs text-gray-400 mb-1">Items</p>
-                      <div className="space-y-1">
-                        {selectedOrder.items.map((item) => (
-                          <div key={item.id} className="flex justify-between text-sm text-gray-700">
-                            <span>{item.quantity}x {item.name || 'Item'}</span>
-                            <span>৳{item.price}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
-                    <div>
-                      <p className="text-xs text-gray-400">Subtotal</p>
-                      <p className="text-sm text-gray-700">৳{selectedOrder.subtotal}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400">Delivery Fee</p>
-                      <p className="text-sm text-gray-700">৳{selectedOrder.deliveryFee}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">Total Amount</p>
-                    <p className="text-2xl font-bold text-orange-600 tabular-nums">৳{selectedOrder.totalAmount}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 mb-1">Status</p>
-                    <span
-                      className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium ring-1 ring-inset ${getStatusMeta(selectedOrder.status).color} ${getStatusMeta(selectedOrder.status).ring}`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full ${getStatusMeta(selectedOrder.status).dot}`} />
-                      {getStatusMeta(selectedOrder.status).text}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">Placed At</p>
-                    <p className="text-sm text-gray-700">
-                      {selectedOrder.placedAt ? new Date(selectedOrder.placedAt).toLocaleString() : 'N/A'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* ✅ Real status-update and cancel actions — previously this modal was read-only */}
-                {selectedOrder.status !== 'delivered' && selectedOrder.status !== 'cancelled' && (
-                  <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4 space-y-2.5">
-                    <div className="flex gap-2">
-                      <select
-                        disabled={updatingStatus}
-                        defaultValue=""
-                        onChange={(e) => e.target.value && handleUpdateStatus(e.target.value)}
-                        className="flex-1 px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 disabled:opacity-50"
-                      >
-                        <option value="" disabled>Move to next status...</option>
-                        {STATUS_FLOW.filter(
-                          (s) => STATUS_FLOW.indexOf(s) > STATUS_FLOW.indexOf(selectedOrder.status),
-                        ).map((s) => (
-                          <option key={s} value={s}>{getStatusMeta(s).text}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <button
-                      onClick={handleCancelOrder}
-                      className="w-full flex items-center justify-center gap-2 bg-red-50 text-red-600 py-2.5 rounded-xl text-sm font-medium hover:bg-red-100 transition"
-                    >
-                      <Ban className="w-4 h-4" />
-                      Cancel Order
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

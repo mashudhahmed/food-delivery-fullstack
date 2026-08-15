@@ -142,7 +142,7 @@ export default function Navbar() {
       window.removeEventListener('auth-change', handleAuthChange);
       window.removeEventListener('open-auth-modal', handleOpenAuthModal);
     };
-  }, []);
+  }, [auth]);
 
   const handleLogoutClick = () => {
     setIsLogoutModalOpen(true);
@@ -307,11 +307,22 @@ export default function Navbar() {
                       onClick={() => setIsProfileOpen(!isProfileOpen)}
                       className="flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-full hover:bg-slate-100 transition"
                     >
-                      <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
-                        <User className="w-4 h-4 text-orange-600" />
+                      <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden">
+                        {user?.profilePicture ? (
+                          <Image
+                            src={user.profilePicture}
+                            alt="Profile"
+                            width={32}
+                            height={32}
+                            unoptimized
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <User className="w-4 h-4 text-orange-600" />
+                        )}
                       </div>
                       <span className="hidden sm:inline text-sm font-medium text-slate-700">
-                        {user?.fullName?.split(' ')[0]}
+                        {user?.fullName?.split(' ')[0] || 'User'}
                       </span>
                       <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                     </button>
@@ -322,17 +333,18 @@ export default function Navbar() {
                           <p className="text-sm font-semibold text-slate-900 truncate">{user?.fullName}</p>
                           <p className="text-xs text-slate-400 truncate">{user?.email}</p>
                         </div>
-                        {roleBasedLinks.map((link) => (
+
+                        {/* ✅ DROPDOWN FIX: No roleBasedLinks here */}
+                        {user?.role === 'customer' && (
                           <Link
-                            key={link.href}
-                            href={link.href}
+                            href="/profile"
                             onClick={() => setIsProfileOpen(false)}
                             className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition"
                           >
-                            <link.icon className="w-4 h-4 text-slate-400" />
-                            {link.label}
+                            <User className="w-4 h-4 text-slate-400" />
+                            My Profile
                           </Link>
-                        ))}
+                        )}
                         <Link
                           href="/settings"
                           onClick={() => setIsProfileOpen(false)}
@@ -390,11 +402,11 @@ export default function Navbar() {
                   <button
                     key={type}
                     onClick={() => setDeliveryType(type)}
-                    className={`px-5 py-1.5 rounded-full text-sm font-medium capitalize transition ${
+                    className={`px-5 py-1.5 rounded-full text-sm font-medium capitalize transition ${(
                       deliveryType === type
                         ? 'bg-white text-orange-600 shadow-sm'
                         : 'text-slate-500 hover:text-slate-700'
-                    }`}
+                    )}`}
                   >
                     {type === 'pickup' ? 'Pick-up' : 'Delivery'}
                   </button>
@@ -471,6 +483,18 @@ export default function Navbar() {
                 </Link>
               ))}
 
+              {/* ✅ Production Fix: Only Customers see "My Profile" in mobile menu */}
+              {isAuthenticated && user?.role === 'customer' && (
+                <Link
+                  href="/profile"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-3 p-3.5 rounded-xl hover:bg-slate-50 text-slate-700"
+                >
+                  <User className="w-5 h-5 text-slate-400" />
+                  My Profile
+                </Link>
+              )}
+
               <Link
                 href="/settings"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -546,21 +570,39 @@ export default function Navbar() {
                       onClick={() => setIsProfileOpen(!isProfileOpen)}
                       className="flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-full hover:bg-slate-100 transition"
                     >
-                      <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
-                        <User className="w-4 h-4 text-orange-600" />
+                      <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden">
+                        {user?.profilePicture ? (
+                          <Image
+                            src={user.profilePicture}
+                            alt="Profile"
+                            width={32}
+                            height={32}
+                            unoptimized
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <User className="w-4 h-4 text-orange-600" />
+                        )}
                       </div>
                       <span className="hidden sm:inline text-sm font-medium text-slate-700">
-                        {user?.fullName?.split(' ')[0]}
+                        {user?.fullName?.split(' ')[0] || 'User'}
                       </span>
                       <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                     </button>
                     {isProfileOpen && (
                       <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50">
-                        {roleBasedLinks.map((link) => (
-                          <Link key={link.href} href={link.href} onClick={() => setIsProfileOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50">
-                            <link.icon className="w-4 h-4 text-slate-400" /> {link.label}
+                        <div className="px-4 py-3 border-b border-slate-100">
+                          <p className="text-sm font-semibold text-slate-900">{user?.fullName}</p>
+                          <p className="text-xs text-slate-400">{user?.email}</p>
+                        </div>
+
+                        {/* ✅ DROPDOWN FIX: No roleBasedLinks here */}
+                        {user?.role === 'customer' && (
+                          <Link href="/profile" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50">
+                            <User className="w-4 h-4 text-slate-400" />
+                            My Profile
                           </Link>
-                        ))}
+                        )}
                         <Link href="/settings" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50">
                           <Settings className="w-4 h-4 text-slate-400" /> Settings
                         </Link>
@@ -585,8 +627,8 @@ export default function Navbar() {
     );
   }
 
-  // Dashboard navbar
-  if (isDashboardPage) {
+  // Dashboard navbar - FINAL UNIFIED DROPDOWN
+  if (isDashboardPage && user?.role) {
     const userRole = user?.role || 'admin';
     const dashboardPath = `/${userRole}/dashboard`;
     const portalTitle =
@@ -612,8 +654,6 @@ export default function Navbar() {
 
               <div className="flex items-center gap-0.5">
                 <NotificationDropdown />
-                <button className={iconBtn}><HelpCircle className="w-5 h-5 text-slate-500" /></button>
-                <Link href="/settings" className={iconBtn}><Settings className="w-5 h-5 text-slate-500" /></Link>
                 <div className="w-px h-6 bg-slate-200 mx-1.5" />
 
                 <div className="relative" ref={profileMenuRef}>
@@ -621,8 +661,19 @@ export default function Navbar() {
                     onClick={() => setIsProfileOpen(!isProfileOpen)}
                     className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full hover:bg-slate-50 transition"
                   >
-                    <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
-                      <User className="w-4 h-4 text-orange-600" />
+                    <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden">
+                      {user?.profilePicture ? (
+                        <Image
+                          src={user.profilePicture}
+                          alt="Profile"
+                          width={32}
+                          height={32}
+                          unoptimized
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="w-4 h-4 text-orange-600" />
+                      )}
                     </div>
                     <span className="hidden sm:inline text-sm font-medium text-slate-700">
                       {user?.fullName?.split(' ')[0] || 'User'}
@@ -631,6 +682,7 @@ export default function Navbar() {
                   </button>
                   {isProfileOpen && (
                     <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50">
+                      {/* Header */}
                       <div className="px-4 py-3 border-b border-slate-100">
                         <p className="text-sm font-semibold text-slate-900">{user?.fullName || 'User'}</p>
                         <p className="text-xs text-slate-400">{user?.email}</p>
@@ -641,15 +693,38 @@ export default function Navbar() {
                           </span>
                         </div>
                       </div>
-                      <Link href="/profile" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50">
-                        <User className="w-4 h-4 text-slate-400" /> My Profile
-                      </Link>
-                      <Link href="/settings" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50">
-                        <Settings className="w-4 h-4 text-slate-400" /> Settings
-                      </Link>
+
+                      {/* ✅ UNIFIED DROPDOWN LINKS - Everything removed except personal links */}
+                      <div className="py-1">
+                        {user?.role === 'customer' && (
+                          <Link 
+                            href="/profile" 
+                            onClick={() => setIsProfileOpen(false)} 
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition"
+                          >
+                            <User className="w-4 h-4 text-slate-400" />
+                            My Profile
+                          </Link>
+                        )}
+                        
+                        <Link 
+                          href="/settings" 
+                          onClick={() => setIsProfileOpen(false)} 
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition"
+                        >
+                          <Settings className="w-4 h-4 text-slate-400" />
+                          Settings
+                        </Link>
+                      </div>
+
                       <div className="my-1 border-t border-slate-100" />
-                      <button onClick={handleLogoutClick} className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50">
-                        <LogOut className="w-4 h-4" /> Log out
+                      
+                      <button 
+                        onClick={handleLogoutClick} 
+                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Log out
                       </button>
                     </div>
                   )}
@@ -682,11 +757,11 @@ export default function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`px-3.5 py-2 rounded-xl text-sm font-medium transition ${
+                  className={`px-3.5 py-2 rounded-xl text-sm font-medium transition ${(
                     pathname === link.href
                       ? 'text-orange-600 bg-orange-50'
                       : 'text-slate-600 hover:text-orange-600 hover:bg-slate-50'
-                  }`}
+                  )}`}
                 >
                   {link.label}
                 </Link>
@@ -721,11 +796,22 @@ export default function Navbar() {
                     onClick={() => setIsProfileOpen(!isProfileOpen)}
                     className="flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-full hover:bg-slate-100 transition"
                   >
-                    <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
-                      <User className="w-4 h-4 text-orange-600" />
+                    <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden">
+                      {user?.profilePicture ? (
+                        <Image
+                          src={user.profilePicture}
+                          alt="Profile"
+                          width={32}
+                          height={32}
+                          unoptimized
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="w-4 h-4 text-orange-600" />
+                      )}
                     </div>
                     <span className="hidden sm:inline text-sm font-medium text-slate-700">
-                      {user?.fullName?.split(' ')[0]}
+                      {user?.fullName?.split(' ')[0] || 'User'}
                     </span>
                     <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                   </button>
@@ -735,11 +821,14 @@ export default function Navbar() {
                         <p className="text-sm font-semibold text-slate-900">{user?.fullName}</p>
                         <p className="text-xs text-slate-400">{user?.email}</p>
                       </div>
-                      {roleBasedLinks.map((link) => (
-                        <Link key={link.href} href={link.href} onClick={() => setIsProfileOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50">
-                          <link.icon className="w-4 h-4 text-slate-400" /> {link.label}
+
+                      {/* ✅ DROPDOWN FIX: No roleBasedLinks here */}
+                      {user?.role === 'customer' && (
+                        <Link href="/profile" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50">
+                          <User className="w-4 h-4 text-slate-400" />
+                          My Profile
                         </Link>
-                      ))}
+                      )}
                       <Link href="/settings" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50">
                         <Settings className="w-4 h-4 text-slate-400" /> Settings
                       </Link>

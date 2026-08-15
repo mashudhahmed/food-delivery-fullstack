@@ -19,27 +19,27 @@ import {
   Mail,
   Phone,
   Shield,
-  Users,
   MessageSquare,
-  Gift,
   FileText,
-  ChevronDown,
-  Check,
   AlertCircle,
   Volume2,
   VolumeX,
-  Eye,
-  EyeOff
 } from 'lucide-react';
 import { auth } from '@/lib/auth';
+import { api } from '@/lib/api';
 import { useAddressStore } from '@/stores/addressStore';
+import { useFavoritesStore } from '@/stores/favoritesStore';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+
+// ✅ Import the existing LogoutModal
+import LogoutModal from '@/components/LogoutModal';
 
 export default function SettingsPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('profile');
   
   // Settings state
@@ -57,7 +57,7 @@ export default function SettingsPage() {
   });
   
   const [appearance, setAppearance] = useState({
-    theme: 'light', // light, dark, system
+    theme: 'light',
     language: 'en',
     currency: 'BDT',
   });
@@ -67,43 +67,208 @@ export default function SettingsPage() {
     volume: 70,
   });
 
+  // ✅ New State for Logout Modal
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+
+  // Determine which sections to show based on user role
+  const getSections = () => {
+    const baseSections = [
+      { id: 'profile', label: 'Profile Information', icon: User },
+      { id: 'notifications', label: 'Notifications', icon: Bell },
+      { id: 'privacy', label: 'Privacy & Security', icon: Lock },
+      { id: 'appearance', label: 'Appearance & Language', icon: Globe },
+      { id: 'support', label: 'Support', icon: HelpCircle },
+    ];
+
+    // Only Customers, Owners, and Agents need these sections
+    if (user?.role !== 'admin') {
+      baseSections.splice(1, 0, { id: 'addresses', label: 'Saved Addresses', icon: MapPin });
+      baseSections.splice(2, 0, { id: 'payment', label: 'Payment Methods', icon: CreditCard });
+      baseSections.splice(3, 0, { id: 'favorites', label: 'Favorites', icon: Heart });
+    }
+
+    return baseSections;
+  };
+
   useEffect(() => {
     const authenticated = auth.isAuthenticated();
     setIsAuthenticated(authenticated);
     if (authenticated) {
-      setUser(auth.getCurrentUser());
+      const currentUser = auth.getCurrentUser();
+      setUser(currentUser);
+      
+      // Fetch user notification preferences from backend
+      const fetchPreferences = async () => {
+        try {
+          const res = await api.get('/users/me/notification-preferences');
+          const data = res.data?.data || res.data;
+          if (data) {
+            setNotifications({
+              orderUpdates: data.emailOrderStatus ?? true,
+              promotionalEmails: data.emailPromotional ?? false,
+              smsAlerts: data.smsAlerts ?? true,
+              appNotifications: data.pushOrderStatus ?? true,
+            });
+          }
+        } catch (error) {
+          console.error('Failed to load preferences:', error);
+        }
+      };
+      fetchPreferences();
     } else {
       router.push('/login');
     }
+    setLoading(false);
   }, [router]);
 
-  const handleLogout = () => {
+  // ✅ NEW: Read the ?tab= parameter from the URL and switch sections
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab) {
+      setActiveSection(tab);
+    }
+  }, []);
+
+  // Handle Role-Based Access: If an admin tries to access a restricted section, redirect to 'profile'
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      const restrictedSections = ['addresses', 'payment', 'favorites'];
+      if (restrictedSections.includes(activeSection)) {
+        setActiveSection('profile');
+        toast.info('This section is not available for your account type.');
+      }
+    }
+  }, [activeSection, user]);
+
+  // ✅ Removed direct handleLogout - now uses the modal
+  const handleConfirmLogout = async () => {
+    setIsLogoutModalOpen(false);
     auth.logout();
     toast.success('Logged out successfully');
-    router.push('/login');
+    router.push('/');
   };
 
   const handleUpdateProfile = async () => {
-    toast.success('Profile updated successfully');
+    try {
+      const payload = {
+        fullName: (document.getElementById('fullName') as HTMLInputElement)?.value || user?.fullName,
+        phone: (document.getElementById('phone') as HTMLInputElement)?.value || user?.phone,
+      };
+      await api.patch('/users/me', payload);
+      toast.success('Profile updated successfully');
+      // Refresh user data
+      const updatedUser = auth.getCurrentUser();
+      setUser(updatedUser);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update profile');
+    }
   };
 
-  const sections = [
-    { id: 'profile', label: 'Profile Information', icon: User },
-    { id: 'addresses', label: 'Saved Addresses', icon: MapPin },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'privacy', label: 'Privacy & Security', icon: Lock },
-    { id: 'appearance', label: 'Appearance & Language', icon: Globe },
-    { id: 'payment', label: 'Payment Methods', icon: CreditCard },
-    { id: 'favorites', label: 'Favorites', icon: Heart },
-    { id: 'support', label: 'Support', icon: HelpCircle },
-  ];
+  const handleUpdatePassword = async () => {
+    const currentPassword = (document.getElementById('currentPassword') as HTMLInputElement)?.value;
+    const newPassword = (document.getElementById('newPassword') as HTMLInputElement)?.value;
+    const confirmPassword = (document.getElementById('confirmPassword') as HTMLInputElement)?.value;
 
-  if (!isAuthenticated) {
-    return null;
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error('Please fill in all password fields');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+
+    try {
+      await api.patch('/users/me/password', { currentPassword, newPassword });
+      toast.success('Password updated successfully');
+      // Clear fields
+      (document.getElementById('currentPassword') as HTMLInputElement).value = '';
+      (document.getElementById('newPassword') as HTMLInputElement).value = '';
+      (document.getElementById('confirmPassword') as HTMLInputElement).value = '';
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update password');
+    }
+  };
+
+  const handleUpdateNotifications = async () => {
+    try {
+      await api.patch('/users/me/notification-preferences', notifications);
+      toast.success('Notification preferences updated');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update preferences');
+    }
+  };
+
+  // ✅ Handle profile picture upload for ALL users
+  const handleProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (Max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('File size must be less than 2MB');
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload a valid image file');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await api.post('/uploads/profile', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      // Unwrap the standard backend response
+      const data = response.data?.data || response.data;
+      const secureUrl = data.secureUrl || data.url;
+
+      // Update the user in local storage and state
+      if (secureUrl) {
+        const updatedUser = { ...user, profilePicture: secureUrl };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        setUser(updatedUser);
+        
+        // Notify the Navbar to update the avatar
+        window.dispatchEvent(new Event('auth-change'));
+
+        toast.success('Profile picture updated successfully!');
+      } else {
+        toast.error('Could not retrieve image URL from server.');
+      }
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Failed to upload profile picture';
+      toast.error(message);
+      console.error('Upload error:', error);
+    }
+  };
+
+  if (loading || !isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+      </div>
+    );
   }
+
+  const sections = getSections();
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* ✅ Add LogoutModal here */}
+      <LogoutModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={handleConfirmLogout}
+      />
+
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -134,8 +299,9 @@ export default function SettingsPage() {
               ))}
               
               <div className="border-t border-gray-100">
+                {/* ✅ UPDATED LOGOUT BUTTON TO OPEN MODAL */}
                 <button
-                  onClick={handleLogout}
+                  onClick={() => setIsLogoutModalOpen(true)}
                   className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 transition"
                 >
                   <LogOut className="w-5 h-5" />
@@ -147,7 +313,7 @@ export default function SettingsPage() {
 
           {/* Main Content */}
           <div className="flex-1">
-            {/* Profile Section */}
+            {/* Profile Section - UPDATED WITH WORKING IMAGE UPLOAD */}
             {activeSection === 'profile' && (
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="p-6 border-b border-gray-100">
@@ -158,20 +324,38 @@ export default function SettingsPage() {
                 <div className="p-6 space-y-6">
                   {/* Avatar */}
                   <div className="flex items-center gap-4">
-                    <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center">
-                      {user?.fullName ? (
-                        <span className="text-2xl font-bold text-orange-600">
-                          {user.fullName.charAt(0).toUpperCase()}
-                        </span>
+                    <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center overflow-hidden relative group">
+                      {/* ✅ Show uploaded image, or fallback to initials */}
+                      {user?.profilePicture ? (
+                        <img 
+                          src={user.profilePicture} 
+                          alt="Profile" 
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
-                        <User className="w-10 h-10 text-orange-600" />
+                        <span className="text-2xl font-bold text-orange-600">
+                          {user?.fullName?.charAt(0).toUpperCase() || 'U'}
+                        </span>
                       )}
                     </div>
+                    
                     <div>
-                      <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition">
+                      {/* ✅ CRITICAL FIX: Added name="image" to the input */}
+                      <input 
+                        type="file" 
+                        id="profile-upload" 
+                        name="image" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleProfileUpload}
+                      />
+                      <label 
+                        htmlFor="profile-upload"
+                        className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition cursor-pointer inline-block"
+                      >
                         Change Photo
-                      </button>
-                      <p className="text-xs text-gray-400 mt-1">JPG, PNG or GIF. Max 2MB</p>
+                      </label>
+                      <p className="text-xs text-gray-400 mt-1">JPG, PNG or WebP. Max 2MB</p>
                     </div>
                   </div>
 
@@ -182,6 +366,7 @@ export default function SettingsPage() {
                         Full Name
                       </label>
                       <input
+                        id="fullName"
                         type="text"
                         defaultValue={user?.fullName || ''}
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
@@ -194,7 +379,8 @@ export default function SettingsPage() {
                       <input
                         type="email"
                         defaultValue={user?.email || ''}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
                       />
                     </div>
                     <div>
@@ -202,17 +388,9 @@ export default function SettingsPage() {
                         Phone Number
                       </label>
                       <input
+                        id="phone"
                         type="tel"
                         defaultValue={user?.phone || ''}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Date of Birth
-                      </label>
-                      <input
-                        type="date"
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
                       />
                     </div>
@@ -228,15 +406,25 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Addresses Section */}
-            {activeSection === 'addresses' && <AddressesSection />}
+            {/* Addresses Section - Hidden for Admin */}
+            {activeSection === 'addresses' && user?.role !== 'admin' && <AddressesSection />}
 
             {/* Notifications Section */}
             {activeSection === 'notifications' && (
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="p-6 border-b border-gray-100">
-                  <h2 className="text-xl font-semibold text-gray-800">Notification Preferences</h2>
-                  <p className="text-sm text-gray-500 mt-1">Manage how you receive updates</p>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-800">Notification Preferences</h2>
+                      <p className="text-sm text-gray-500 mt-1">Manage how you receive updates</p>
+                    </div>
+                    <button
+                      onClick={handleUpdateNotifications}
+                      className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition"
+                    >
+                      Save Preferences
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="divide-y divide-gray-100">
@@ -341,21 +529,27 @@ export default function SettingsPage() {
                   <h3 className="font-medium text-gray-800 mb-3">Change Password</h3>
                   <div className="space-y-3">
                     <input
+                      id="currentPassword"
                       type="password"
                       placeholder="Current Password"
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
                     />
                     <input
+                      id="newPassword"
                       type="password"
                       placeholder="New Password"
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
                     />
                     <input
+                      id="confirmPassword"
                       type="password"
                       placeholder="Confirm New Password"
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
                     />
-                    <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition">
+                    <button
+                      onClick={handleUpdatePassword}
+                      className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition"
+                    >
                       Update Password
                     </button>
                   </div>
@@ -483,11 +677,11 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Payment Methods Section */}
-            {activeSection === 'payment' && <PaymentMethodsSection />}
+            {/* Payment Methods Section - Hidden for Admin */}
+            {activeSection === 'payment' && user?.role !== 'admin' && <PaymentMethodsSection />}
 
-            {/* Favorites Section */}
-            {activeSection === 'favorites' && <FavoritesSection />}
+            {/* Favorites Section - Hidden for Admin */}
+            {activeSection === 'favorites' && user?.role !== 'admin' && <FavoritesSection />}
 
             {/* Support Section */}
             {activeSection === 'support' && <SupportSection />}
@@ -517,28 +711,9 @@ function ToggleButton({ value, onChange }: { value: boolean; onChange: () => voi
   );
 }
 
-// Addresses Section Component
+// Addresses Section Component (Only for Customers, Owners, Agents)
 function AddressesSection() {
   const { addresses, selectedAddress, setSelectedAddress, removeAddress } = useAddressStore();
-  const [isAdding, setIsAdding] = useState(false);
-  const [newAddress, setNewAddress] = useState({ street: '', city: '', area: '' });
-
-  const handleAddAddress = () => {
-    if (!newAddress.street || !newAddress.city) return;
-    
-    const address = {
-      id: Date.now().toString(),
-      name: 'Custom Address',
-      street: newAddress.street,
-      city: newAddress.city,
-      area: newAddress.area,
-    };
-    
-    // Add to store (you'll need to implement this in your store)
-    toast.success('Address added successfully');
-    setIsAdding(false);
-    setNewAddress({ street: '', city: '', area: '' });
-  };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -548,7 +723,10 @@ function AddressesSection() {
           <p className="text-sm text-gray-500 mt-1">Manage your delivery addresses</p>
         </div>
         <button
-          onClick={() => setIsAdding(true)}
+          onClick={() => {
+            // Trigger location modal via global event
+            window.dispatchEvent(new Event('open-location-modal'));
+          }}
           className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition"
         >
           Add New Address
@@ -560,12 +738,6 @@ function AddressesSection() {
           <div className="p-12 text-center">
             <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500">No saved addresses yet</p>
-            <button
-              onClick={() => setIsAdding(true)}
-              className="mt-3 text-orange-500 hover:underline text-sm"
-            >
-              Add your first address
-            </button>
           </div>
         ) : (
           addresses.map((address) => (
@@ -603,57 +775,11 @@ function AddressesSection() {
           ))
         )}
       </div>
-
-      {/* Add Address Modal */}
-      {isAdding && (
-        <div className="fixed inset-0 bg-black/50 z-100 flex items-center justify-center">
-          <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-6">
-            <h3 className="text-xl font-semibold mb-4">Add New Address</h3>
-            <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Street Address"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                value={newAddress.street}
-                onChange={(e) => setNewAddress({ ...newAddress, street: e.target.value })}
-              />
-              <input
-                type="text"
-                placeholder="Area"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                value={newAddress.area}
-                onChange={(e) => setNewAddress({ ...newAddress, area: e.target.value })}
-              />
-              <input
-                type="text"
-                placeholder="City"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                value={newAddress.city}
-                onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
-              />
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setIsAdding(false)}
-                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddAddress}
-                className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
-              >
-                Save Address
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-// Payment Methods Section
+// Payment Methods Section (Only for Customers, Owners, Agents)
 function PaymentMethodsSection() {
   const [paymentMethods, setPaymentMethods] = useState([
     { id: 1, type: 'card', last4: '4242', brand: 'Visa', expiry: '12/25', isDefault: true },
@@ -699,21 +825,17 @@ function PaymentMethodsSection() {
   );
 }
 
-// Favorites Section
+// Favorites Section (Only for Customers, Owners, Agents)
 function FavoritesSection() {
-  const favorites = [
-    { id: 1, name: 'Pizza Paradise', cuisine: 'Italian', rating: 4.8, image: '/placeholder.jpg' },
-    { id: 2, name: 'Burger House', cuisine: 'American', rating: 4.5, image: '/placeholder.jpg' },
-  ];
+  const { items } = useFavoritesStore();
 
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="p-6 border-b border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800">Favorite Restaurants</h2>
-        <p className="text-sm text-gray-500 mt-1">Your saved restaurants</p>
-      </div>
-
-      {favorites.length === 0 ? (
+  if (items.length === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-6 border-b border-gray-100">
+          <h2 className="text-xl font-semibold text-gray-800">Favorite Restaurants</h2>
+          <p className="text-sm text-gray-500 mt-1">Your saved restaurants</p>
+        </div>
         <div className="p-12 text-center">
           <Heart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500">No favorite restaurants yet</p>
@@ -721,29 +843,37 @@ function FavoritesSection() {
             Browse restaurants
           </Link>
         </div>
-      ) : (
-        <div className="divide-y divide-gray-100">
-          {favorites.map((restaurant) => (
-            <div key={restaurant.id} className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <span className="text-2xl">🍕</span>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-800">{restaurant.name}</p>
-                  <p className="text-sm text-gray-500">{restaurant.cuisine} • ⭐ {restaurant.rating}</p>
-                </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="p-6 border-b border-gray-100">
+        <h2 className="text-xl font-semibold text-gray-800">Favorite Restaurants</h2>
+        <p className="text-sm text-gray-500 mt-1">Your saved restaurants</p>
+      </div>
+      <div className="divide-y divide-gray-100">
+        {items.map((restaurant) => (
+          <div key={restaurant.id} className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <span className="text-2xl">🍕</span>
               </div>
-              <Link
-                href={`/restaurants/${restaurant.id}`}
-                className="px-3 py-1 text-sm text-orange-500 hover:bg-orange-50 rounded-lg transition"
-              >
-                View
-              </Link>
+              <div>
+                <p className="font-medium text-gray-800">{restaurant.name}</p>
+                <p className="text-sm text-gray-500">{restaurant.cuisineType || 'Restaurant'} • ⭐ {restaurant.rating || 'New'}</p>
+              </div>
             </div>
-          ))}
-        </div>
-      )}
+            <Link
+              href={`/restaurants/${restaurant.id}`}
+              className="px-3 py-1 text-sm text-orange-500 hover:bg-orange-50 rounded-lg transition"
+            >
+              View
+            </Link>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

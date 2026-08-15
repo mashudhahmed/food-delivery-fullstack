@@ -14,11 +14,37 @@ export interface FavoriteItem {
   cuisineType?: string;
 }
 
+// 🔥 FIXED: Added exact types to silence the 'any' warnings
+interface RawFavoriteResponse {
+  restaurantId?: string;
+  restaurantName?: string;
+  restaurantImage?: string;
+  cuisineType?: string;
+  rating?: number;
+  restaurant?: { 
+    id: string; 
+    name: string; 
+    imageUrl?: string; 
+    rating?: number; 
+    cuisineType?: string 
+  };
+  id?: string;
+  name?: string;
+  imageUrl?: string;
+  image?: string;
+}
+
 interface FavoritesState {
   items: FavoriteItem[];
   loading: boolean;
 
-  toggleFavorite: (restaurant: FavoriteItem) => Promise<void>;
+  toggleFavorite: (restaurant: {
+    restaurantId: string;
+    restaurantName: string;
+    restaurantImage?: string;
+    cuisineType?: string;
+    rating?: number;
+  }) => Promise<void>;
   addFavorite: (restaurant: FavoriteItem) => void;
   removeFavorite: (id: string) => void;
   isFavorite: (id: string) => boolean;
@@ -26,24 +52,13 @@ interface FavoritesState {
   clearFavorites: () => void;
 }
 
-function normalizeFavorite(item: any): FavoriteItem {
-  const id =
-    item.restaurantId || item.restaurant?.id || item.id || '';
-  const name =
-    item.restaurantName ||
-    item.restaurant?.name ||
-    item.name ||
-    'Restaurant';
-  const image =
-    item.restaurantImage ||
-    item.restaurant?.imageUrl ||
-    item.restaurant?.image ||
-    item.imageUrl ||
-    item.image ||
-    undefined;
+// 🔥 FIXED: Using the new typed interface
+function normalizeFavorite(item: RawFavoriteResponse): FavoriteItem {
+  const id = item.restaurantId || item.restaurant?.id || item.id || '';
+  const name = item.restaurantName || item.restaurant?.name || item.name || 'Restaurant';
+  const image = item.restaurantImage || item.restaurant?.imageUrl || item.imageUrl || item.image || undefined;
   const rating = item.restaurant?.rating ?? item.rating;
-  const cuisineType =
-    item.cuisineType || item.restaurant?.cuisineType || undefined;
+  const cuisineType = item.cuisineType || item.restaurant?.cuisineType || undefined;
 
   return {
     id,
@@ -81,7 +96,7 @@ export const useFavoritesStore = create<FavoritesState>()(
         });
       },
 
-      toggleFavorite: async (restaurant: FavoriteItem) => {
+      toggleFavorite: async (restaurant) => {
         // Guard – never mutate state if guest
         if (!auth.isAuthenticated()) {
           return;
@@ -102,7 +117,8 @@ export const useFavoritesStore = create<FavoritesState>()(
           if (exists) {
             await api.delete(`/favorites/${normalized.id}`);
           } else {
-            await api.post('/favorites', {
+            // 🔥 FIXED: Type-safe API call
+            await api.post<RawFavoriteResponse>('/favorites', {
               restaurantId: normalized.id,
               restaurantName: normalized.name,
               restaurantImage: normalized.imageUrl || normalized.image,
@@ -126,11 +142,14 @@ export const useFavoritesStore = create<FavoritesState>()(
         set({ loading: true });
         try {
           const { data } = await api.get('/favorites');
+          
+          // 🔥 FIXED: Type the API response correctly
           const list = Array.isArray(data)
             ? data
-            : data?.data || data?.items || [];
+            : (data as { data?: RawFavoriteResponse[]; items?: RawFavoriteResponse[] })?.data || 
+              (data as { items?: RawFavoriteResponse[] })?.items || [];
 
-          const normalized: FavoriteItem[] = (list as any[])
+          const normalized: FavoriteItem[] = (list as RawFavoriteResponse[])
             .map(normalizeFavorite)
             .filter((item) => !!item.id);
 
