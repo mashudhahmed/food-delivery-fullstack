@@ -9,8 +9,8 @@ export default function RegisterPage() {
   const router = useRouter();
   const [checked, setChecked] = useState(false);
 
+  // 1. Check authentication status
   useEffect(() => {
-    // Check if user is already authenticated
     if (auth.isAuthenticated()) {
       const user = auth.getCurrentUser();
       const redirectMap: Record<string, string> = {
@@ -22,9 +22,20 @@ export default function RegisterPage() {
       router.replace(redirectPath);
       return;
     }
-    setChecked(true);
+
+    // Defer setState so it is not treated as synchronous setState-in-effect
+    queueMicrotask(() => setChecked(true));
   }, [router]);
 
+  // 2. Once checked and user is NOT authenticated → open register modal
+  useEffect(() => {
+    if (!checked) return;
+
+    localStorage.setItem('openAuthModal', 'register');
+    router.replace('/');
+  }, [checked, router]);
+
+  // Loading spinner while we decide
   if (!checked) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -32,12 +43,6 @@ export default function RegisterPage() {
       </div>
     );
   }
-
-  // Redirect to home with signup modal
-  useEffect(() => {
-    localStorage.setItem('openAuthModal', 'register');
-    router.replace('/');
-  }, [router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">

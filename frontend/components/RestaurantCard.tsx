@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Star, Heart } from "lucide-react";
 import { useFavoritesStore } from "@/stores/favoritesStore";
 import { auth } from "@/lib/auth";
-import { toast } from "sonner"; // or "react-hot-toast" if you prefer
+import toast from "react-hot-toast";  // ✅ FIXED: changed from "sonner"
 
 interface RestaurantCardProps {
   restaurant: {
@@ -36,24 +36,17 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
 
     // ✅ Not logged in → prompt to log in, do NOT toggle
     if (!auth.isAuthenticated()) {
-      toast.error("Please log in to add favorites", {
-        description: "Sign in to save restaurants you love.",
-        action: {
-          label: "Log in",
-          onClick: () => {
-            // Dispatch a custom event that Navbar listens to, or open AuthModal
-            window.dispatchEvent(new CustomEvent("open-auth-modal", { detail: { mode: "login" } }));
-          },
-        },
-      });
+      toast.error("Please log in to add favorites. Sign in to save restaurants you love.");
       return;
     }
 
+    // ✅ FIXED: Use correct property names for toggleFavorite
     toggleFavorite({
-      id: restaurant.id,
-      name: restaurant.name,
-      image: imageSrc || undefined,
+      restaurantId: restaurant.id,
+      restaurantName: restaurant.name,
+      restaurantImage: imageSrc || undefined,
       rating: restaurant.rating,
+      cuisineType: restaurant.cuisineType,
     });
 
     toast.success(isFavorite ? "Removed from favorites" : "Added to favorites");

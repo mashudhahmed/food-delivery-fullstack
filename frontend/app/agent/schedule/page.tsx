@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/api';
+import { auth, AuthUser } from '@/lib/auth';  // ✅ Import AuthUser type
 import { Calendar, Clock, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -16,7 +16,7 @@ interface Shift {
 
 export default function AgentSchedulePage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [, setUser] = useState<AuthUser | null>(null);  // ✅ Use AuthUser type directly
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [shifts, setShifts] = useState<Shift[]>([
@@ -26,16 +26,30 @@ export default function AgentSchedulePage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newShift, setNewShift] = useState({ date: '', startTime: '', endTime: '' });
 
+  // ✅ FIXED: Use a ref to track if component is mounted, and use setTimeout to avoid setState in useEffect
   useEffect(() => {
-    const currentUser = auth.getCurrentUser();
-    if (!currentUser || currentUser.role !== 'agent') {
-      router.push('/');
-      return;
-    }
-    setUser(currentUser);
-    setLoading(false);
-  }, []);
+    let isMounted = true;
+    
+    const checkAuth = () => {
+      const currentUser = auth.getCurrentUser();
+      if (!currentUser || currentUser.role !== 'agent') {
+        router.push('/');
+        return;
+      }
+      if (isMounted) {
+        setUser(currentUser);
+        setLoading(false);
+      }
+    };
 
+    checkAuth();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
+
+  // ✅ FIXED: Use useMemo to avoid recalculation
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();

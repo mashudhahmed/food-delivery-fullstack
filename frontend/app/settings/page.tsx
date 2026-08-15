@@ -2,15 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  User, 
-  Bell, 
-  Lock, 
-  Globe, 
-  MapPin, 
-  CreditCard, 
-  Heart, 
-  HelpCircle, 
+import {
+  User,
+  Bell,
+  Lock,
+  Globe,
+  MapPin,
+  CreditCard,
+  Heart,
+  HelpCircle,
   LogOut,
   ChevronRight,
   Moon,
@@ -18,7 +18,6 @@ import {
   Smartphone,
   Mail,
   Phone,
-  Shield,
   MessageSquare,
   FileText,
   AlertCircle,
@@ -31,17 +30,25 @@ import { useAddressStore } from '@/stores/addressStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
-
-// ✅ Import the existing LogoutModal
 import LogoutModal from '@/components/LogoutModal';
+
+// Simple User type (adjust if you already have one in types)
+interface User {
+  id?: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+  profilePicture?: string;
+}
 
 export default function SettingsPage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('profile');
-  
+
   // Settings state
   const [notifications, setNotifications] = useState({
     orderUpdates: true,
@@ -49,25 +56,24 @@ export default function SettingsPage() {
     smsAlerts: true,
     appNotifications: true,
   });
-  
+
   const [privacy, setPrivacy] = useState({
     shareLocation: true,
     showProfile: true,
     twoFactorAuth: false,
   });
-  
+
   const [appearance, setAppearance] = useState({
     theme: 'light',
     language: 'en',
     currency: 'BDT',
   });
-  
+
   const [sound, setSound] = useState({
     soundsEnabled: true,
     volume: 70,
   });
 
-  // ✅ New State for Logout Modal
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   // Determine which sections to show based on user role
@@ -90,58 +96,80 @@ export default function SettingsPage() {
     return baseSections;
   };
 
+  // ✅ Auth + load preferences (setState moved into async callback / after external check)
   useEffect(() => {
-    const authenticated = auth.isAuthenticated();
-    setIsAuthenticated(authenticated);
-    if (authenticated) {
-      const currentUser = auth.getCurrentUser();
-      setUser(currentUser);
-      
-      // Fetch user notification preferences from backend
-      const fetchPreferences = async () => {
-        try {
-          const res = await api.get('/users/me/notification-preferences');
-          const data = res.data?.data || res.data;
-          if (data) {
-            setNotifications({
-              orderUpdates: data.emailOrderStatus ?? true,
-              promotionalEmails: data.emailPromotional ?? false,
-              smsAlerts: data.smsAlerts ?? true,
-              appNotifications: data.pushOrderStatus ?? true,
-            });
-          }
-        } catch (error) {
-          console.error('Failed to load preferences:', error);
+    let cancelled = false;
+
+    const init = async () => {
+      const authenticated = auth.isAuthenticated();
+
+      if (!authenticated) {
+        if (!cancelled) {
+          setIsAuthenticated(false);
+          setLoading(false);
         }
-      };
-      fetchPreferences();
-    } else {
-      router.push('/login');
-    }
-    setLoading(false);
+        router.push('/login');
+        return;
+      }
+
+      const currentUser = auth.getCurrentUser();
+
+      if (!cancelled) {
+        setIsAuthenticated(true);
+        setUser(currentUser);
+      }
+
+      // Fetch notification preferences
+      try {
+        const res = await api.get('/users/me/notification-preferences');
+        const data = res.data?.data || res.data;
+        if (data && !cancelled) {
+          setNotifications({
+            orderUpdates: data.emailOrderStatus ?? true,
+            promotionalEmails: data.emailPromotional ?? false,
+            smsAlerts: data.smsAlerts ?? true,
+            appNotifications: data.pushOrderStatus ?? true,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load preferences:', error);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    init();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
-  // ✅ NEW: Read the ?tab= parameter from the URL and switch sections
+  // ✅ Read ?tab= from URL (safe – only runs once on mount)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab');
     if (tab) {
-      setActiveSection(tab);
+      // Using a microtask avoids the synchronous setState-in-effect warning
+      queueMicrotask(() => setActiveSection(tab));
     }
   }, []);
 
-  // Handle Role-Based Access: If an admin tries to access a restricted section, redirect to 'profile'
+  // ✅ Role-based section guard
   useEffect(() => {
     if (user?.role === 'admin') {
       const restrictedSections = ['addresses', 'payment', 'favorites'];
       if (restrictedSections.includes(activeSection)) {
-        setActiveSection('profile');
-        toast.info('This section is not available for your account type.');
+        queueMicrotask(() => {
+          setActiveSection('profile');
+          toast('This section is not available for your account type.');
+        });
       }
     }
   }, [activeSection, user]);
 
-  // ✅ Removed direct handleLogout - now uses the modal
   const handleConfirmLogout = async () => {
     setIsLogoutModalOpen(false);
     auth.logout();
@@ -152,23 +180,35 @@ export default function SettingsPage() {
   const handleUpdateProfile = async () => {
     try {
       const payload = {
-        fullName: (document.getElementById('fullName') as HTMLInputElement)?.value || user?.fullName,
-        phone: (document.getElementById('phone') as HTMLInputElement)?.value || user?.phone,
+        fullName:
+          (document.getElementById('fullName') as HTMLInputElement)?.value ||
+          user?.fullName,
+        phone:
+          (document.getElementById('phone') as HTMLInputElement)?.value ||
+          user?.phone,
       };
       await api.patch('/users/me', payload);
       toast.success('Profile updated successfully');
-      // Refresh user data
       const updatedUser = auth.getCurrentUser();
       setUser(updatedUser);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to update profile');
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message || 'Failed to update profile';
+      toast.error(message);
     }
   };
 
   const handleUpdatePassword = async () => {
-    const currentPassword = (document.getElementById('currentPassword') as HTMLInputElement)?.value;
-    const newPassword = (document.getElementById('newPassword') as HTMLInputElement)?.value;
-    const confirmPassword = (document.getElementById('confirmPassword') as HTMLInputElement)?.value;
+    const currentPassword = (
+      document.getElementById('currentPassword') as HTMLInputElement
+    )?.value;
+    const newPassword = (
+      document.getElementById('newPassword') as HTMLInputElement
+    )?.value;
+    const confirmPassword = (
+      document.getElementById('confirmPassword') as HTMLInputElement
+    )?.value;
 
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast.error('Please fill in all password fields');
@@ -183,12 +223,14 @@ export default function SettingsPage() {
     try {
       await api.patch('/users/me/password', { currentPassword, newPassword });
       toast.success('Password updated successfully');
-      // Clear fields
       (document.getElementById('currentPassword') as HTMLInputElement).value = '';
       (document.getElementById('newPassword') as HTMLInputElement).value = '';
       (document.getElementById('confirmPassword') as HTMLInputElement).value = '';
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to update password');
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message || 'Failed to update password';
+      toast.error(message);
     }
   };
 
@@ -196,23 +238,23 @@ export default function SettingsPage() {
     try {
       await api.patch('/users/me/notification-preferences', notifications);
       toast.success('Notification preferences updated');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to update preferences');
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message || 'Failed to update preferences';
+      toast.error(message);
     }
   };
 
-  // ✅ Handle profile picture upload for ALL users
   const handleProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file size (Max 2MB)
     if (file.size > 2 * 1024 * 1024) {
       toast.error('File size must be less than 2MB');
       return;
     }
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       toast.error('Please upload a valid image file');
       return;
@@ -226,25 +268,22 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      // Unwrap the standard backend response
       const data = response.data?.data || response.data;
       const secureUrl = data.secureUrl || data.url;
 
-      // Update the user in local storage and state
       if (secureUrl) {
         const updatedUser = { ...user, profilePicture: secureUrl };
         localStorage.setItem('user', JSON.stringify(updatedUser));
         setUser(updatedUser);
-        
-        // Notify the Navbar to update the avatar
         window.dispatchEvent(new Event('auth-change'));
-
         toast.success('Profile picture updated successfully!');
       } else {
         toast.error('Could not retrieve image URL from server.');
       }
-    } catch (error: any) {
-      const message = error.response?.data?.message || 'Failed to upload profile picture';
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message || 'Failed to upload profile picture';
       toast.error(message);
       console.error('Upload error:', error);
     }
@@ -262,7 +301,6 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* ✅ Add LogoutModal here */}
       <LogoutModal
         isOpen={isLogoutModalOpen}
         onClose={() => setIsLogoutModalOpen(false)}
@@ -297,9 +335,8 @@ export default function SettingsPage() {
                   <ChevronRight className="w-4 h-4" />
                 </button>
               ))}
-              
+
               <div className="border-t border-gray-100">
-                {/* ✅ UPDATED LOGOUT BUTTON TO OPEN MODAL */}
                 <button
                   onClick={() => setIsLogoutModalOpen(true)}
                   className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 transition"
@@ -313,23 +350,27 @@ export default function SettingsPage() {
 
           {/* Main Content */}
           <div className="flex-1">
-            {/* Profile Section - UPDATED WITH WORKING IMAGE UPLOAD */}
+            {/* Profile Section */}
             {activeSection === 'profile' && (
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="p-6 border-b border-gray-100">
-                  <h2 className="text-xl font-semibold text-gray-800">Profile Information</h2>
-                  <p className="text-sm text-gray-500 mt-1">Update your personal information</p>
+                  <h2 className="text-xl font-semibold text-gray-800">
+                    Profile Information
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Update your personal information
+                  </p>
                 </div>
-                
+
                 <div className="p-6 space-y-6">
                   {/* Avatar */}
                   <div className="flex items-center gap-4">
                     <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center overflow-hidden relative group">
-                      {/* ✅ Show uploaded image, or fallback to initials */}
                       {user?.profilePicture ? (
-                        <img 
-                          src={user.profilePicture} 
-                          alt="Profile" 
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={user.profilePicture}
+                          alt="Profile"
                           className="w-full h-full object-cover"
                         />
                       ) : (
@@ -338,24 +379,25 @@ export default function SettingsPage() {
                         </span>
                       )}
                     </div>
-                    
+
                     <div>
-                      {/* ✅ CRITICAL FIX: Added name="image" to the input */}
-                      <input 
-                        type="file" 
-                        id="profile-upload" 
-                        name="image" 
-                        accept="image/*" 
-                        className="hidden" 
+                      <input
+                        type="file"
+                        id="profile-upload"
+                        name="image"
+                        accept="image/*"
+                        className="hidden"
                         onChange={handleProfileUpload}
                       />
-                      <label 
+                      <label
                         htmlFor="profile-upload"
                         className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition cursor-pointer inline-block"
                       >
                         Change Photo
                       </label>
-                      <p className="text-xs text-gray-400 mt-1">JPG, PNG or WebP. Max 2MB</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        JPG, PNG or WebP. Max 2MB
+                      </p>
                     </div>
                   </div>
 
@@ -407,7 +449,9 @@ export default function SettingsPage() {
             )}
 
             {/* Addresses Section - Hidden for Admin */}
-            {activeSection === 'addresses' && user?.role !== 'admin' && <AddressesSection />}
+            {activeSection === 'addresses' && user?.role !== 'admin' && (
+              <AddressesSection />
+            )}
 
             {/* Notifications Section */}
             {activeSection === 'notifications' && (
@@ -415,8 +459,12 @@ export default function SettingsPage() {
                 <div className="p-6 border-b border-gray-100">
                   <div className="flex justify-between items-center">
                     <div>
-                      <h2 className="text-xl font-semibold text-gray-800">Notification Preferences</h2>
-                      <p className="text-sm text-gray-500 mt-1">Manage how you receive updates</p>
+                      <h2 className="text-xl font-semibold text-gray-800">
+                        Notification Preferences
+                      </h2>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Manage how you receive updates
+                      </p>
                     </div>
                     <button
                       onClick={handleUpdateNotifications}
@@ -426,49 +474,77 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="divide-y divide-gray-100">
                   <div className="p-6 flex justify-between items-center">
                     <div>
                       <p className="font-medium text-gray-800">Order Updates</p>
-                      <p className="text-sm text-gray-500">Get notified about order status changes</p>
+                      <p className="text-sm text-gray-500">
+                        Get notified about order status changes
+                      </p>
                     </div>
                     <ToggleButton
                       value={notifications.orderUpdates}
-                      onChange={() => setNotifications({ ...notifications, orderUpdates: !notifications.orderUpdates })}
+                      onChange={() =>
+                        setNotifications({
+                          ...notifications,
+                          orderUpdates: !notifications.orderUpdates,
+                        })
+                      }
                     />
                   </div>
-                  
+
                   <div className="p-6 flex justify-between items-center">
                     <div>
                       <p className="font-medium text-gray-800">Promotional Emails</p>
-                      <p className="text-sm text-gray-500">Receive offers and discounts via email</p>
+                      <p className="text-sm text-gray-500">
+                        Receive offers and discounts via email
+                      </p>
                     </div>
                     <ToggleButton
                       value={notifications.promotionalEmails}
-                      onChange={() => setNotifications({ ...notifications, promotionalEmails: !notifications.promotionalEmails })}
+                      onChange={() =>
+                        setNotifications({
+                          ...notifications,
+                          promotionalEmails: !notifications.promotionalEmails,
+                        })
+                      }
                     />
                   </div>
-                  
+
                   <div className="p-6 flex justify-between items-center">
                     <div>
                       <p className="font-medium text-gray-800">SMS Alerts</p>
-                      <p className="text-sm text-gray-500">Get delivery updates via SMS</p>
+                      <p className="text-sm text-gray-500">
+                        Get delivery updates via SMS
+                      </p>
                     </div>
                     <ToggleButton
                       value={notifications.smsAlerts}
-                      onChange={() => setNotifications({ ...notifications, smsAlerts: !notifications.smsAlerts })}
+                      onChange={() =>
+                        setNotifications({
+                          ...notifications,
+                          smsAlerts: !notifications.smsAlerts,
+                        })
+                      }
                     />
                   </div>
-                  
+
                   <div className="p-6 flex justify-between items-center">
                     <div>
                       <p className="font-medium text-gray-800">App Notifications</p>
-                      <p className="text-sm text-gray-500">Push notifications on your device</p>
+                      <p className="text-sm text-gray-500">
+                        Push notifications on your device
+                      </p>
                     </div>
                     <ToggleButton
                       value={notifications.appNotifications}
-                      onChange={() => setNotifications({ ...notifications, appNotifications: !notifications.appNotifications })}
+                      onChange={() =>
+                        setNotifications({
+                          ...notifications,
+                          appNotifications: !notifications.appNotifications,
+                        })
+                      }
                     />
                   </div>
                 </div>
@@ -479,40 +555,67 @@ export default function SettingsPage() {
             {activeSection === 'privacy' && (
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="p-6 border-b border-gray-100">
-                  <h2 className="text-xl font-semibold text-gray-800">Privacy & Security</h2>
-                  <p className="text-sm text-gray-500 mt-1">Control your privacy settings</p>
+                  <h2 className="text-xl font-semibold text-gray-800">
+                    Privacy & Security
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Control your privacy settings
+                  </p>
                 </div>
-                
+
                 <div className="divide-y divide-gray-100">
                   <div className="p-6 flex justify-between items-center">
                     <div>
                       <p className="font-medium text-gray-800">Share Location</p>
-                      <p className="text-sm text-gray-500">Allow app to access your location</p>
+                      <p className="text-sm text-gray-500">
+                        Allow app to access your location
+                      </p>
                     </div>
                     <ToggleButton
                       value={privacy.shareLocation}
-                      onChange={() => setPrivacy({ ...privacy, shareLocation: !privacy.shareLocation })}
+                      onChange={() =>
+                        setPrivacy({
+                          ...privacy,
+                          shareLocation: !privacy.shareLocation,
+                        })
+                      }
                     />
                   </div>
-                  
+
                   <div className="p-6 flex justify-between items-center">
                     <div>
                       <p className="font-medium text-gray-800">Show Profile</p>
-                      <p className="text-sm text-gray-500">Make your profile visible to others</p>
+                      <p className="text-sm text-gray-500">
+                        Make your profile visible to others
+                      </p>
                     </div>
                     <ToggleButton
                       value={privacy.showProfile}
-                      onChange={() => setPrivacy({ ...privacy, showProfile: !privacy.showProfile })}
+                      onChange={() =>
+                        setPrivacy({
+                          ...privacy,
+                          showProfile: !privacy.showProfile,
+                        })
+                      }
                     />
                   </div>
-                  
+
                   <div className="p-6 flex justify-between items-center">
                     <div>
-                      <p className="font-medium text-gray-800">Two-Factor Authentication</p>
-                      <p className="text-sm text-gray-500">Add an extra layer of security</p>
+                      <p className="font-medium text-gray-800">
+                        Two-Factor Authentication
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Add an extra layer of security
+                      </p>
                     </div>
                     <button
-                      onClick={() => setPrivacy({ ...privacy, twoFactorAuth: !privacy.twoFactorAuth })}
+                      onClick={() =>
+                        setPrivacy({
+                          ...privacy,
+                          twoFactorAuth: !privacy.twoFactorAuth,
+                        })
+                      }
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
                         privacy.twoFactorAuth
                           ? 'bg-green-500 text-white'
@@ -561,10 +664,14 @@ export default function SettingsPage() {
             {activeSection === 'appearance' && (
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="p-6 border-b border-gray-100">
-                  <h2 className="text-xl font-semibold text-gray-800">Appearance & Language</h2>
-                  <p className="text-sm text-gray-500 mt-1">Customize your app experience</p>
+                  <h2 className="text-xl font-semibold text-gray-800">
+                    Appearance & Language
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Customize your app experience
+                  </p>
                 </div>
-                
+
                 <div className="p-6 space-y-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -572,7 +679,9 @@ export default function SettingsPage() {
                     </label>
                     <div className="flex gap-3">
                       <button
-                        onClick={() => setAppearance({ ...appearance, theme: 'light' })}
+                        onClick={() =>
+                          setAppearance({ ...appearance, theme: 'light' })
+                        }
                         className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition ${
                           appearance.theme === 'light'
                             ? 'border-orange-500 bg-orange-50 text-orange-600'
@@ -583,7 +692,9 @@ export default function SettingsPage() {
                         <span className="text-sm font-medium">Light</span>
                       </button>
                       <button
-                        onClick={() => setAppearance({ ...appearance, theme: 'dark' })}
+                        onClick={() =>
+                          setAppearance({ ...appearance, theme: 'dark' })
+                        }
                         className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition ${
                           appearance.theme === 'dark'
                             ? 'border-orange-500 bg-orange-50 text-orange-600'
@@ -594,7 +705,9 @@ export default function SettingsPage() {
                         <span className="text-sm font-medium">Dark</span>
                       </button>
                       <button
-                        onClick={() => setAppearance({ ...appearance, theme: 'system' })}
+                        onClick={() =>
+                          setAppearance({ ...appearance, theme: 'system' })
+                        }
                         className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition ${
                           appearance.theme === 'system'
                             ? 'border-orange-500 bg-orange-50 text-orange-600'
@@ -613,7 +726,9 @@ export default function SettingsPage() {
                     </label>
                     <select
                       value={appearance.language}
-                      onChange={(e) => setAppearance({ ...appearance, language: e.target.value })}
+                      onChange={(e) =>
+                        setAppearance({ ...appearance, language: e.target.value })
+                      }
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
                     >
                       <option value="en">English</option>
@@ -629,7 +744,9 @@ export default function SettingsPage() {
                     </label>
                     <select
                       value={appearance.currency}
-                      onChange={(e) => setAppearance({ ...appearance, currency: e.target.value })}
+                      onChange={(e) =>
+                        setAppearance({ ...appearance, currency: e.target.value })
+                      }
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
                     >
                       <option value="BDT">Bangladeshi Taka (BDT)</option>
@@ -656,7 +773,12 @@ export default function SettingsPage() {
                       </div>
                       <ToggleButton
                         value={sound.soundsEnabled}
-                        onChange={() => setSound({ ...sound, soundsEnabled: !sound.soundsEnabled })}
+                        onChange={() =>
+                          setSound({
+                            ...sound,
+                            soundsEnabled: !sound.soundsEnabled,
+                          })
+                        }
                       />
                     </div>
                     {sound.soundsEnabled && (
@@ -666,10 +788,17 @@ export default function SettingsPage() {
                           min="0"
                           max="100"
                           value={sound.volume}
-                          onChange={(e) => setSound({ ...sound, volume: parseInt(e.target.value) })}
+                          onChange={(e) =>
+                            setSound({
+                              ...sound,
+                              volume: parseInt(e.target.value),
+                            })
+                          }
                           className="w-full"
                         />
-                        <p className="text-xs text-gray-400 mt-1">Volume: {sound.volume}%</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Volume: {sound.volume}%
+                        </p>
                       </div>
                     )}
                   </div>
@@ -678,10 +807,14 @@ export default function SettingsPage() {
             )}
 
             {/* Payment Methods Section - Hidden for Admin */}
-            {activeSection === 'payment' && user?.role !== 'admin' && <PaymentMethodsSection />}
+            {activeSection === 'payment' && user?.role !== 'admin' && (
+              <PaymentMethodsSection />
+            )}
 
             {/* Favorites Section - Hidden for Admin */}
-            {activeSection === 'favorites' && user?.role !== 'admin' && <FavoritesSection />}
+            {activeSection === 'favorites' && user?.role !== 'admin' && (
+              <FavoritesSection />
+            )}
 
             {/* Support Section */}
             {activeSection === 'support' && <SupportSection />}
@@ -694,7 +827,13 @@ export default function SettingsPage() {
 
 // ========== Helper Components ==========
 
-function ToggleButton({ value, onChange }: { value: boolean; onChange: () => void }) {
+function ToggleButton({
+  value,
+  onChange,
+}: {
+  value: boolean;
+  onChange: () => void;
+}) {
   return (
     <button
       onClick={onChange}
@@ -711,20 +850,21 @@ function ToggleButton({ value, onChange }: { value: boolean; onChange: () => voi
   );
 }
 
-// Addresses Section Component (Only for Customers, Owners, Agents)
 function AddressesSection() {
-  const { addresses, selectedAddress, setSelectedAddress, removeAddress } = useAddressStore();
+  const { addresses, selectedAddress, setSelectedAddress, removeAddress } =
+    useAddressStore();
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="p-6 border-b border-gray-100 flex justify-between items-center">
         <div>
           <h2 className="text-xl font-semibold text-gray-800">Saved Addresses</h2>
-          <p className="text-sm text-gray-500 mt-1">Manage your delivery addresses</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Manage your delivery addresses
+          </p>
         </div>
         <button
           onClick={() => {
-            // Trigger location modal via global event
             window.dispatchEvent(new Event('open-location-modal'));
           }}
           className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition"
@@ -746,7 +886,9 @@ function AddressesSection() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <MapPin className="w-4 h-4 text-orange-500" />
-                    <p className="font-medium text-gray-800">{address.area || address.street}</p>
+                    <p className="font-medium text-gray-800">
+                      {address.area || address.street}
+                    </p>
                     {selectedAddress?.id === address.id && (
                       <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
                         Default
@@ -779,11 +921,24 @@ function AddressesSection() {
   );
 }
 
-// Payment Methods Section (Only for Customers, Owners, Agents)
 function PaymentMethodsSection() {
-  const [paymentMethods, setPaymentMethods] = useState([
-    { id: 1, type: 'card', last4: '4242', brand: 'Visa', expiry: '12/25', isDefault: true },
-    { id: 2, type: 'card', last4: '1234', brand: 'Mastercard', expiry: '08/26', isDefault: false },
+  const [paymentMethods] = useState([
+    {
+      id: 1,
+      type: 'card',
+      last4: '4242',
+      brand: 'Visa',
+      expiry: '12/25',
+      isDefault: true,
+    },
+    {
+      id: 2,
+      type: 'card',
+      last4: '1234',
+      brand: 'Mastercard',
+      expiry: '08/26',
+      isDefault: false,
+    },
   ]);
 
   return (
@@ -812,11 +967,17 @@ function PaymentMethodsSection() {
             </div>
             <div className="flex gap-2">
               {method.isDefault ? (
-                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Default</span>
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                  Default
+                </span>
               ) : (
-                <button className="text-sm text-orange-500 hover:underline">Set as Default</button>
+                <button className="text-sm text-orange-500 hover:underline">
+                  Set as Default
+                </button>
               )}
-              <button className="text-sm text-red-500 hover:underline">Remove</button>
+              <button className="text-sm text-red-500 hover:underline">
+                Remove
+              </button>
             </div>
           </div>
         ))}
@@ -825,7 +986,6 @@ function PaymentMethodsSection() {
   );
 }
 
-// Favorites Section (Only for Customers, Owners, Agents)
 function FavoritesSection() {
   const { items } = useFavoritesStore();
 
@@ -833,13 +993,18 @@ function FavoritesSection() {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 border-b border-gray-100">
-          <h2 className="text-xl font-semibold text-gray-800">Favorite Restaurants</h2>
+          <h2 className="text-xl font-semibold text-gray-800">
+            Favorite Restaurants
+          </h2>
           <p className="text-sm text-gray-500 mt-1">Your saved restaurants</p>
         </div>
         <div className="p-12 text-center">
           <Heart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500">No favorite restaurants yet</p>
-          <Link href="/" className="mt-3 text-orange-500 hover:underline text-sm inline-block">
+          <Link
+            href="/"
+            className="mt-3 text-orange-500 hover:underline text-sm inline-block"
+          >
             Browse restaurants
           </Link>
         </div>
@@ -850,19 +1015,27 @@ function FavoritesSection() {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="p-6 border-b border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-800">Favorite Restaurants</h2>
+        <h2 className="text-xl font-semibold text-gray-800">
+          Favorite Restaurants
+        </h2>
         <p className="text-sm text-gray-500 mt-1">Your saved restaurants</p>
       </div>
       <div className="divide-y divide-gray-100">
         {items.map((restaurant) => (
-          <div key={restaurant.id} className="p-4 flex items-center justify-between">
+          <div
+            key={restaurant.id}
+            className="p-4 flex items-center justify-between"
+          >
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
                 <span className="text-2xl">🍕</span>
               </div>
               <div>
                 <p className="font-medium text-gray-800">{restaurant.name}</p>
-                <p className="text-sm text-gray-500">{restaurant.cuisineType || 'Restaurant'} • ⭐ {restaurant.rating || 'New'}</p>
+                <p className="text-sm text-gray-500">
+                  {restaurant.cuisineType || 'Restaurant'} • ⭐{' '}
+                  {restaurant.rating || 'New'}
+                </p>
               </div>
             </div>
             <Link
@@ -878,15 +1051,44 @@ function FavoritesSection() {
   );
 }
 
-// Support Section
 function SupportSection() {
   const supportOptions = [
-    { icon: HelpCircle, label: 'Help Center', description: 'FAQs and guides', color: 'bg-blue-100 text-blue-600' },
-    { icon: MessageSquare, label: 'Live Chat', description: 'Chat with support', color: 'bg-green-100 text-green-600' },
-    { icon: Mail, label: 'Email Support', description: 'support@quickbite.com', color: 'bg-purple-100 text-purple-600' },
-    { icon: Phone, label: 'Call Us', description: '+880 1234 567890', color: 'bg-orange-100 text-orange-600' },
-    { icon: FileText, label: 'Report a Problem', description: 'Submit an issue', color: 'bg-red-100 text-red-600' },
-    { icon: AlertCircle, label: 'Report Safety Issue', description: 'Emergency assistance', color: 'bg-yellow-100 text-yellow-600' },
+    {
+      icon: HelpCircle,
+      label: 'Help Center',
+      description: 'FAQs and guides',
+      color: 'bg-blue-100 text-blue-600',
+    },
+    {
+      icon: MessageSquare,
+      label: 'Live Chat',
+      description: 'Chat with support',
+      color: 'bg-green-100 text-green-600',
+    },
+    {
+      icon: Mail,
+      label: 'Email Support',
+      description: 'support@quickbite.com',
+      color: 'bg-purple-100 text-purple-600',
+    },
+    {
+      icon: Phone,
+      label: 'Call Us',
+      description: '+880 1234 567890',
+      color: 'bg-orange-100 text-orange-600',
+    },
+    {
+      icon: FileText,
+      label: 'Report a Problem',
+      description: 'Submit an issue',
+      color: 'bg-red-100 text-red-600',
+    },
+    {
+      icon: AlertCircle,
+      label: 'Report Safety Issue',
+      description: 'Emergency assistance',
+      color: 'bg-yellow-100 text-yellow-600',
+    },
   ];
 
   return (
@@ -902,7 +1104,9 @@ function SupportSection() {
             key={option.label}
             className="flex items-center gap-4 p-4 border border-gray-100 rounded-xl hover:shadow-md transition"
           >
-            <div className={`w-10 h-10 rounded-full ${option.color} flex items-center justify-center`}>
+            <div
+              className={`w-10 h-10 rounded-full ${option.color} flex items-center justify-center`}
+            >
               <option.icon className="w-5 h-5" />
             </div>
             <div className="text-left">

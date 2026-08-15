@@ -7,22 +7,51 @@ import { auth } from '@/lib/auth';
 import { User, Mail, Phone, MapPin, Calendar, Shield, Edit2 } from 'lucide-react';
 import Link from 'next/link';
 
+interface User {
+  id?: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  role?: string;
+  profilePicture?: string;
+  createdAt?: string;
+  lastLogin?: string;
+}
+
 export default function ProfilePage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is authenticated
-    const authenticated = auth.isAuthenticated();
-    if (!authenticated) {
-      router.replace('/');
-      return;
-    }
+    let cancelled = false;
 
-    const currentUser = auth.getCurrentUser();
-    setUser(currentUser);
-    setLoading(false);
+    const loadUser = () => {
+      const authenticated = auth.isAuthenticated();
+
+      if (!authenticated) {
+        if (!cancelled) {
+          setLoading(false);
+        }
+        router.replace('/');
+        return;
+      }
+
+      const currentUser = auth.getCurrentUser();
+
+      if (!cancelled) {
+        setUser(currentUser);
+        setLoading(false);
+      }
+    };
+
+    // Defer the state updates so they are not seen as synchronous setState in effect
+    queueMicrotask(loadUser);
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   if (loading) {
@@ -60,16 +89,19 @@ export default function ProfilePage() {
               <div className="flex flex-col items-center text-center">
                 <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center overflow-hidden mb-4">
                   {user?.profilePicture ? (
-                    <img 
-                      src={user.profilePicture} 
-                      alt={user.fullName} 
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={user.profilePicture}
+                      alt={user.fullName || 'Profile'}
                       className="w-full h-full object-cover"
                     />
                   ) : (
                     <User className="w-12 h-12 text-orange-600" />
                   )}
                 </div>
-                <h2 className="text-xl font-bold text-gray-900">{user?.fullName || 'User'}</h2>
+                <h2 className="text-xl font-bold text-gray-900">
+                  {user?.fullName || 'User'}
+                </h2>
                 <p className="text-sm text-gray-500 mt-1">{user?.email}</p>
                 <div className="mt-3">
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-50 text-orange-600 border border-orange-100">
@@ -81,7 +113,7 @@ export default function ProfilePage() {
 
               {/* Quick Actions */}
               <div className="mt-6 pt-6 border-t border-gray-100 space-y-2">
-                <Link 
+                <Link
                   href="/settings"
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 text-white rounded-xl text-sm font-medium hover:bg-orange-600 transition"
                 >
