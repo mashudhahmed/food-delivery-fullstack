@@ -6,6 +6,7 @@ import { api } from '../../lib/api';
 import { Order } from '../../types';
 import toast from 'react-hot-toast';
 import CancelOrderModal from '@/components/CancelOrderModal';
+import { wsService } from '../../lib/websocket';
 import {
   Package,
   Clock,
@@ -60,6 +61,19 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetchOrders();
+
+    wsService.connect();
+    const handleUpdate = () => {
+      fetchOrders();
+    };
+
+    wsService.on('notification', handleUpdate);
+    wsService.on('order-status-update', handleUpdate);
+
+    return () => {
+      wsService.off('notification', handleUpdate);
+      wsService.off('order-status-update', handleUpdate);
+    };
   }, []);
 
   useEffect(() => {

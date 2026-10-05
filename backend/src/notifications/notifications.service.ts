@@ -123,6 +123,12 @@ export class NotificationsService {
           message: `${restaurantName} • Earn ৳${earnings}`,
           data: { orderId, restaurantName, earnings },
         });
+        this.notificationsGateway.notifyUser(agent.id, 'order-available', {
+          orderId,
+          id: orderId,
+          restaurantName,
+          earnings,
+        });
       }
     }
   }
@@ -141,6 +147,10 @@ export class NotificationsService {
         title: '💰 Earnings Added',
         message: `You earned ৳${earnings} for order #${orderId.slice(-8)}`,
         data: { orderId, earnings },
+      });
+      this.notificationsGateway.notifyUser(agentId, 'earnings-added', {
+        orderId,
+        earnings,
       });
     }
   }
@@ -192,6 +202,12 @@ export class NotificationsService {
       message: info.message,
       data: { orderId, status },
     });
+
+    this.notificationsGateway.notifyUser(customerId, 'order-status-update', {
+      orderId,
+      id: orderId,
+      status,
+    });
   }
 
   async notifyNewOrder(ownerId: string, orderId: string, restaurantName: string) {
@@ -207,6 +223,12 @@ export class NotificationsService {
         title: 'New Order Received!',
         message: `New order #${orderId.slice(-8)} from ${restaurantName}`,
         data: { orderId },
+      });
+
+      this.notificationsGateway.notifyUser(ownerId, 'new-order', {
+        orderId,
+        id: orderId,
+        restaurantName,
       });
     }
   }

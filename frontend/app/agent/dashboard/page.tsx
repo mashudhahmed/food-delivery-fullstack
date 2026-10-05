@@ -9,6 +9,7 @@ import { StatCard } from '@/components/StatCard';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { Package, Truck, CheckCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
+import { wsService } from '@/lib/websocket';
 
 export default function AgentDashboardPage() {
   const [stats, setStats] = useState({
@@ -22,6 +23,19 @@ export default function AgentDashboardPage() {
 
   useEffect(() => {
     fetchDashboard();
+
+    wsService.connect();
+    const handleUpdate = () => {
+      fetchDashboard();
+    };
+
+    wsService.on('notification', handleUpdate);
+    wsService.on('order-status-update', handleUpdate);
+
+    return () => {
+      wsService.off('notification', handleUpdate);
+      wsService.off('order-status-update', handleUpdate);
+    };
   }, []);
 
   async function fetchDashboard() {

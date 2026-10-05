@@ -19,6 +19,8 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { wsService } from '@/lib/websocket';
+import { playNewOrderAlertSound, playOrderUpdateSound } from '@/lib/sound';
 
 interface Order {
   id: string;
@@ -88,6 +90,44 @@ function OwnerOrdersContent() {
     if (selectedRestaurant) {
       fetchOrders();
     }
+  }, [selectedRestaurant]);
+
+  // Real-time WebSocket listener for incoming orders and status updates
+  useEffect(() => {
+    wsService.connect();
+
+    const handleNotification = (payload: any) => {
+      const type = payload?.type;
+      if (type === 'order_new' || payload?.title?.toLowerCase().includes('new order')) {
+        playNewOrderAlertSound();
+        toast.success(payload?.message || '🔔 New order received!', { duration: 6000 });
+        fetchOrders(true);
+      } else if (type === 'order_cancelled' || type === 'order_status') {
+        playOrderUpdateSound();
+        fetchOrders(true);
+      }
+    };
+
+    const handleNewOrder = () => {
+      playNewOrderAlertSound();
+      toast.success('🔔 New order received!', { duration: 6000 });
+      fetchOrders(true);
+    };
+
+    const handleOrderUpdate = () => {
+      playOrderUpdateSound();
+      fetchOrders(true);
+    };
+
+    wsService.on('notification', handleNotification);
+    wsService.on('new-order', handleNewOrder);
+    wsService.on('order-status-update', handleOrderUpdate);
+
+    return () => {
+      wsService.off('notification', handleNotification);
+      wsService.off('new-order', handleNewOrder);
+      wsService.off('order-status-update', handleOrderUpdate);
+    };
   }, [selectedRestaurant]);
 
   const fetchData = async () => {

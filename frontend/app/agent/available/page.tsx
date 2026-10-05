@@ -8,6 +8,8 @@ import { unwrapPaginated } from '@/lib/unwrapPaginated';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import toast from 'react-hot-toast';
 import { MapPin, Package } from 'lucide-react';
+import { wsService } from '@/lib/websocket';
+import { playDeliveryAlertSound } from '@/lib/sound';
 
 export default function AgentAvailablePage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -16,6 +18,30 @@ export default function AgentAvailablePage() {
 
   useEffect(() => {
     fetchAvailable();
+
+    wsService.connect();
+
+    const handleNotification = (payload: any) => {
+      const type = payload?.type;
+      if (
+        type === 'order_available' ||
+        type === 'order_ready' ||
+        payload?.title?.toLowerCase().includes('available') ||
+        payload?.title?.toLowerCase().includes('ready')
+      ) {
+        playDeliveryAlertSound();
+        toast.success(payload?.message || '🍕 New order available for delivery!', { duration: 6000 });
+        fetchAvailable();
+      }
+    };
+
+    wsService.on('notification', handleNotification);
+    wsService.on('order-status-update', fetchAvailable);
+
+    return () => {
+      wsService.off('notification', handleNotification);
+      wsService.off('order-status-update', fetchAvailable);
+    };
   }, []);
 
   async function fetchAvailable() {

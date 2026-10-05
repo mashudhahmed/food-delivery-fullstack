@@ -5,6 +5,7 @@ import { useNotificationStore } from "@/stores/notificationStore";
 import { auth } from "@/lib/auth";
 import { wsService } from "@/lib/websocket";
 import type { NotificationType } from "@/types/notification";
+import toast from "react-hot-toast";
 
 export default function NotificationInitializer() {
   const { fetchNotifications, addNotification } = useNotificationStore();
@@ -39,15 +40,30 @@ export default function NotificationInitializer() {
         rawType && VALID_TYPES.has(rawType) ? rawType : "system_alert"
       ) as NotificationType;
 
+      const title = payload.title || "New notification";
+      const message = payload.message || "";
+
       addNotification({
         id: payload.id || crypto.randomUUID(),
-        title: payload.title || "New notification",
-        message: payload.message || "",
+        title,
+        message,
         type,
         read: false,
         createdAt: payload.createdAt || new Date().toISOString(),
         data: payload.data,
       });
+
+      if (title || message) {
+        toast(() => (
+          <div>
+            <div className="font-semibold text-sm">{title}</div>
+            {message && <div className="text-xs text-slate-500 mt-0.5">{message}</div>}
+          </div>
+        ), {
+          id: payload.id,
+          icon: type === "order_new" ? "🔔" : type === "order_delivered" ? "🎉" : "📦",
+        });
+      }
     };
 
     const handleOrderUpdate = (payload: any) => {

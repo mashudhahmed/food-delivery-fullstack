@@ -7,6 +7,8 @@ import { Order } from '@/types';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import CancelOrderModal from '@/components/CancelOrderModal';
+import { wsService } from '@/lib/websocket';
+import { playOrderUpdateSound } from '@/lib/sound';
 import {
   ChevronLeft,
   MapPin,
@@ -104,6 +106,49 @@ export default function OrderDetailPage() {
   useEffect(() => {
     fetchOrderDetails();
   }, [fetchOrderDetails]);
+
+  // Real-time order status listener via WebSocket
+  useEffect(() => {
+    if (!id) return;
+
+    wsService.connect();
+
+    const handleNotification = (payload: any) => {
+      const orderId = payload?.data?.orderId || payload?.data?.id || payload?.orderId;
+      if (orderId && orderId === id) {
+        playOrderUpdateSound();
+        const newStatus = payload?.data?.status || payload?.status;
+        if (newStatus) {
+          setOrder((prev) => (prev ? { ...prev, status: newStatus } : prev));
+          calculateTrackingProgress(newStatus);
+          toast.success(payload?.title || `Order status: ${newStatus}`);
+        }
+        fetchOrderDetails();
+      }
+    };
+
+    const handleOrderStatusUpdate = (payload: any) => {
+      const orderId = payload?.id || payload?.orderId || payload?.data?.orderId;
+      if (orderId && orderId === id) {
+        playOrderUpdateSound();
+        const newStatus = payload?.status || payload?.data?.status;
+        if (newStatus) {
+          setOrder((prev) => (prev ? { ...prev, status: newStatus } : prev));
+          calculateTrackingProgress(newStatus);
+          toast.success(`Order status updated to: ${newStatus}`);
+        }
+        fetchOrderDetails();
+      }
+    };
+
+    wsService.on('notification', handleNotification);
+    wsService.on('order-status-update', handleOrderStatusUpdate);
+
+    return () => {
+      wsService.off('notification', handleNotification);
+      wsService.off('order-status-update', handleOrderStatusUpdate);
+    };
+  }, [id, fetchOrderDetails]);
 
   // Real-time timer for cancel button - NO API calls here
   useEffect(() => {
