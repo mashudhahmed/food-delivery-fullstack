@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import NotificationInitializer from '@/components/NotificationInitializer';
+import DynamicTabTitle from '@/components/DynamicTabTitle';
 import ErrorBoundary from '@/components/ErrorBoundary';
 
 const inter = Inter({ 
@@ -22,7 +23,10 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'QuickBite - Food Delivery',
+  title: {
+    default: 'QuickBite - Food Delivery',
+    template: '%s | QuickBite',
+  },
   description: 'Order food from your favorite restaurants. Fast delivery, great taste.',
   keywords: 'food delivery, restaurant, order food, quickbite, delivery app',
   openGraph: {
@@ -77,6 +81,7 @@ export default function RootLayout({
           >
             Skip to main content
           </a>
+          <DynamicTabTitle />
           <NotificationInitializer />
           <Navbar />
           <main id="main-content" className="min-h-screen" role="main">

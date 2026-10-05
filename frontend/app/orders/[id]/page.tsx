@@ -164,6 +164,15 @@ export default function OrderDetailPage() {
     };
   }, [id, fetchOrderDetails]);
 
+  // Dynamic webtab title with live order status
+  useEffect(() => {
+    if (order?.id) {
+      const statusText = STATUS_META[order.status]?.text || order.status;
+      const shortId = order.id.slice(-8).toUpperCase();
+      document.title = `Order #${shortId} (${statusText}) | QuickBite`;
+    }
+  }, [order?.id, order?.status]);
+
   // Real-time timer for cancel button - NO API calls here
   useEffect(() => {
     if (!order) return;

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCartStore } from '../../stores/cartStore';
 import { useRouter } from 'next/navigation';
 import { auth } from '../../lib/auth';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   ShoppingBag, 
   Trash2, 
@@ -30,6 +30,12 @@ export default function CartPage() {
   const DELIVERY_FEE = 50 * restaurantCount;
   const PLATFORM_FEE = 20 * restaurantCount;
   const MIN_ORDER_AMOUNT = 200;
+
+  // Dynamic webtab title with cart item count
+  useEffect(() => {
+    const totalCount = items.reduce((sum, item) => sum + item.quantity, 0);
+    document.title = totalCount > 0 ? `Cart (${totalCount}) | QuickBite` : 'Your Cart | QuickBite';
+  }, [items]);
 
   // Helper function to get numeric price (handle string or number)
   const getNumericPrice = (price: string | number): number => {

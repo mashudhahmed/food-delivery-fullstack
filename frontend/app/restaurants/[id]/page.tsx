@@ -76,6 +76,12 @@ export default function RestaurantDetailPage() {
     };
   }, [id, router]);
 
+  useEffect(() => {
+    if (restaurant?.name) {
+      document.title = `${restaurant.name} - Menu & Reviews | QuickBite`;
+    }
+  }, [restaurant?.name]);
+
   const categories = [
     'All',
     ...Array.from(new Set(menuItems.map((item) => item.category).filter(Boolean))),
