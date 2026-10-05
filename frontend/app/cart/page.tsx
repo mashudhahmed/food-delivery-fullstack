@@ -18,6 +18,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { showErrorToast } from '@/lib/error-handler';
 
 export default function CartPage() {
   const router = useRouter();
@@ -91,8 +92,8 @@ export default function CartPage() {
     setIsCheckingOut(true);
     try {
       router.push('/checkout');
-    } catch (error) {
-      toast.error('Something went wrong');
+    } catch (error: unknown) {
+      showErrorToast(error, 'Something went wrong');
     } finally {
       setIsCheckingOut(false);
     }

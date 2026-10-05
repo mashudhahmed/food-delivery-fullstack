@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { api } from '../../lib/api';
 import { Order } from '../../types';
 import toast from 'react-hot-toast';
+import { showErrorToast } from '@/lib/error-handler';
 import CancelOrderModal from '@/components/CancelOrderModal';
 import ReviewModal from '@/components/ReviewModal';
 import { wsService } from '../../lib/websocket';
@@ -117,8 +118,8 @@ export default function OrdersPage() {
       const safeOrders = ensureArray(response.data);
       setOrders(safeOrders);
       setFilteredOrders(safeOrders);
-    } catch (error) {
-      toast.error('Failed to load orders');
+    } catch (error: unknown) {
+      showErrorToast(error, 'Failed to load orders');
     } finally {
       setLoading(false);
     }
@@ -181,8 +182,8 @@ export default function OrdersPage() {
       setModalOpen(false);
       setSelectedOrder(null);
       await fetchOrders();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to cancel order');
+    } catch (error: unknown) {
+      showErrorToast(error, 'Failed to cancel order');
     } finally {
       setCancellingOrderId(null);
     }

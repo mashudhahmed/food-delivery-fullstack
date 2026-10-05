@@ -29,6 +29,7 @@ import { api } from '@/lib/api';
 import { useAddressStore } from '@/stores/addressStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import toast from 'react-hot-toast';
+import { showErrorToast } from '@/lib/error-handler';
 import Link from 'next/link';
 import LogoutModal from '@/components/LogoutModal';
 
@@ -192,10 +193,7 @@ export default function SettingsPage() {
       const updatedUser = auth.getCurrentUser();
       setUser(updatedUser);
     } catch (error: unknown) {
-      const message =
-        (error as { response?: { data?: { message?: string } } })?.response
-          ?.data?.message || 'Failed to update profile';
-      toast.error(message);
+      showErrorToast(error, 'Failed to update profile');
     }
   };
 
@@ -227,10 +225,7 @@ export default function SettingsPage() {
       (document.getElementById('newPassword') as HTMLInputElement).value = '';
       (document.getElementById('confirmPassword') as HTMLInputElement).value = '';
     } catch (error: unknown) {
-      const message =
-        (error as { response?: { data?: { message?: string } } })?.response
-          ?.data?.message || 'Failed to update password';
-      toast.error(message);
+      showErrorToast(error, 'Failed to update password');
     }
   };
 
@@ -239,10 +234,7 @@ export default function SettingsPage() {
       await api.patch('/users/me/notification-preferences', notifications);
       toast.success('Notification preferences updated');
     } catch (error: unknown) {
-      const message =
-        (error as { response?: { data?: { message?: string } } })?.response
-          ?.data?.message || 'Failed to update preferences';
-      toast.error(message);
+      showErrorToast(error, 'Failed to update preferences');
     }
   };
 
@@ -281,11 +273,7 @@ export default function SettingsPage() {
         toast.error('Could not retrieve image URL from server.');
       }
     } catch (error: unknown) {
-      const message =
-        (error as { response?: { data?: { message?: string } } })?.response
-          ?.data?.message || 'Failed to upload profile picture';
-      toast.error(message);
-      console.error('Upload error:', error);
+      showErrorToast(error, 'Failed to upload profile picture');
     }
   };
 

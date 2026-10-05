@@ -35,15 +35,43 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message = exceptionResponse;
       } else if (typeof exceptionResponse === 'object') {
         const resp = exceptionResponse as any;
-        message = resp.message || message;
-        errors = resp.errors || null;
+        // Cleanly join validation arrays for message while preserving errors array
+        if (Array.isArray(resp.message)) {
+          message = resp.message.join(', ');
+          errors = resp.message;
+        } else {
+          message = resp.message || message;
+          errors = resp.errors || null;
+        }
         errorCode = resp.errorCode || errorCode;
         details = resp.details || null;
       }
-    } else if (exception instanceof Error) {
-      message = exception.message;
-      errorCode = ErrorCodes.SYS_001;
-      this.logger.error(exception.stack);
+    } else if (exception && typeof exception === 'object') {
+      const err = exception as any;
+
+      // Handle PostgreSQL / TypeORM unique constraint violation (code 23505)
+      if (err.code === '23505' || err.driverError?.code === '23505') {
+        statusCode = HttpStatus.CONFLICT;
+        message = 'A record with this information already exists.';
+        errorCode = ErrorCodes.RES_002;
+      }
+      // Handle PostgreSQL / TypeORM foreign key constraint violation (code 23503)
+      else if (err.code === '23503' || err.driverError?.code === '23503') {
+        statusCode = HttpStatus.BAD_REQUEST;
+        message = 'Referenced resource was not found or has active dependencies.';
+        errorCode = ErrorCodes.RES_001;
+      }
+      // Handle TypeORM EntityNotFoundError
+      else if (err.name === 'EntityNotFoundError') {
+        statusCode = HttpStatus.NOT_FOUND;
+        message = 'Requested entity was not found.';
+        errorCode = ErrorCodes.RES_001;
+      }
+      else if (exception instanceof Error) {
+        message = exception.message;
+        errorCode = ErrorCodes.SYS_001;
+        this.logger.error(exception.stack);
+      }
     }
 
     // Get request ID from headers

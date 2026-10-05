@@ -90,24 +90,31 @@ export default function RootLayout({
           <Footer />
           <Toaster 
             position="top-right"
+            gutter={8}
             toastOptions={{
               duration: 4000,
               style: {
-                background: '#363636',
-                color: '#fff',
+                background: '#ffffff',
+                color: '#1e293b',
+                borderRadius: '1rem',
+                border: '1px solid #f1f5f9',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04)',
+                padding: '12px 16px',
+                fontSize: '14px',
+                fontWeight: 500,
               },
               success: {
-                duration: 3000,
+                duration: 3500,
                 iconTheme: {
-                  primary: '#22c55e',
-                  secondary: '#fff',
+                  primary: '#10b981',
+                  secondary: '#ffffff',
                 },
               },
               error: {
-                duration: 4000,
+                duration: 4500,
                 iconTheme: {
                   primary: '#ef4444',
-                  secondary: '#fff',
+                  secondary: '#ffffff',
                 },
               },
             }}

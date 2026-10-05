@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { auth } from '@/lib/auth';
 import LocationModal from '@/components/LocationModal';
 import toast from 'react-hot-toast';
+import { showErrorToast } from '@/lib/error-handler';
 import { Wallet, CreditCard, Smartphone, ShieldCheck, Lock, Check } from 'lucide-react';
 
 export default function CheckoutPage() {
@@ -151,12 +152,8 @@ export default function CheckoutPage() {
         toast.success('Order placed successfully!');
         router.push(`/orders/${orderId}`);
       }
-    } catch (err: any) {
-      console.error(err);
-      const msg = err?.response?.data?.message;
-      toast.error(
-        Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to place order',
-      );
+    } catch (err: unknown) {
+      showErrorToast(err, 'Failed to place order');
     } finally {
       setLoading(false);
     }

@@ -7,6 +7,7 @@ import { unwrapPaginated } from '@/lib/unwrapPaginated';
 import MenuItemCard from '@/components/MenuItemCard';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import toast from 'react-hot-toast';
+import { showErrorToast } from '@/lib/error-handler';
 import { ArrowLeft, MapPin, Star, Clock, MessageSquare, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -56,10 +57,9 @@ export default function RestaurantDetailPage() {
           const revData = reviewsRes.value.data?.data || reviewsRes.value.data?.items || reviewsRes.value.data || [];
           setReviews(Array.isArray(revData) ? revData : []);
         }
-      } catch (err) {
+      } catch (err: unknown) {
         if (!cancelled) {
-          console.error(err);
-          toast.error('Failed to load restaurant');
+          showErrorToast(err, 'Failed to load restaurant');
           router.push('/');
         }
       } finally {

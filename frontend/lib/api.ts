@@ -150,17 +150,22 @@ api.interceptors.response.use(
 
     // ======== NON-AUTH ERRORS ========
     const isAuthEndpoint = originalRequest.url?.includes('/auth/') ?? false;
-    if (!isAuthEndpoint && error.response) {
+    const skipGlobalToast = (originalRequest as any)?.skipGlobalToast ?? false;
+
+    if (!error.response && (originalRequest._retryCount || 0) >= MAX_RETRIES) {
+      toast.error('Unable to connect to server. Please check your connection.', {
+        id: 'network-offline',
+      });
+    } else if (!isAuthEndpoint && !skipGlobalToast && error.response) {
       const message = getUserFriendlyError(error);
       const status = error.response.status;
       if (status === 403) {
-        toast.error('You do not have permission to perform this action.');
-      } else if (status === 404) {
-        toast.error('Resource not found.');
+        toast.error('You do not have permission to perform this action.', { id: 'forbidden-action' });
       } else if (status >= 500) {
-        toast.error('Server error. Please try again later.');
-      } else {
-        toast.error(message);
+        toast.error('Server error. Please try again later.', { id: 'server-error' });
+      } else if (status !== 404) {
+        // Deduplicate using message as ID so callers calling showErrorToast never double-toast
+        toast.error(message, { id: message });
       }
     }
 

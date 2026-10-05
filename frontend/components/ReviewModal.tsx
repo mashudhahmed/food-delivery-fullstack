@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Star, X, Loader2, MessageSquare } from 'lucide-react';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { showErrorToast } from '@/lib/error-handler';
 
 interface ReviewModalProps {
   isOpen: boolean;
@@ -48,11 +49,8 @@ export default function ReviewModal({
       toast.success('Thank you! Your review has been submitted.');
       onSuccess?.();
       onClose();
-    } catch (err: any) {
-      const msg = err?.response?.data?.message;
-      toast.error(
-        Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to submit review'
-      );
+    } catch (err: unknown) {
+      showErrorToast(err, 'Failed to submit review');
     } finally {
       setSubmitting(false);
     }

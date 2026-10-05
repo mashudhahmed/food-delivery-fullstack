@@ -1,5 +1,6 @@
 // frontend/lib/error-handler.ts
 import { isAxiosError } from 'axios';
+import toast from 'react-hot-toast';
 
 export interface ApiError {
   statusCode: number;
@@ -153,6 +154,17 @@ export function getErrorMessage(error: unknown): string {
 
 /** Alias used by the API interceptor and AuthModal */
 export const getUserFriendlyError = getErrorMessage;
+
+/**
+ * Standardized production toast error helper.
+ * Deduplicates identical toasts and safely parses backend validation arrays.
+ */
+export function showErrorToast(error: unknown, fallbackMessage?: string): string {
+  const message = getUserFriendlyError(error) || fallbackMessage || 'An unexpected error occurred';
+  // Use message as toast ID to deduplicate identical toasts
+  toast.error(message, { id: message });
+  return message;
+}
 
 /**
  * Strips sensitive data (auth tokens, cookies) from an error's request

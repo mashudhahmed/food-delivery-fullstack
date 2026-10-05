@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Order } from '@/types';
 import toast from 'react-hot-toast';
+import { showErrorToast } from '@/lib/error-handler';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import CancelOrderModal from '@/components/CancelOrderModal';
@@ -96,8 +97,8 @@ export default function OrderDetailPage() {
       if (orderData.status !== 'pending') {
         hasRefreshedRef.current = false;
       }
-    } catch (error) {
-      toast.error('Failed to load order details');
+    } catch (error: unknown) {
+      showErrorToast(error, 'Failed to load order details');
     } finally {
       setLoading(false);
     }
@@ -270,8 +271,8 @@ export default function OrderDetailPage() {
       setShowCancelModal(false);
       await fetchOrderDetails();
       router.push('/orders');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to cancel order');
+    } catch (error: unknown) {
+      showErrorToast(error, 'Failed to cancel order');
     } finally {
       setCancelling(false);
     }

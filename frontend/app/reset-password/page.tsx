@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '../../lib/api';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { showErrorToast } from '@/lib/error-handler';
 import Link from 'next/link';
 
 // Separate component that uses useSearchParams
@@ -51,8 +52,8 @@ function ResetPasswordContent() {
       
       toast.success('Password reset successful! Please login.');
       router.push('/login');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to reset password');
+    } catch (error: unknown) {
+      showErrorToast(error, 'Failed to reset password');
     } finally {
       setLoading(false);
     }
