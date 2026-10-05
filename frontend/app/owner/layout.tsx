@@ -57,6 +57,14 @@ export default function OwnerLayout({
     setUser(currentUser);
   }, [router]);
 
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile Sidebar Toggle — offset below the Navbar instead of top-4,

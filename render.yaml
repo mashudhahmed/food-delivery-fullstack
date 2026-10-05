@@ -5,9 +5,10 @@ services:
     repo: https://github.com/mashudhahmed/food-delivery-fullstack
     branch: main
     plan: starter
+    rootDir: backend
     buildCommand: ./render-build.sh
     startCommand: npm run start:prod
-    healthCheckPath: /api/health
+    healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_ENV
         value: production

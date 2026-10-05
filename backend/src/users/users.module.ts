@@ -8,6 +8,7 @@ import { AuthModule } from '../auth/auth.module';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 import { NotificationPreferencesModule } from './notification-preferences.module';
 import { TwoFactorService } from '../common/services/two-factor.service';
+import { ImageValidatorService } from '../common/services/image-validator.service';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { TwoFactorService } from '../common/services/two-factor.service';
     NotificationPreferencesModule, // ✅ This is already imported
   ],
   controllers: [UsersController],
-  providers: [UsersService, TwoFactorService],
+  providers: [UsersService, TwoFactorService, ImageValidatorService],
   exports: [TypeOrmModule, UsersService, NotificationPreferencesModule], // ✅ Already exported
 })
 export class UsersModule {}

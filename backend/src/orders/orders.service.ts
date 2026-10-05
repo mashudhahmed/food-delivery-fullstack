@@ -464,17 +464,26 @@ export class OrdersService {
   }
 
   async acceptOrder(orderId: string, agentId: string) {
+    const updateResult = await this.orderRepository.update(
+      { id: orderId, status: OrderStatus.READY, agentId: IsNull() },
+      { agentId },
+    );
+
+    if (updateResult.affected === 0) {
+      const existing = await this.orderRepository.findOne({ where: { id: orderId } });
+      if (!existing) {
+        throw new NotFoundException('Order not found');
+      }
+      if (existing.status !== OrderStatus.READY) {
+        throw new BadRequestException('Order is not ready for pickup');
+      }
+      if (existing.agentId) {
+        throw new BadRequestException('Order already assigned to another agent');
+      }
+      throw new BadRequestException('Unable to accept order');
+    }
+
     const order = await this.getOrderWithDetails(orderId);
-
-    if (order.status !== OrderStatus.READY) {
-      throw new BadRequestException('Order is not ready for pickup');
-    }
-    if (order.agentId) {
-      throw new BadRequestException('Order already assigned to another agent');
-    }
-
-    order.agentId = agentId;
-    await this.orderRepository.save(order);
 
     try {
       await this.notificationsService.sendToUser(order.customerId, {

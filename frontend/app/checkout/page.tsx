@@ -19,10 +19,13 @@ export default function CheckoutPage() {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const uniqueRestaurantIds = Array.from(new Set(items.map((i) => i.restaurantId)));
+  const restaurantCount = uniqueRestaurantIds.length || 1;
+
   const subtotal = getTotalPrice();
-  // Backend hardcodes deliveryFee = 50 and platformFee = 20
-  const deliveryFee = 50;
-  const platformFee = 20;
+  // Backend charges deliveryFee = 50 and platformFee = 20 per restaurant
+  const deliveryFee = 50 * restaurantCount;
+  const platformFee = 20 * restaurantCount;
   const total = subtotal + deliveryFee + platformFee;
 
   const addressText =
@@ -48,38 +51,72 @@ export default function CheckoutPage() {
       return;
     }
 
-    // ✅ Payload matches CreateOrderDto exactly – no extra fields
-    const payload = {
-      restaurantId: items[0].restaurantId,
-      items: items.map((i) => ({
-        menuItemId: i.id,
-        quantity: i.quantity,
-      })),
-      deliveryAddress: addressText,
-      paymentMethod,
-      deliveryInstructions: notes.trim() || undefined,
-      customerInfo: {
-        fullName: currentUser.fullName || currentUser.name || '',
-        email: currentUser.email,
-        phone: currentUser.phone || '',
-      },
+    const customerInfo = {
+      fullName: currentUser.fullName || currentUser.name || '',
+      email: currentUser.email,
+      phone: currentUser.phone || '',
     };
 
+    setLoading(true);
+
     try {
-      setLoading(true);
-      const res = await api.post('/orders', payload);
-      const order = res.data?.data || res.data;
-      const orderId = order?.id || order?.order?.id;
+      if (uniqueRestaurantIds.length > 1) {
+        // Multi-restaurant checkout
+        const multiPayload = {
+          restaurants: uniqueRestaurantIds.map((restId) => ({
+            restaurantId: restId,
+            items: items
+              .filter((i) => i.restaurantId === restId)
+              .map((i) => ({
+                menuItemId: i.id,
+                quantity: i.quantity,
+              })),
+          })),
+          deliveryAddress: addressText,
+          paymentMethod,
+          deliveryInstructions: notes.trim() || undefined,
+          customerInfo,
+        };
 
-      if (!orderId) {
-        toast.error('Order placed but response was unexpected');
-        console.error('Unexpected order response', res.data);
-        return;
+        const res = await api.post('/orders/multi', multiPayload);
+        const result = res.data?.data || res.data;
+        const orderIds = result?.summary?.orderIds || result?.orders?.map((o: any) => o.id) || [];
+
+        clearCart();
+        toast.success(result?.message || 'Orders placed successfully!');
+        if (orderIds.length > 0) {
+          router.push(`/orders/${orderIds[0]}`);
+        } else {
+          router.push('/orders');
+        }
+      } else {
+        // Single-restaurant checkout
+        const payload = {
+          restaurantId: items[0].restaurantId,
+          items: items.map((i) => ({
+            menuItemId: i.id,
+            quantity: i.quantity,
+          })),
+          deliveryAddress: addressText,
+          paymentMethod,
+          deliveryInstructions: notes.trim() || undefined,
+          customerInfo,
+        };
+
+        const res = await api.post('/orders', payload);
+        const order = res.data?.data || res.data;
+        const orderId = order?.id || order?.order?.id;
+
+        if (!orderId) {
+          toast.error('Order placed but response was unexpected');
+          console.error('Unexpected order response', res.data);
+          return;
+        }
+
+        clearCart();
+        toast.success('Order placed successfully!');
+        router.push(`/orders/${orderId}`);
       }
-
-      clearCart();
-      toast.success('Order placed successfully!');
-      router.push(`/orders/${orderId}`);
     } catch (err: any) {
       console.error(err);
       const msg = err?.response?.data?.message;
@@ -128,11 +165,11 @@ export default function CheckoutPage() {
             <span>৳{subtotal.toFixed(0)}</span>
           </div>
           <div className="flex justify-between">
-            <span>Delivery Fee</span>
+            <span>Delivery Fee {restaurantCount > 1 ? `(৳50 × ${restaurantCount} restaurants)` : ''}</span>
             <span>৳{deliveryFee}</span>
           </div>
           <div className="flex justify-between">
-            <span>Platform Fee</span>
+            <span>Platform Fee {restaurantCount > 1 ? `(৳20 × ${restaurantCount} restaurants)` : ''}</span>
             <span>৳{platformFee}</span>
           </div>
           <div className="flex justify-between font-bold text-base pt-1">

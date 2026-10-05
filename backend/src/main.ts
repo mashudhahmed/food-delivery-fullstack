@@ -2,13 +2,12 @@
 import { initSentry } from './common/sentry/sentry';
 initSentry();
 
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe, Logger, VersioningType } from '@nestjs/common';
+import { ValidationPipe, Logger, VersioningType, ClassSerializerInterceptor } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-import { RoleFieldInterceptor } from './common/interceptors/role-field.interceptor';
 import compression from 'compression';
 import helmet from 'helmet';
 import { WinstonModule } from 'nest-winston';
@@ -73,8 +72,8 @@ async function bootstrap() {
 
     // Global Interceptors
     app.useGlobalInterceptors(
+      new ClassSerializerInterceptor(app.get(Reflector)),
       new ResponseInterceptor(),
-      new RoleFieldInterceptor(),
     );
 
     // Global Filters

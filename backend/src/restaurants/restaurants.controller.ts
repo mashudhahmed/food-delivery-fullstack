@@ -62,6 +62,15 @@ export class RestaurantsController {
     return this.restaurantsService.findAll(filters);
   }
 
+  // ✅ Debug endpoint to verify API is working
+  @Get('debug')
+  debug() {
+    return {
+      message: 'Restaurants API is working',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   @Get(':id')
   @UseInterceptors(CacheInterceptor)
   findOne(@Param('id') id: string) {
@@ -96,14 +105,5 @@ export class RestaurantsController {
     await this.cacheService.deletePattern(`cache:/restaurants/${id}`);
     await this.cacheService.deletePattern('cache:/restaurants*');
     return result;
-  }
-
-  // ✅ Debug endpoint to verify API is working
-  @Get('debug')
-  debug() {
-    return {
-      message: 'Restaurants API is working',
-      timestamp: new Date().toISOString(),
-    };
   }
 }

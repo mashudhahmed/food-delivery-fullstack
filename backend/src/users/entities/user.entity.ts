@@ -54,9 +54,11 @@ export class User {
   @Column({ nullable: true })
   pendingEmail: string;
 
+  @Exclude()
   @Column({ nullable: true })
   emailChangeToken: string;
 
+  @Exclude()
   @Column({ nullable: true })
   emailChangeTokenExpires: Date;
 
@@ -64,9 +66,11 @@ export class User {
   @Column({ default: false })
   twoFactorEnabled: boolean;
 
+  @Exclude()
   @Column({ nullable: true })
   twoFactorSecret: string;
 
+  @Exclude()
   @Column({ nullable: true })
   twoFactorBackupCodes: string; // JSON array
 
@@ -129,9 +133,11 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  @Exclude()
   @Column({ nullable: true })
   resetPasswordToken: string;
 
+  @Exclude()
   @Column({ nullable: true })
   resetPasswordExpires: Date;
 
@@ -154,4 +160,18 @@ export class User {
 
   @OneToMany(() => RefreshToken, (rt) => rt.user)
   refreshTokens: RefreshToken[];
+
+  toJSON() {
+    const {
+      passwordHash,
+      resetPasswordToken,
+      resetPasswordExpires,
+      emailChangeToken,
+      emailChangeTokenExpires,
+      twoFactorSecret,
+      twoFactorBackupCodes,
+      ...safe
+    } = this;
+    return safe;
+  }
 }

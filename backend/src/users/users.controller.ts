@@ -37,6 +37,7 @@ import { Enable2FADto, Verify2FADto, Disable2FADto } from './dto/enable-2fa.dto'
 import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 import { Throttle } from '@nestjs/throttler';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { ImageValidatorService } from '../common/services/image-validator.service';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -49,6 +50,7 @@ export class UsersController {
     private readonly usersService: UsersService,
     private readonly notificationPreferencesService: NotificationPreferencesService,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly imageValidator: ImageValidatorService,
   ) {}
 
   @Get('me')
@@ -137,7 +139,14 @@ export class UsersController {
       throw new BadRequestException('No file provided');
     }
 
-    const result = await this.cloudinaryService.uploadProfileImage(file);
+    await this.imageValidator.validateImage(file);
+    const sanitizedBuffer = await this.imageValidator.sanitizeImage(file);
+    const sanitizedFile = {
+      ...file,
+      buffer: sanitizedBuffer,
+    };
+
+    const result = await this.cloudinaryService.uploadProfileImage(sanitizedFile);
     return this.usersService.updateProfilePicture(req.user.id, {
       profilePicture: result.secureUrl,
       profilePicturePublicId: result.publicId,

@@ -14,16 +14,16 @@ registerHandlebarsHelpers();
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         transport: {
-          host: configService.get('MAIL_HOST'),
-          port: configService.get('MAIL_PORT'),
-          secure: false,
+          host: configService.get('MAIL_HOST') || configService.get('SMTP_HOST'),
+          port: Number(configService.get('MAIL_PORT') || configService.get('SMTP_PORT')) || 587,
+          secure: configService.get('SMTP_SECURE') === 'true' || false,
           auth: {
-            user: configService.get('MAIL_USER'),
-            pass: configService.get('MAIL_PASSWORD'),
+            user: configService.get('MAIL_USER') || configService.get('SMTP_USER'),
+            pass: configService.get('MAIL_PASSWORD') || configService.get('SMTP_PASS'),
           },
         },
         defaults: {
-          from: `"QuickBite" <${configService.get('MAIL_FROM')}>`,
+          from: `"QuickBite" <${configService.get('MAIL_FROM') || configService.get('SMTP_USER') || 'noreply@quickbite.com'}>`,
         },
         template: {
           dir: join(__dirname, 'templates'),

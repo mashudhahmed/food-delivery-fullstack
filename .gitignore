@@ -53,9 +53,11 @@ Thumbs.db
 .DS_Store
 Thumbs.db
 
-# Testing
+# Testing & Reports
 coverage/
 .nyc_output/
+*report*
+*.report.*
 
 # Temporary
 *.tmp
