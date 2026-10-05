@@ -66,9 +66,19 @@ export default function Navbar() {
 
   const prevCartCountRef = useRef(0);
 
-  // Mount safety for SSR hydration
+  // Mount safety for SSR hydration & check pending auth modal
   useEffect(() => {
     setIsMounted(true);
+    const storedModal = localStorage.getItem('openAuthModal');
+    if (storedModal) {
+      localStorage.removeItem('openAuthModal');
+      setAuthModalMode(
+        storedModal === 'register' || storedModal === 'signup'
+          ? 'signup'
+          : 'login'
+      );
+      setIsAuthModalOpen(true);
+    }
   }, []);
 
   // Cart badge bounce animation on item addition

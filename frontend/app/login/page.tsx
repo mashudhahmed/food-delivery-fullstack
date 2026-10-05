@@ -4,11 +4,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import AuthModal from '@/components/AuthModal';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [showModal, setShowModal] = useState(true);
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
@@ -27,29 +25,16 @@ export default function LoginPage() {
     setChecked(true);
   }, [router]);
 
-  if (!checked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500" />
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!checked) return;
+
+    localStorage.setItem('openAuthModal', 'login');
+    router.replace('/');
+  }, [checked, router]);
 
   return (
-    <>
-      <AuthModal
-        isOpen={showModal}
-        onClose={() => {
-          setShowModal(false);
-          router.push('/');
-        }}
-        initialMode="login"
-      />
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <p className="text-gray-500">Opening login modal...</p>
-        </div>
-      </div>
-    </>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500" />
+    </div>
   );
 }

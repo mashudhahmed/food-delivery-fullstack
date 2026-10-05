@@ -187,8 +187,15 @@ export default function AuthModal({
         owner: '/owner/dashboard',
         agent: '/agent/dashboard',
       };
-      const redirectPath = redirectMap[role] || '/';
-      setTimeout(() => router.replace(redirectPath), 200);
+      if (role !== 'customer' && redirectMap[role]) {
+        setTimeout(() => router.replace(redirectMap[role]), 200);
+      } else if (
+        typeof window !== 'undefined' &&
+        (window.location.pathname === '/login' ||
+          window.location.pathname === '/register')
+      ) {
+        setTimeout(() => router.replace('/'), 200);
+      }
 
       setLoading(false);
     } catch (error) {
@@ -242,8 +249,15 @@ export default function AuthModal({
         owner: '/owner/dashboard',
         agent: '/agent/dashboard',
       };
-      const redirectPath = redirectMap[user.role] || '/';
-      setTimeout(() => router.replace(redirectPath), 200);
+      if (user.role !== 'customer' && redirectMap[user.role]) {
+        setTimeout(() => router.replace(redirectMap[user.role]), 200);
+      } else if (
+        typeof window !== 'undefined' &&
+        (window.location.pathname === '/login' ||
+          window.location.pathname === '/register')
+      ) {
+        setTimeout(() => router.replace('/'), 200);
+      }
     } catch (error) {
       toast.error('Invalid 2FA code. Please try again.');
     } finally {
@@ -400,8 +414,15 @@ export default function AuthModal({
         owner: '/owner/dashboard',
         agent: '/agent/dashboard',
       };
-      const redirectPath = redirectMap[role] || '/';
-      setTimeout(() => router.replace(redirectPath), 200);
+      if (role !== 'customer' && redirectMap[role]) {
+        setTimeout(() => router.replace(redirectMap[role]), 200);
+      } else if (
+        typeof window !== 'undefined' &&
+        (window.location.pathname === '/login' ||
+          window.location.pathname === '/register')
+      ) {
+        setTimeout(() => router.replace('/'), 200);
+      }
 
       setLoading(false);
     } catch (error) {
@@ -524,13 +545,13 @@ export default function AuthModal({
   // ==================== RENDER ====================
   return (
     <div
-      className="fixed inset-0 z-200 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" />
 
       {/* Modal */}
       <div className="relative w-full max-w-105 bg-white rounded-3xl shadow-2xl shadow-slate-900/20 overflow-hidden max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-200">

@@ -79,8 +79,10 @@ export default function CartPage() {
 
   const handleCheckout = async () => {
     if (!auth.isAuthenticated()) {
-      toast.error('Please login to proceed with checkout');
-      router.push('/login');
+      toast('Please log in to proceed with checkout', { icon: '🔒' });
+      window.dispatchEvent(
+        new CustomEvent('open-auth-modal', { detail: { mode: 'login' } })
+      );
       return;
     }
 
