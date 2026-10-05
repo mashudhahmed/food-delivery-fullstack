@@ -47,6 +47,9 @@ export class IdempotencyInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap((response) => {
+        // Periodically purge expired cache entries
+        this.cleanExpired();
+
         // Store successful responses
         this.cache.set(idempotencyKey, {
           response,
@@ -55,6 +58,15 @@ export class IdempotencyInterceptor implements NestInterceptor {
         this.logger.debug(`Idempotent request: ${idempotencyKey} - cached response`);
       }),
     );
+  }
+
+  private cleanExpired() {
+    const now = Date.now();
+    for (const [key, val] of this.cache.entries()) {
+      if (val.expiry <= now) {
+        this.cache.delete(key);
+      }
+    }
   }
 
   constructor(private readonly reflector: Reflector) {}

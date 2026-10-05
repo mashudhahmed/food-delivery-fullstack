@@ -53,9 +53,18 @@ export class OrdersService {
 
       let subtotal = 0;
       const orderItemsData: Partial<OrderItem>[] = [];
+      const itemIds = createOrderDto.items.map((i) => i.menuItemId);
+      const menuItems = await this.menuService.getMenuItemsByIds(itemIds);
+      const menuItemMap = new Map(menuItems.map((m) => [m.id, m]));
 
       for (const item of createOrderDto.items) {
-        const menuItem = await this.menuService.getMenuItem(item.menuItemId);
+        const menuItem = menuItemMap.get(item.menuItemId);
+
+        if (!menuItem) {
+          throw new NotFoundException(
+            `Menu item with ID "${item.menuItemId}" not found`,
+          );
+        }
 
         if (!menuItem.isAvailable) {
           throw new BadRequestException(
@@ -182,9 +191,17 @@ export class OrdersService {
           // Calculate subtotal for this restaurant
           let subtotal = 0;
           const orderItemsData: Partial<OrderItem>[] = [];
+          const itemIds = restaurantCart.items.map((i) => i.menuItemId);
+          const menuItems = await this.menuService.getMenuItemsByIds(itemIds);
+          const menuItemMap = new Map(menuItems.map((m) => [m.id, m]));
 
           for (const item of restaurantCart.items) {
-            const menuItem = await this.menuService.getMenuItem(item.menuItemId);
+            const menuItem = menuItemMap.get(item.menuItemId);
+
+            if (!menuItem) {
+              allErrors.push(`Menu item with ID "${item.menuItemId}" not found`);
+              continue;
+            }
 
             if (!menuItem.isAvailable) {
               allErrors.push(`"${menuItem.name}" from "${restaurant.name}" is not available`);

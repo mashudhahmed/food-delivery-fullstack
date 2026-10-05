@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { MenuItem } from './entities/menu-item.entity';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
@@ -60,6 +60,11 @@ export class MenuService {
       throw new NotFoundException('Menu item not found');
     }
     return menuItem;
+  }
+
+  async getMenuItemsByIds(ids: string[]) {
+    if (!ids || ids.length === 0) return [];
+    return await this.menuItemRepository.findBy({ id: In(ids) });
   }
 
   async updateMenuItem(

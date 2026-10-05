@@ -308,6 +308,9 @@ export class AuthService {
           if (expiryTime > 0) {
             this.tokenBlacklist.add(accessToken);
             this.logger.debug(`Access token blacklisted for ${Math.ceil(expiryTime / 1000)}s`);
+            setTimeout(() => {
+              this.tokenBlacklist.delete(accessToken);
+            }, expiryTime);
           }
         }
       } catch (e) {

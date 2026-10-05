@@ -142,7 +142,7 @@ export default function Navbar() {
       window.removeEventListener('auth-change', handleAuthChange);
       window.removeEventListener('open-auth-modal', handleOpenAuthModal);
     };
-  }, [auth]);
+  }, []);
 
   const handleLogoutClick = () => {
     setIsLogoutModalOpen(true);
