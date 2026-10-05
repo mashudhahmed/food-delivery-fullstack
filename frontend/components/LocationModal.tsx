@@ -65,15 +65,17 @@ export default function LocationModal({ isOpen, onClose }: LocationModalProps) {
     return () => window.removeEventListener('keydown', handleEsc);
   }, [isOpen, onClose]);
 
+  const handleClose = () => {
+    setStep('search');
+    setSearchTerm('');
+    setSearchResults([]);
+    setSelectedAddress('');
+    onClose();
+  };
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-      setStep('search');
-      setSearchTerm('');
-      setSearchResults([]);
-      setSelectedAddress('');
     }
     return () => {
       document.body.style.overflow = 'unset';
@@ -167,7 +169,7 @@ export default function LocationModal({ isOpen, onClose }: LocationModalProps) {
     addAddress(address);
     setStoreAddress(address);
     toast.success('Location set successfully');
-    onClose();
+    handleClose();
   };
 
   if (!isOpen) return null;
@@ -175,7 +177,7 @@ export default function LocationModal({ isOpen, onClose }: LocationModalProps) {
   return (
     <div
       className="fixed inset-0 z-100 flex items-center justify-center p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && handleClose()}
       role="dialog"
       aria-modal="true"
     >
@@ -190,7 +192,7 @@ export default function LocationModal({ isOpen, onClose }: LocationModalProps) {
             {step === 'search' ? 'Delivery address' : 'Confirm on map'}
           </h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition"
             aria-label="Close"
           >

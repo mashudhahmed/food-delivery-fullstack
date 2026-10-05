@@ -28,6 +28,7 @@ export function ActivityFeed() {
 
   const fetchActivities = async () => {
     try {
+      setLoading(true);
       const response = await api.get(`/admin/activity?limit=${limit}`);
       setActivities(response.data);
     } catch (error) {
@@ -39,7 +40,23 @@ export function ActivityFeed() {
   };
 
   useEffect(() => {
-    fetchActivities();
+    let isCancelled = false;
+    const load = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get(`/admin/activity?limit=${limit}`);
+        if (!isCancelled) setActivities(response.data);
+      } catch (error) {
+        console.error('Failed to fetch activities:', error);
+        if (!isCancelled) toast.error('Failed to load activity feed');
+      } finally {
+        if (!isCancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      isCancelled = true;
+    };
   }, [limit]);
 
   if (loading) {

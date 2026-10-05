@@ -120,15 +120,7 @@ export default function Navbar() {
       }
     };
 
-    const authenticated = auth.isAuthenticated();
-    setIsAuthenticated(authenticated);
-    if (authenticated) {
-      const currentUser = auth.getCurrentUser();
-      setUser(currentUser);
-      if (currentUser?.role === 'customer') {
-        useFavoritesStore.getState().loadFavorites();
-      }
-    }
+    queueMicrotask(handleAuthChange);
 
     const handleOpenAuthModal = (e: Event) => {
       const detail = (e as CustomEvent).detail;

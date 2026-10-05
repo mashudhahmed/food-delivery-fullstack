@@ -44,7 +44,7 @@ export default function DeleteConfirmationModal({
           <p className="text-gray-600">{message}</p>
           {itemName && (
             <p className="mt-2 text-sm font-medium text-red-600">
-              "{itemName}"
+              &quot;{itemName}&quot;
             </p>
           )}
           <p className="mt-4 text-xs text-gray-400">

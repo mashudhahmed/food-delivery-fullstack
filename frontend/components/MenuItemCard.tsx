@@ -4,24 +4,17 @@ import { useCartStore } from '@/stores/cartStore';
 import { MenuItem } from '@/types';
 import toast from 'react-hot-toast';
 import { Plus, Minus } from 'lucide-react';
-import { useEffect, useState } from 'react';
 
 interface Props {
   item: MenuItem;
   restaurantName: string;
-  restaurantId: string;
+  restaurantId?: string;
   disabled?: boolean;  // Add this prop for restaurant closed state
 }
 
-export default function MenuItemCard({ item, restaurantName, restaurantId, disabled = false }: Props) {
+export default function MenuItemCard({ item, restaurantName, restaurantId: _restaurantId, disabled = false }: Props) {
   const { items, addItem, removeItem, updateQuantity } = useCartStore();
-  const [quantity, setQuantity] = useState(0);
-
-  // Sync quantity with cart store
-  useEffect(() => {
-    const cartItem = items.find(i => i.id === item.id);
-    setQuantity(cartItem?.quantity || 0);
-  }, [items, item.id]);
+  const quantity = items.find((i) => i.id === item.id)?.quantity || 0;
 
   const handleAddToCart = () => {
     if (disabled) {

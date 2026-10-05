@@ -37,7 +37,7 @@ export default function PendingApprovalPage() {
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-                <span>You'll receive an email with the decision</span>
+                <span>You&apos;ll receive an email with the decision</span>
               </li>
             </ul>
           </div>

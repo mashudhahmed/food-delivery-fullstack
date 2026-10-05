@@ -36,30 +36,43 @@ export default function RestaurantDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (id) fetchRestaurantAndMenu();
-  }, [id]);
+    if (!id) return;
+    let cancelled = false;
 
-  async function fetchRestaurantAndMenu() {
-    try {
-      setLoading(true);
-      const [restRes, menuRes] = await Promise.all([
-        api.get(`/restaurants/${id}`),
-        api.get(`/menu/restaurant/${id}`),
-      ]);
+    async function fetchRestaurantAndMenu() {
+      try {
+        setLoading(true);
+        const [restRes, menuRes] = await Promise.all([
+          api.get(`/restaurants/${id}`),
+          api.get(`/menu/restaurant/${id}`),
+        ]);
 
-      const restaurantData = restRes.data?.data || restRes.data;
-      const menuData = unwrapPaginated(menuRes.data).items as MenuItem[];
+        if (cancelled) return;
 
-      setRestaurant(restaurantData);
-      setMenuItems(menuData);
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to load restaurant');
-      router.push('/');
-    } finally {
-      setLoading(false);
+        const restaurantData = restRes.data?.data || restRes.data;
+        const menuData = unwrapPaginated(menuRes.data).items as MenuItem[];
+
+        setRestaurant(restaurantData);
+        setMenuItems(menuData);
+      } catch (err) {
+        if (!cancelled) {
+          console.error(err);
+          toast.error('Failed to load restaurant');
+          router.push('/');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
     }
-  }
+
+    fetchRestaurantAndMenu();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, router]);
 
   const categories = [
     'All',
