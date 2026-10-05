@@ -264,12 +264,12 @@ export default function SettingsPage() {
       const formData = new FormData();
       formData.append('image', file);
 
-      const response = await api.post('/uploads/profile', formData, {
+      const response = await api.post('/users/me/profile-picture', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      const data = response.data?.data || response.data;
-      const secureUrl = data.secureUrl || data.url;
+      const updatedData = response.data?.data || response.data;
+      const secureUrl = updatedData?.profilePicture || updatedData?.secureUrl || updatedData?.url;
 
       if (secureUrl) {
         const updatedUser = { ...user, profilePicture: secureUrl };

@@ -16,6 +16,9 @@ import {
   X,
   CheckCircle2,
   PauseCircle,
+  Upload,
+  ImageIcon,
+  Loader2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
@@ -77,18 +80,57 @@ export default function OwnerRestaurantsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingRestaurant, setEditingRestaurant] = useState<Restaurant | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     address: '',
     phone: '',
     cuisineType: '',
+    imageUrl: '',
   });
 
   // Delete modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [restaurantToDelete, setRestaurantToDelete] = useState<Restaurant | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload a valid image file');
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      const data = new FormData();
+      data.append('image', file);
+
+      const res = await api.post('/uploads/restaurant', data, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const uploadResult = res.data?.data || res.data;
+      const url = uploadResult.secureUrl || uploadResult.url;
+
+      if (url) {
+        setFormData((prev) => ({ ...prev, imageUrl: url }));
+        toast.success('Restaurant cover photo uploaded successfully');
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to upload photo'));
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   // ✅ 1. fetchRestaurants defined FIRST using useCallback
   const fetchRestaurants = useCallback(async () => {
@@ -128,16 +170,27 @@ export default function OwnerRestaurantsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload: Record<string, any> = {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        address: formData.address.trim(),
+        phone: formData.phone.trim(),
+        cuisineType: formData.cuisineType.trim(),
+      };
+      if (formData.imageUrl) {
+        payload.imageUrl = formData.imageUrl;
+      }
+
       if (editingRestaurant) {
-        await api.patch(`/restaurants/${editingRestaurant.id}`, formData);
+        await api.patch(`/restaurants/${editingRestaurant.id}`, payload);
         toast.success('Restaurant updated successfully');
       } else {
-        await api.post('/restaurants', formData);
+        await api.post('/restaurants', payload);
         toast.success('Restaurant created successfully');
       }
       setShowModal(false);
       setEditingRestaurant(null);
-      setFormData({ name: '', description: '', address: '', phone: '', cuisineType: '' });
+      setFormData({ name: '', description: '', address: '', phone: '', cuisineType: '', imageUrl: '' });
       fetchRestaurants();
     } catch (error) {
       toast.error(getErrorMessage(error, 'Operation failed'));
@@ -237,7 +290,7 @@ export default function OwnerRestaurantsPage() {
         <button
           onClick={() => {
             setEditingRestaurant(null);
-            setFormData({ name: '', description: '', address: '', phone: '', cuisineType: '' });
+            setFormData({ name: '', description: '', address: '', phone: '', cuisineType: '', imageUrl: '' });
             setShowModal(true);
           }}
           className="flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 transition shadow-sm shadow-orange-200"
@@ -356,6 +409,7 @@ export default function OwnerRestaurantsPage() {
                           address: restaurant.address,
                           phone: restaurant.phone,
                           cuisineType: restaurant.cuisineType,
+                          imageUrl: restaurant.imageUrl || '',
                         });
                         setShowModal(true);
                       }}
@@ -419,6 +473,41 @@ export default function OwnerRestaurantsPage() {
             </div>
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Cover Image</label>
+                <div className="flex items-center gap-4">
+                  {formData.imageUrl ? (
+                    <div className="relative w-20 h-14 rounded-xl overflow-hidden border border-gray-200 shrink-0">
+                      <Image
+                        src={formData.imageUrl}
+                        alt="Restaurant preview"
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-20 h-14 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 shrink-0">
+                      <ImageIcon className="w-6 h-6" />
+                    </div>
+                  )}
+                  <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                    {uploadingImage ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                    ) : (
+                      <Upload className="w-4 h-4 text-gray-500" />
+                    )}
+                    <span>{uploadingImage ? 'Uploading...' : 'Upload Image'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={uploadingImage}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Restaurant Name</label>
                 <input
                   type="text"
@@ -476,7 +565,8 @@ export default function OwnerRestaurantsPage() {
               <div className="flex gap-3 pt-2">
                 <button
                   type="submit"
-                  className="flex-1 bg-orange-500 text-white text-sm font-medium py-2.5 rounded-xl hover:bg-orange-600 transition shadow-sm shadow-orange-200"
+                  disabled={uploadingImage}
+                  className="flex-1 bg-orange-500 text-white text-sm font-medium py-2.5 rounded-xl hover:bg-orange-600 transition shadow-sm shadow-orange-200 disabled:opacity-50"
                 >
                   {editingRestaurant ? 'Update' : 'Create'} Restaurant
                 </button>

@@ -4,6 +4,7 @@ import { useCartStore } from '@/stores/cartStore';
 import { MenuItem } from '@/types';
 import toast from 'react-hot-toast';
 import { Plus, Minus } from 'lucide-react';
+import Image from 'next/image';
 
 interface Props {
   item: MenuItem;
@@ -106,10 +107,20 @@ export default function MenuItemCard({ item, restaurantName, restaurantId: _rest
         )}
       </div>
 
-      {/* Right Content: Emoji & Action Button */}
+      {/* Right Content: Photo / Emoji & Action Button */}
       <div className="relative w-28 h-28 shrink-0">
-        <div className="w-full h-full rounded-xl overflow-hidden bg-linear-to-br from-orange-100 to-orange-200 flex items-center justify-center">
-          <span className="text-5xl">{getCategoryEmoji()}</span>
+        <div className="w-full h-full rounded-xl overflow-hidden bg-linear-to-br from-orange-100 to-orange-200 flex items-center justify-center relative">
+          {item.imageUrl ? (
+            <Image
+              src={item.imageUrl}
+              alt={item.name}
+              fill
+              className="object-cover"
+              unoptimized
+            />
+          ) : (
+            <span className="text-5xl">{getCategoryEmoji()}</span>
+          )}
         </div>
 
         {/* Floating Action Button */}

@@ -19,4 +19,8 @@ export class CreateRestaurantDto {
   @IsBoolean()
   @IsOptional()
   isOpen?: boolean;
+
+  @IsString()
+  @IsOptional()
+  imageUrl?: string;
 }

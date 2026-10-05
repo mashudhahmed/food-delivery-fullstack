@@ -23,4 +23,8 @@ export class UpdateMenuItemDto extends PartialType(CreateMenuItemDto) {
   @IsBoolean()
   @IsOptional()
   isAvailable?: boolean;
+
+  @IsString()
+  @IsOptional()
+  imageUrl?: string;
 }

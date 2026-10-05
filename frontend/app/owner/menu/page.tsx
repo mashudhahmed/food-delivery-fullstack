@@ -7,7 +7,8 @@ import { unwrapPaginated, ensureArray } from '@/lib/unwrapPaginated';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import toast from 'react-hot-toast';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Upload, ImageIcon, Loader2 } from 'lucide-react';
+import Image from 'next/image';
 import { isAxiosError } from 'axios';
 
 // Helper to safely get error messages
@@ -30,6 +31,7 @@ interface MenuItem {
   description: string;
   price: number;
   category: string;
+  imageUrl?: string;
   isAvailable: boolean;
 }
 
@@ -42,12 +44,14 @@ export default function OwnerMenuPage() {
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [form, setForm] = useState({
     name: '',
     description: '',
     price: '',
     category: '',
+    imageUrl: '',
     isAvailable: true,
   });
 
@@ -106,6 +110,7 @@ export default function OwnerMenuPage() {
       description: '',
       price: '',
       category: '',
+      imageUrl: '',
       isAvailable: true,
     });
     setShowForm(true);
@@ -118,20 +123,54 @@ export default function OwnerMenuPage() {
       description: item.description || '',
       price: String(item.price || ''),
       category: item.category || '',
+      imageUrl: item.imageUrl || '',
       isAvailable: item.isAvailable !== false,
     });
     setShowForm(true);
   }
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload a valid image file');
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const res = await api.post('/uploads/menu-item', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const data = res.data?.data || res.data;
+      const url = data.secureUrl || data.url;
+
+      if (url) {
+        setForm((prev) => ({ ...prev, imageUrl: url }));
+        toast.success('Food photo uploaded successfully');
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to upload photo'));
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedRestaurantId) return;
 
-    // restaurantId is NOT part of the payload — the backend's
-    // CreateMenuItemDto doesn't declare it (it comes from the
-    // :restaurantId route param), and forbidNonWhitelisted validation
-    // would reject the whole request if it were included in the body.
-    const payload = {
+    const payload: Record<string, any> = {
       name: form.name.trim(),
       description: form.description.trim(),
       price: Number(form.price),
@@ -139,12 +178,15 @@ export default function OwnerMenuPage() {
       isAvailable: form.isAvailable,
     };
 
+    if (form.imageUrl) {
+      payload.imageUrl = form.imageUrl;
+    }
+
     try {
       if (editingItem) {
         await api.patch(`/menu/${editingItem.id}`, payload);
         toast.success('Menu item updated');
       } else {
-        // Real route is POST /menu/restaurant/:restaurantId, not POST /menu.
         await api.post(`/menu/restaurant/${selectedRestaurantId}`, payload);
         toast.success('Menu item created');
       }
@@ -214,6 +256,7 @@ export default function OwnerMenuPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
+                <th className="text-left p-4">Image</th>
                 <th className="text-left p-4">Name</th>
                 <th className="text-left p-4">Category</th>
                 <th className="text-left p-4">Price</th>
@@ -224,6 +267,23 @@ export default function OwnerMenuPage() {
             <tbody>
               {menuItems.map((item) => (
                 <tr key={item.id} className="border-t">
+                  <td className="p-4">
+                    {item.imageUrl ? (
+                      <div className="relative w-12 h-12 rounded-lg overflow-hidden border">
+                        <Image
+                          src={item.imageUrl}
+                          alt={item.name}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
+                        <ImageIcon className="w-6 h-6" />
+                      </div>
+                    )}
+                  </td>
                   <td className="p-4 font-medium">{item.name}</td>
                   <td className="p-4">{item.category || '—'}</td>
                   <td className="p-4">৳{Number(item.price).toFixed(0)}</td>
@@ -268,6 +328,44 @@ export default function OwnerMenuPage() {
             <h2 className="text-lg font-bold">
               {editingItem ? 'Edit Item' : 'Add Menu Item'}
             </h2>
+            {/* Food Image upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Food Image
+              </label>
+              <div className="flex items-center gap-4">
+                {form.imageUrl ? (
+                  <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 shrink-0">
+                    <Image
+                      src={form.imageUrl}
+                      alt="Food preview"
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 shrink-0">
+                    <ImageIcon className="w-6 h-6" />
+                  </div>
+                )}
+                <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                  {uploadingImage ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                  ) : (
+                    <Upload className="w-4 h-4 text-gray-500" />
+                  )}
+                  <span>{uploadingImage ? 'Uploading...' : 'Upload Image'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={uploadingImage}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
             <input
               required
               placeholder="Name"
@@ -320,7 +418,8 @@ export default function OwnerMenuPage() {
               </button>
               <button
                 type="submit"
-                className="flex-1 bg-orange-500 text-white rounded-lg py-2"
+                disabled={uploadingImage}
+                className="flex-1 bg-orange-500 text-white rounded-lg py-2 disabled:opacity-50"
               >
                 {editingItem ? 'Update' : 'Create'}
               </button>

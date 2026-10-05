@@ -17,6 +17,10 @@ export class CreateMenuItemDto {
   @IsBoolean()
   @IsOptional()
   isAvailable?: boolean;
+
+  @IsString()
+  @IsOptional()
+  imageUrl?: string;
 }
 
 export class CreateCategoryDto {
