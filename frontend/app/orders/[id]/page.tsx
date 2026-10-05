@@ -6,7 +6,9 @@ import { api } from '@/lib/api';
 import { Order } from '@/types';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import CancelOrderModal from '@/components/CancelOrderModal';
+import ReviewModal from '@/components/ReviewModal';
 import { wsService } from '@/lib/websocket';
 import { playOrderUpdateSound } from '@/lib/sound';
 import {
@@ -25,7 +27,17 @@ import {
   Wallet,
   Smartphone,
   XCircle,
+  Star,
 } from 'lucide-react';
+
+const DeliveryMap = dynamic(() => import('@/components/DeliveryMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-72 bg-white rounded-2xl border border-gray-100 p-8 flex items-center justify-center animate-pulse">
+      <p className="text-gray-400 text-sm">Loading delivery route map...</p>
+    </div>
+  ),
+});
 
 const STATUS_META: Record<string, { text: string; color: string; ring: string; dot: string }> = {
   pending: { text: 'Order Placed', color: 'bg-amber-50 text-amber-700', ring: 'ring-amber-200', dot: 'bg-amber-500' },
@@ -58,6 +70,8 @@ export default function OrderDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<{ minutes: number; seconds: number } | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [hasReviewed, setHasReviewed] = useState(false);
   const hasRefreshedRef = useRef(false);
 
   // Memoize fetchOrderDetails to prevent unnecessary re-renders
@@ -430,9 +444,19 @@ export default function OrderDetailPage() {
                 </div>
 
                 {order.status === 'delivered' && (
-                  <div className="mt-4 flex items-center gap-2 text-emerald-600 text-sm justify-center">
-                    <CheckCircle className="w-4 h-4" />
-                    Delivered successfully on {order.updatedAt ? new Date(order.updatedAt).toLocaleDateString() : 'N/A'}
+                  <div className="mt-4 flex items-center justify-between flex-wrap gap-3 pt-3 border-t border-gray-100">
+                    <div className="flex items-center gap-2 text-emerald-600 text-sm">
+                      <CheckCircle className="w-4 h-4" />
+                      Delivered successfully on {order.updatedAt ? new Date(order.updatedAt).toLocaleDateString() : 'N/A'}
+                    </div>
+                    <button
+                      onClick={() => setShowReviewModal(true)}
+                      disabled={hasReviewed}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-100 disabled:text-gray-400 text-white rounded-xl text-xs font-semibold shadow-sm transition"
+                    >
+                      <Star className="w-3.5 h-3.5 fill-current" />
+                      {hasReviewed ? 'Reviewed ★' : 'Rate & Review'}
+                    </button>
                   </div>
                 )}
                 {order.status === 'on_the_way' && (
@@ -449,6 +473,16 @@ export default function OrderDetailPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column - Order Details */}
             <div className="lg:col-span-2 space-y-6">
+              {/* Live Delivery Map Route */}
+              {order.status !== 'cancelled' && (
+                <DeliveryMap
+                  status={order.status}
+                  restaurantName={order.restaurant?.name}
+                  restaurantAddress={order.restaurant?.address}
+                  deliveryAddress={order.deliveryAddress}
+                />
+              )}
+
               {/* Restaurant Info */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100">
@@ -590,11 +624,24 @@ export default function OrderDetailPage() {
                 </button>
               </div>
 
-              {/* Reorder Button */}
+              {/* Actions for Delivered Orders */}
               {isDelivered && (
-                <button className="w-full bg-white border border-orange-200 text-orange-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-orange-50 transition">
-                  Order Again
-                </button>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setShowReviewModal(true)}
+                    disabled={hasReviewed}
+                    className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-gray-100 disabled:text-gray-400 text-white py-2.5 rounded-xl text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm shadow-amber-200"
+                  >
+                    <Star className="w-4 h-4 fill-current" />
+                    {hasReviewed ? 'Review Submitted' : 'Rate & Review Restaurant'}
+                  </button>
+                  <button
+                    onClick={() => router.push(`/restaurants/${order.restaurantId || order.restaurant?.id}`)}
+                    className="w-full bg-white border border-orange-200 text-orange-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-orange-50 transition"
+                  >
+                    Order Again
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -612,6 +659,19 @@ export default function OrderDetailPage() {
         paymentMethod={order.paymentMethod || 'cash'}
         timeRemaining={timeRemaining}
         loading={cancelling}
+      />
+
+      {/* Rate & Review Modal */}
+      <ReviewModal
+        isOpen={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        orderId={order.id}
+        restaurantId={order.restaurantId || order.restaurant?.id || ''}
+        restaurantName={order.restaurant?.name}
+        onSuccess={() => {
+          setHasReviewed(true);
+          fetchOrderDetails();
+        }}
       />
     </>
   );

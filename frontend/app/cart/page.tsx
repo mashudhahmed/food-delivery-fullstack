@@ -24,7 +24,11 @@ export default function CartPage() {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const { items, updateQuantity, removeItem, getTotalPrice, clearCart } = useCartStore();
 
-  const DELIVERY_FEE = 50;
+  const uniqueRestaurantIds = Array.from(new Set(items.map((i) => i.restaurantId)));
+  const restaurantCount = uniqueRestaurantIds.length || 1;
+
+  const DELIVERY_FEE = 50 * restaurantCount;
+  const PLATFORM_FEE = 20 * restaurantCount;
   const MIN_ORDER_AMOUNT = 200;
 
   // Helper function to get numeric price (handle string or number)
@@ -33,7 +37,7 @@ export default function CartPage() {
   };
 
   const subtotal = getTotalPrice();
-  const total = subtotal + DELIVERY_FEE;
+  const total = subtotal + DELIVERY_FEE + PLATFORM_FEE;
   const isEligibleForDelivery = subtotal >= MIN_ORDER_AMOUNT;
 
   // Fallback emoji based on item name
@@ -233,14 +237,18 @@ export default function CartPage() {
               <div className="space-y-3 mb-4">
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotal ({items.reduce((acc, i) => acc + i.quantity, 0)} items)</span>
-                  <span>৳{subtotal.toFixed(2)}</span>
+                  <span>৳{subtotal.toFixed(0)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <div className="flex items-center gap-1">
                     <Truck className="w-4 h-4" />
-                    <span>Delivery Fee</span>
+                    <span>Delivery Fee {restaurantCount > 1 ? `(৳50 × ${restaurantCount})` : ''}</span>
                   </div>
-                  <span>৳{DELIVERY_FEE.toFixed(2)}</span>
+                  <span>৳{DELIVERY_FEE.toFixed(0)}</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Platform Fee {restaurantCount > 1 ? `(৳20 × ${restaurantCount})` : ''}</span>
+                  <span>৳{PLATFORM_FEE.toFixed(0)}</span>
                 </div>
               </div>
 
@@ -261,8 +269,8 @@ export default function CartPage() {
               <div className="flex justify-between items-center mb-6">
                 <span className="text-lg font-bold text-gray-800">Total</span>
                 <div className="text-right">
-                  <span className="text-2xl font-bold text-orange-500">৳{total.toFixed(2)}</span>
-                  <p className="text-xs text-gray-500">Including delivery fee</p>
+                  <span className="text-2xl font-bold text-orange-500">৳{total.toFixed(0)}</span>
+                  <p className="text-xs text-gray-500">Including delivery & platform fees</p>
                 </div>
               </div>
 

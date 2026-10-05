@@ -3,13 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import { useCartStore } from '@/stores/cartStore';
 import { unwrapPaginated } from '@/lib/unwrapPaginated';
 import MenuItemCard from '@/components/MenuItemCard';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import toast from 'react-hot-toast';
-import { ArrowLeft, MapPin, Star, Clock } from 'lucide-react';
+import { ArrowLeft, MapPin, Star, Clock, MessageSquare, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { MenuItem } from '@/types';
 
 export default function RestaurantDetailPage() {
@@ -19,41 +19,43 @@ export default function RestaurantDetailPage() {
 
   const [restaurant, setRestaurant] = useState<any>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'menu' | 'reviews'>('menu');
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
-
-  const { items, clearCart } = useCartStore();
-
-  // Clear cart when switching restaurants
-  useEffect(() => {
-    if (!id) return;
-    const cartRestaurantId = items[0]?.restaurantId;
-    if (cartRestaurantId && cartRestaurantId !== id) {
-      clearCart();
-      toast('Cart cleared because you switched restaurants', { icon: '🛒' });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
 
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
 
-    async function fetchRestaurantAndMenu() {
+    async function fetchRestaurantData() {
       try {
         setLoading(true);
-        const [restRes, menuRes] = await Promise.all([
+        const [restRes, menuRes, reviewsRes] = await Promise.allSettled([
           api.get(`/restaurants/${id}`),
           api.get(`/menu/restaurant/${id}`),
+          api.get(`/reviews/restaurant/${id}`),
         ]);
 
         if (cancelled) return;
 
-        const restaurantData = restRes.data?.data || restRes.data;
-        const menuData = unwrapPaginated(menuRes.data).items as MenuItem[];
+        if (restRes.status === 'fulfilled') {
+          setRestaurant(restRes.value.data?.data || restRes.value.data);
+        } else {
+          toast.error('Failed to load restaurant');
+          router.push('/');
+          return;
+        }
 
-        setRestaurant(restaurantData);
-        setMenuItems(menuData);
+        if (menuRes.status === 'fulfilled') {
+          const menuData = unwrapPaginated(menuRes.value.data).items as MenuItem[];
+          setMenuItems(menuData);
+        }
+
+        if (reviewsRes.status === 'fulfilled') {
+          const revData = reviewsRes.value.data?.data || reviewsRes.value.data?.items || reviewsRes.value.data || [];
+          setReviews(Array.isArray(revData) ? revData : []);
+        }
       } catch (err) {
         if (!cancelled) {
           console.error(err);
@@ -67,7 +69,7 @@ export default function RestaurantDetailPage() {
       }
     }
 
-    fetchRestaurantAndMenu();
+    fetchRestaurantData();
 
     return () => {
       cancelled = true;
@@ -169,45 +171,169 @@ export default function RestaurantDetailPage() {
         </div>
       </div>
 
-      {categories.length > 1 && (
-        <div className="px-4 sm:px-6 mt-6 overflow-x-auto">
-          <div className="flex gap-2 pb-2">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition ${
-                  activeCategory === cat
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+      {/* Tab Switcher */}
+      <div className="px-4 sm:px-6 mt-6 border-b border-gray-200">
+        <div className="flex gap-8">
+          <button
+            onClick={() => setActiveTab('menu')}
+            className={`pb-3 font-semibold text-sm transition relative ${
+              activeTab === 'menu'
+                ? 'text-orange-500 border-b-2 border-orange-500'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Menu ({menuItems.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('reviews')}
+            className={`pb-3 font-semibold text-sm transition flex items-center gap-1.5 relative ${
+              activeTab === 'reviews'
+                ? 'text-orange-500 border-b-2 border-orange-500'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Reviews ({reviews.length})
+          </button>
+        </div>
+      </div>
+
+      {activeTab === 'menu' ? (
+        <>
+          {categories.length > 1 && (
+            <div className="px-4 sm:px-6 mt-6 overflow-x-auto">
+              <div className="flex gap-2 pb-2">
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(cat)}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition ${
+                      activeCategory === cat
+                        ? 'bg-orange-500 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="px-4 sm:px-6 mt-6">
+            <h2 className="text-lg font-semibold mb-4">Menu Items ({filteredItems.length})</h2>
+
+            {filteredItems.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">No items in this category</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {filteredItems.map((item) => (
+                  <MenuItemCard
+                    key={item.id}
+                    item={item}
+                    restaurantName={restaurant.name}
+                    restaurantId={restaurant.id}
+                    disabled={isClosed}
+                  />
+                ))}
+              </div>
+            )}
           </div>
+        </>
+      ) : (
+        /* Reviews Tab Content */
+        <div className="px-4 sm:px-6 mt-6 space-y-6">
+          <div className="bg-orange-50/50 rounded-2xl p-6 border border-orange-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-3xl font-extrabold text-gray-900">
+                  {restaurant.rating != null ? Number(restaurant.rating).toFixed(1) : 'New'}
+                </span>
+                <div className="flex text-amber-400">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`w-5 h-5 ${
+                        star <= Math.round(restaurant.rating || 0)
+                          ? 'fill-amber-400 text-amber-400'
+                          : 'text-gray-300'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Based on {reviews.length} customer review{reviews.length === 1 ? '' : 's'}
+              </p>
+            </div>
+          </div>
+
+          {reviews.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
+              <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-sm font-medium text-gray-600">No customer reviews yet</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Order from this restaurant to be the first to leave a review!
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {reviews.map((rev: any) => (
+                <div
+                  key={rev.id}
+                  className="bg-white rounded-2xl p-5 border border-gray-100 shadow-xs space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-sm overflow-hidden">
+                        {rev.customer?.profilePicture ? (
+                          <Image
+                            src={rev.customer.profilePicture}
+                            alt={rev.customer?.fullName || 'Customer'}
+                            width={40}
+                            height={40}
+                            className="object-cover w-full h-full"
+                            unoptimized
+                          />
+                        ) : (
+                          <UserIcon className="w-5 h-5" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm text-gray-900">
+                          {rev.customer?.fullName || 'Verified Customer'}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {new Date(rev.createdAt).toLocaleDateString(undefined, {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex text-amber-400">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={`w-4 h-4 ${
+                            star <= rev.rating
+                              ? 'fill-amber-400 text-amber-400'
+                              : 'text-gray-200'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  {rev.comment && (
+                    <p className="text-sm text-gray-700 leading-relaxed">{rev.comment}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
-
-      <div className="px-4 sm:px-6 mt-6">
-        <h2 className="text-lg font-semibold mb-4">Menu ({filteredItems.length})</h2>
-
-        {filteredItems.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">No items in this category</div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {filteredItems.map((item) => (
-              <MenuItemCard
-                key={item.id}
-                item={item}
-                restaurantName={restaurant.name}
-                restaurantId={restaurant.id}
-                disabled={isClosed}
-              />
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

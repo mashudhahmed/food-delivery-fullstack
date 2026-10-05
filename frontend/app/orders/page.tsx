@@ -6,6 +6,7 @@ import { api } from '../../lib/api';
 import { Order } from '../../types';
 import toast from 'react-hot-toast';
 import CancelOrderModal from '@/components/CancelOrderModal';
+import ReviewModal from '@/components/ReviewModal';
 import { wsService } from '../../lib/websocket';
 import {
   Package,
@@ -17,6 +18,7 @@ import {
   XCircle,
   AlertCircle,
   Wallet,
+  Star,
 } from 'lucide-react';
 
 const STATUS_META: Record<string, { text: string; color: string; ring: string; dot: string }> = {
@@ -48,6 +50,8 @@ export default function OrdersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [timers, setTimers] = useState<Record<string, { minutes: number; seconds: number }>>({});
+  const [reviewOrder, setReviewOrder] = useState<Order | null>(null);
+  const [reviewedOrderIds, setReviewedOrderIds] = useState<Set<string>>(new Set());
 
   const filters = [
     { value: 'all', label: 'All Orders' },
@@ -358,6 +362,30 @@ export default function OrdersPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Rate & Review Button for Delivered Orders */}
+                  {order.status === 'delivered' && (
+                    <div className="px-5 pb-4 pt-0 border-t border-gray-50 bg-amber-50/20">
+                      <div className="flex items-center justify-between pt-3">
+                        <div className="flex items-center gap-1.5 text-xs text-amber-800 font-medium">
+                          <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                          <span>Rate your food and experience</span>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setReviewOrder(order);
+                          }}
+                          disabled={reviewedOrderIds.has(order.id)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-100 disabled:text-gray-400 text-white rounded-xl text-xs font-semibold transition shadow-sm shadow-amber-200"
+                        >
+                          <Star className="w-3.5 h-3.5 fill-current" />
+                          {reviewedOrderIds.has(order.id) ? 'Reviewed ★' : 'Rate & Review'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -380,6 +408,22 @@ export default function OrdersPage() {
         timeRemaining={selectedOrder ? timers[selectedOrder.id] : null}
         loading={cancellingOrderId === selectedOrder?.id}
       />
+
+      {/* Rate & Review Modal */}
+      {reviewOrder && (
+        <ReviewModal
+          isOpen={!!reviewOrder}
+          onClose={() => setReviewOrder(null)}
+          orderId={reviewOrder.id}
+          restaurantId={reviewOrder.restaurantId || reviewOrder.restaurant?.id || ''}
+          restaurantName={reviewOrder.restaurant?.name}
+          onSuccess={() => {
+            setReviewedOrderIds((prev) => new Set(prev).add(reviewOrder.id));
+            setReviewOrder(null);
+            fetchOrders();
+          }}
+        />
+      )}
     </div>
   );
 }
