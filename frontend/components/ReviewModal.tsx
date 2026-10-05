@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Star, X, Loader2, MessageSquare } from 'lucide-react';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -23,12 +24,36 @@ export default function ReviewModal({
   restaurantName,
   onSuccess,
 }: ReviewModalProps) {
+  const [isClient, setIsClient] = useState(false);
   const [rating, setRating] = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) onClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  if (!isOpen || !isClient) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,24 +98,30 @@ export default function ReviewModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+  return createPortal(
+    <div
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl shadow-slate-900/20 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
               <MessageSquare className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="font-bold text-gray-900 text-base">Rate Your Experience</h2>
+              <h2 className="font-bold text-slate-900 text-base">Rate Your Experience</h2>
               {restaurantName && (
-                <p className="text-xs text-gray-500">{restaurantName}</p>
+                <p className="text-xs text-slate-500">{restaurantName}</p>
               )}
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition"
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition"
+            aria-label="Close"
           >
             <X className="w-4 h-4" />
           </button>
@@ -113,20 +144,20 @@ export default function ReviewModal({
                     className={`w-8 h-8 transition-colors ${
                       star <= (hoverRating || rating)
                         ? 'fill-amber-400 text-amber-400'
-                        : 'text-gray-200'
+                        : 'text-slate-200'
                     }`}
                   />
                 </button>
               ))}
             </div>
-            <p className="text-sm font-semibold text-gray-700">
+            <p className="text-sm font-semibold text-slate-700">
               {getRatingLabel(hoverRating || rating)}
             </p>
           </div>
 
           {/* Feedback textarea */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
               Your Review (Optional)
             </label>
             <textarea
@@ -134,7 +165,7 @@ export default function ReviewModal({
               onChange={(e) => setComment(e.target.value)}
               placeholder="How was the food and packaging? Share your thoughts..."
               rows={3}
-              className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none"
+              className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none"
             />
           </div>
 
@@ -144,14 +175,14 @@ export default function ReviewModal({
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
+              className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 py-2.5 bg-orange-500 text-white rounded-xl text-sm font-semibold hover:bg-orange-600 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 bg-orange-500 text-white rounded-xl text-sm font-semibold hover:bg-orange-600 transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm shadow-orange-500/20"
             >
               {submitting ? (
                 <>
@@ -165,6 +196,7 @@ export default function ReviewModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

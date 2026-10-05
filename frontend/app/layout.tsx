@@ -91,6 +91,7 @@ export default function RootLayout({
           <Toaster 
             position="top-right"
             gutter={8}
+            containerStyle={{ zIndex: 99999 }}
             toastOptions={{
               duration: 4000,
               style: {

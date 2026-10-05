@@ -1,7 +1,8 @@
 // components/LogoutModal.tsx
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { LogOut, X } from 'lucide-react';
 
 interface LogoutModalProps {
@@ -11,6 +12,12 @@ interface LogoutModalProps {
 }
 
 export default function LogoutModal({ isOpen, onClose, onConfirm }: LogoutModalProps) {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) onClose();
@@ -30,18 +37,18 @@ export default function LogoutModal({ isOpen, onClose, onConfirm }: LogoutModalP
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !isClient) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-200 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="logout-title"
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" />
 
       {/* Modal */}
       <div className="relative w-full max-w-90 bg-white rounded-3xl shadow-2xl shadow-slate-900/20 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -87,6 +94,7 @@ export default function LogoutModal({ isOpen, onClose, onConfirm }: LogoutModalP
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

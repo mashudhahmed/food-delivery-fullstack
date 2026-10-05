@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   MapPin,
@@ -54,6 +55,11 @@ export default function LocationModal({ isOpen, onClose }: LocationModalProps) {
   const [selectedLat, setSelectedLat] = useState(23.8103);
   const [selectedLng, setSelectedLng] = useState(90.4125);
   const [selectedAddress, setSelectedAddress] = useState('');
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const { addAddress, setSelectedAddress: setStoreAddress } = useAddressStore();
 
@@ -76,6 +82,8 @@ export default function LocationModal({ isOpen, onClose }: LocationModalProps) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
     }
     return () => {
       document.body.style.overflow = 'unset';
@@ -172,17 +180,17 @@ export default function LocationModal({ isOpen, onClose }: LocationModalProps) {
     handleClose();
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !isClient) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-100 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       onClick={(e) => e.target === e.currentTarget && handleClose()}
       role="dialog"
       aria-modal="true"
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" />
 
       {/* Modal */}
       <div className="relative w-full max-w-110 bg-white rounded-3xl shadow-2xl shadow-slate-900/20 overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200">
@@ -369,6 +377,7 @@ export default function LocationModal({ isOpen, onClose }: LocationModalProps) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

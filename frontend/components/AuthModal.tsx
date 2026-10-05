@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Mail,
@@ -74,6 +75,7 @@ export default function AuthModal({
   const isMounted = useRef(true);
 
   // ===== State =====
+  const [isClient, setIsClient] = useState(false);
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot' | 'reset' | '2fa'>('login');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -95,6 +97,7 @@ export default function AuthModal({
   // ===== Cleanup on unmount =====
   useEffect(() => {
     isMounted.current = true;
+    setIsClient(true);
     return () => {
       isMounted.current = false;
       setLoading(false);
@@ -540,12 +543,12 @@ export default function AuthModal({
     [],
   );
 
-  if (!isOpen) return null;
+  if (!isOpen || !isClient) return null;
 
   // ==================== RENDER ====================
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
@@ -1143,6 +1146,7 @@ export default function AuthModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

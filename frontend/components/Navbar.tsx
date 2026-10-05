@@ -358,7 +358,7 @@ export default function Navbar() {
           </button>
 
           {isProfileOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-100 py-2 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-100 py-2 z-45 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
               <div className="px-4 py-3 border-b border-slate-100">
                 <p className="text-sm font-semibold text-slate-900 truncate">{user?.fullName}</p>
                 <p className="text-xs text-slate-400 truncate">{user?.email}</p>
@@ -727,7 +727,7 @@ export default function Navbar() {
                   </button>
 
                   {isProfileOpen && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-45 animate-in fade-in zoom-in-95 duration-150">
                       <div className="px-4 py-3 border-b border-slate-100">
                         <p className="text-sm font-semibold text-slate-900 truncate">
                           {user?.fullName || 'User'}
@@ -799,7 +799,7 @@ export default function Navbar() {
           initialMode={authModalMode}
         />
 
-        <nav className="bg-white/95 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50">
+        <nav className="bg-white/95 backdrop-blur-md border-b border-slate-100 sticky top-0 z-40">
           <div className="max-w-7xl mx-auto px-4">
             {/* Top row */}
             <div className="flex items-center justify-between h-16">
@@ -903,7 +903,7 @@ export default function Navbar() {
         initialMode={authModalMode}
       />
 
-      <nav className="bg-white/95 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50">
+      <nav className="bg-white/95 backdrop-blur-md border-b border-slate-100 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
