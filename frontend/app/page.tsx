@@ -78,46 +78,10 @@ function HomePageContent() {
     return filtered;
   }, [restaurants, searchQuery, filters, sortBy]);
 
-  // ✅ AUTH CHECK
+  // ✅ INITIALIZATION - Allow all roles to view storefront
   useEffect(() => {
-    const checkAuthAndRedirect = () => {
-      try {
-        const token = localStorage.getItem('token');
-        const user = auth.getCurrentUser();
-
-        console.log('🔵 Home page auth check - token:', !!token, 'user:', !!user);
-
-        if (token && user) {
-          if (user.role !== 'customer') {
-            console.log('🔵 Redirecting non-customer user to:', user.role);
-            switch (user.role) {
-              case 'admin':
-                router.replace('/admin/dashboard');
-                return;
-              case 'owner':
-                router.replace('/owner/dashboard');
-                return;
-              case 'agent':
-                router.replace('/agent/dashboard');
-                return;
-              default:
-                break;
-            }
-          } else {
-            console.log('🔵 Customer user - staying on home page');
-          }
-        } else {
-          console.log('🔵 No user found - showing home page');
-        }
-        setIsCheckingAuth(false);
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        setIsCheckingAuth(false);
-      }
-    };
-
-    checkAuthAndRedirect();
-  }, [router]);
+    setIsCheckingAuth(false);
+  }, []);
 
   // ✅ FETCH RESTAURANTS (logic inside effect – satisfies the lint rule)
   useEffect(() => {

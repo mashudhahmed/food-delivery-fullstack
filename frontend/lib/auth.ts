@@ -2,6 +2,7 @@
 import api from './api';
 import { storage, STORAGE_KEYS } from './storage';
 import { logError } from './error-handler';
+import { disconnectSocket } from './websocket';
 
 export interface AuthUser {
   id: string;
@@ -139,6 +140,7 @@ export const auth = {
     } catch {
       // Swallow error, we are logging out anyway
     } finally {
+      disconnectSocket();
       storage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
       storage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
       storage.removeItem(STORAGE_KEYS.USER);

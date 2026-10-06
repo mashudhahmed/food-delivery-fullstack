@@ -20,6 +20,7 @@ import {
   AlertCircle,
   Wallet,
   Star,
+  Smartphone,
 } from 'lucide-react';
 
 const STATUS_META: Record<string, { text: string; color: string; ring: string; dot: string }> = {
@@ -149,7 +150,7 @@ export default function OrdersPage() {
     const methods: Record<string, { label: string; icon: JSX.Element; tint: string }> = {
       cash: { label: 'Cash on Delivery', icon: <Wallet className="w-3.5 h-3.5" />, tint: 'bg-emerald-50 text-emerald-700' },
       card: { label: 'Credit/Debit Card', icon: <CreditCard className="w-3.5 h-3.5" />, tint: 'bg-blue-50 text-blue-700' },
-      bkash: { label: 'bKash', icon: <CreditCard className="w-3.5 h-3.5" />, tint: 'bg-pink-50 text-pink-700' },
+      bkash: { label: 'bKash', icon: <Smartphone className="w-3.5 h-3.5" />, tint: 'bg-pink-50 text-pink-700' },
     };
     const defaultMethod = {
       label: method || 'Cash on Delivery',

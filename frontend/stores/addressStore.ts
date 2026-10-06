@@ -31,9 +31,19 @@ export const useAddressStore = create<AddressStore>()(
       isLocationModalOpen: false,
 
       addAddress: (address) => {
-        set((state) => ({
-          addresses: [...state.addresses, address],
-        }));
+        set((state) => {
+          const filtered = state.addresses.filter(
+            (a) =>
+              a.id !== address.id &&
+              !(
+                (a.fullAddress && address.fullAddress && a.fullAddress.trim().toLowerCase() === address.fullAddress.trim().toLowerCase()) ||
+                (a.name && address.name && a.name.trim().toLowerCase() === address.name.trim().toLowerCase() && a.street === address.street && a.city === address.city)
+              )
+          );
+          return {
+            addresses: [address, ...filtered],
+          };
+        });
       },
 
       removeAddress: (id) => {

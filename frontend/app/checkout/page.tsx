@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/stores/cartStore';
 import { useAddressStore } from '@/stores/addressStore';
@@ -9,7 +9,7 @@ import { auth } from '@/lib/auth';
 import LocationModal from '@/components/LocationModal';
 import toast from 'react-hot-toast';
 import { showErrorToast } from '@/lib/error-handler';
-import { Wallet, CreditCard, Smartphone, ShieldCheck, Lock, Check } from 'lucide-react';
+import { Wallet, CreditCard, Smartphone, ShieldCheck, Lock, Check, Phone } from 'lucide-react';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -24,7 +24,15 @@ export default function CheckoutPage() {
   const [cardCvv, setCardCvv] = useState('');
   const [bkashNumber, setBkashNumber] = useState('');
   const [notes, setNotes] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const user = auth.getCurrentUser();
+    if (user?.phone) {
+      setContactPhone(user.phone);
+    }
+  }, []);
 
   const uniqueRestaurantIds = Array.from(new Set(items.map((i) => i.restaurantId)));
   const restaurantCount = uniqueRestaurantIds.length || 1;
@@ -58,10 +66,20 @@ export default function CheckoutPage() {
       return;
     }
 
+    const cleanPhone = contactPhone.replace(/\s+/g, '');
+    if (!cleanPhone) {
+      toast.error('Please enter a delivery contact phone number');
+      return;
+    }
+    if (!/^(\+?880|0)1[3-9]\d{8}$/.test(cleanPhone)) {
+      toast.error('Please enter a valid phone number (e.g. 01712345678)');
+      return;
+    }
+
     const customerInfo = {
       fullName: currentUser.fullName || currentUser.name || '',
       email: currentUser.email,
-      phone: currentUser.phone || '',
+      phone: cleanPhone,
     };
 
     if (paymentMethod === 'card') {
@@ -224,6 +242,29 @@ export default function CheckoutPage() {
         <p className="text-sm text-gray-600">
           {addressText || 'No address set'}
         </p>
+      </div>
+
+      {/* Contact Phone */}
+      <div className="bg-white border rounded-xl p-5 mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Phone className="w-4 h-4 text-orange-600" />
+            <h2 className="font-semibold">Delivery Contact Phone</h2>
+          </div>
+          <span className="text-xs text-red-500 font-medium">Required</span>
+        </div>
+        <p className="text-xs text-gray-500 mb-3">
+          Our rider will call this number to coordinate delivery upon arrival.
+        </p>
+        <div>
+          <input
+            type="tel"
+            value={contactPhone}
+            onChange={(e) => setContactPhone(e.target.value)}
+            placeholder="e.g. 01712345678"
+            className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+          />
+        </div>
       </div>
 
       {/* Payment Method */}

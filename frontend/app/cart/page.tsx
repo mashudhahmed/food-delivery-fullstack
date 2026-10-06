@@ -261,15 +261,35 @@ export default function CartPage() {
                 </div>
               </div>
 
-              {/* Delivery eligibility warning */}
-              {!isEligibleForDelivery && (
-                <div className="bg-amber-50 rounded-lg p-3 mb-4 flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-                  <p className="text-xs text-amber-700">
-                    Add ৳{(MIN_ORDER_AMOUNT - subtotal).toFixed(2)} more to be eligible for delivery
-                  </p>
+              {/* Minimum Order Progress Bar */}
+              <div className="mb-4 bg-gray-50 border border-gray-100 rounded-xl p-3.5">
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <span className="font-medium text-gray-700">
+                    {isEligibleForDelivery ? (
+                      <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                        <span>✓</span> Minimum order met!
+                      </span>
+                    ) : (
+                      <>
+                        Add <span className="font-semibold text-orange-600">৳{(MIN_ORDER_AMOUNT - subtotal).toFixed(0)}</span> more for delivery
+                      </>
+                    )}
+                  </span>
+                  <span className="text-gray-500 font-medium">
+                    ৳{Math.min(subtotal, MIN_ORDER_AMOUNT).toFixed(0)} / ৳{MIN_ORDER_AMOUNT}
+                  </span>
                 </div>
-              )}
+                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-300 rounded-full ${
+                      isEligibleForDelivery ? 'bg-emerald-500' : 'bg-orange-500'
+                    }`}
+                    style={{
+                      width: `${Math.min(100, Math.round((subtotal / MIN_ORDER_AMOUNT) * 100))}%`,
+                    }}
+                  />
+                </div>
+              </div>
 
               {/* Divider */}
               <div className="border-t border-gray-100 my-4"></div>
