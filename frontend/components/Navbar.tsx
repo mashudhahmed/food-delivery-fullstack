@@ -358,18 +358,36 @@ export default function Navbar() {
           </button>
 
           {isProfileOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-100 py-2 z-45 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-              <div className="px-4 py-3 border-b border-slate-100">
-                <p className="text-sm font-semibold text-slate-900 truncate">{user?.fullName}</p>
-                <p className="text-xs text-slate-400 truncate">{user?.email}</p>
-                {user?.role && user.role !== 'customer' && (
-                  <div className="flex items-center gap-1.5 mt-2">
-                    {getDashboardIcon()}
-                    <span className="text-[10px] uppercase font-bold tracking-wider bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full">
-                      {user.role}
+            <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-100 py-2 z-45 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden ring-2 ring-orange-200 shrink-0">
+                  {user?.profilePicture ? (
+                    <Image
+                      src={user.profilePicture}
+                      alt="Profile"
+                      width={40}
+                      height={40}
+                      unoptimized
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-sm font-bold text-orange-600">
+                      {user?.fullName?.charAt(0).toUpperCase() || 'U'}
                     </span>
-                  </div>
-                )}
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-900 truncate">{user?.fullName || 'User'}</p>
+                  <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+                  {user?.role && user.role !== 'customer' && (
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      {getDashboardIcon()}
+                      <span className="text-[10px] uppercase font-bold tracking-wider bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full">
+                        {user.role}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {user?.role === 'customer' && (
@@ -517,6 +535,37 @@ export default function Navbar() {
                 >
                   Sign up
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Authenticated user profile card in mobile drawer */}
+          {isAuthenticated && (
+            <div className="p-3 bg-gradient-to-r from-orange-50/80 to-amber-50/80 rounded-2xl border border-orange-100 flex items-center gap-3 mb-3">
+              <div className="w-11 h-11 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden ring-2 ring-orange-200 shrink-0">
+                {user?.profilePicture ? (
+                  <Image
+                    src={user.profilePicture}
+                    alt="Profile"
+                    width={44}
+                    height={44}
+                    unoptimized
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-base font-bold text-orange-600">
+                    {user?.fullName?.charAt(0).toUpperCase() || 'U'}
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-slate-900 truncate">{user?.fullName || 'User'}</p>
+                <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+                {user?.role && (
+                  <span className="inline-block mt-1 text-[10px] uppercase font-bold tracking-wider bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full border border-orange-200/50">
+                    {user.role}
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -727,17 +776,35 @@ export default function Navbar() {
                   </button>
 
                   {isProfileOpen && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-45 animate-in fade-in zoom-in-95 duration-150">
-                      <div className="px-4 py-3 border-b border-slate-100">
-                        <p className="text-sm font-semibold text-slate-900 truncate">
-                          {user?.fullName || 'User'}
-                        </p>
-                        <p className="text-xs text-slate-400 truncate">{user?.email}</p>
-                        <div className="flex items-center gap-1.5 mt-2">
-                          {getDashboardIcon()}
-                          <span className="text-[11px] bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full capitalize font-medium">
-                            {user?.role || 'admin'}
-                          </span>
+                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-45 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden ring-2 ring-orange-200 shrink-0">
+                          {user?.profilePicture ? (
+                            <Image
+                              src={user.profilePicture}
+                              alt="Profile"
+                              width={40}
+                              height={40}
+                              unoptimized
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-sm font-bold text-orange-600">
+                              {user?.fullName?.charAt(0).toUpperCase() || 'U'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-slate-900 truncate">
+                            {user?.fullName || 'User'}
+                          </p>
+                          <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            {getDashboardIcon()}
+                            <span className="text-[10px] uppercase font-bold tracking-wider bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full">
+                              {user?.role || 'admin'}
+                            </span>
+                          </div>
                         </div>
                       </div>
 

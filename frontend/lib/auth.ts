@@ -13,6 +13,7 @@ export interface AuthUser {
   status?: string;
   phone?: string;
   avatar?: string;
+  profilePicture?: string;
   address?: string;
 }
 
@@ -156,6 +157,19 @@ export const auth = {
   // ✅ NEW: Get current user from storage
   getCurrentUser(): AuthUser | null {
     return storage.getItem<AuthUser>(STORAGE_KEYS.USER);
+  },
+
+  // ✅ NEW: Update current user and broadcast changes globally
+  updateCurrentUser(partialUser: Partial<AuthUser>): AuthUser | null {
+    const current = this.getCurrentUser();
+    if (!current) return null;
+    const updated = { ...current, ...partialUser };
+    storage.setItem(STORAGE_KEYS.USER, updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('user', JSON.stringify(updated));
+      window.dispatchEvent(new Event('auth-change'));
+    }
+    return updated;
   },
 
   getToken(): string | null {

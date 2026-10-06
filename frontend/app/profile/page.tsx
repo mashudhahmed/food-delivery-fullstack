@@ -4,7 +4,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { User, Mail, Phone, MapPin, Calendar, Shield, Edit2 } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Calendar, Shield, Edit2, Camera } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 interface User {
@@ -49,8 +50,18 @@ export default function ProfilePage() {
     // Defer the state updates so they are not seen as synchronous setState in effect
     queueMicrotask(loadUser);
 
+    const handleAuthChange = () => {
+      if (!cancelled) {
+        const updated = auth.getCurrentUser();
+        setUser(updated);
+      }
+    };
+
+    window.addEventListener('auth-change', handleAuthChange);
+
     return () => {
       cancelled = true;
+      window.removeEventListener('auth-change', handleAuthChange);
     };
   }, [router]);
 
@@ -87,17 +98,30 @@ export default function ProfilePage() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               {/* Avatar */}
               <div className="flex flex-col items-center text-center">
-                <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center overflow-hidden mb-4">
-                  {user?.profilePicture ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={user.profilePicture}
-                      alt={user.fullName || 'Profile'}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <User className="w-12 h-12 text-orange-600" />
-                  )}
+                <div className="relative mb-4 group">
+                  <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center overflow-hidden ring-4 ring-orange-100 shadow-sm">
+                    {user?.profilePicture ? (
+                      <Image
+                        src={user.profilePicture}
+                        alt={user.fullName || 'Profile'}
+                        width={96}
+                        height={96}
+                        unoptimized
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-3xl font-bold text-orange-600">
+                        {user?.fullName?.charAt(0).toUpperCase() || 'U'}
+                      </span>
+                    )}
+                  </div>
+                  <Link
+                    href="/settings?tab=profile"
+                    className="absolute bottom-0 right-0 p-2 bg-orange-500 text-white rounded-full shadow-md hover:bg-orange-600 transition ring-2 ring-white"
+                    title="Change Photo"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                  </Link>
                 </div>
                 <h2 className="text-xl font-bold text-gray-900">
                   {user?.fullName || 'User'}
