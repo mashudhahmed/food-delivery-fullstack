@@ -27,6 +27,7 @@
     "migration:show:neon": "cross-env NODE_ENV=neon ts-node ./node_modules/typeorm/cli.js migration:show -d src/database/data-source.ts",
     "seed:admin": "ts-node src/database/seeds/admin.seed.ts",
     "seed:admin:neon": "cross-env NODE_ENV=neon ts-node src/database/seeds/admin.seed.ts",
+    "seed:users": "ts-node src/database/seeds/seed-demo-users.ts",
     "typeorm": "ts-node ./node_modules/typeorm/cli.js",
     "seed:open-restaurants": "ts-node src/database/seeds/open-restaurants.seed.ts",
     "seed:images": "ts-node src/database/seeds/restaurant-images.seed.ts"

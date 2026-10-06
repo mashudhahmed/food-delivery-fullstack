@@ -81,28 +81,32 @@ async function bootstrap() {
 
     // CORS Configuration
     const corsOrigins = process.env.ALLOWED_ORIGINS?.split(',')
-      .map((o) => o.trim())
+      .map((o) => o.trim().replace(/\/+$/, ''))
       .filter(Boolean) || [];
 
     const defaultOrigins = [
       'http://localhost:3000',
       'http://localhost:3001',
       'http://localhost:3002',
+      'https://quickbite-fullstack.vercel.app',
       'https://project-quickbite.vercel.app',
     ];
 
     if (process.env.FRONTEND_URL) {
-      defaultOrigins.push(process.env.FRONTEND_URL);
+      defaultOrigins.push(process.env.FRONTEND_URL.trim().replace(/\/+$/, ''));
     }
 
-    const allowedOrigins = [...defaultOrigins, ...corsOrigins];
+    const allowedOrigins = Array.from(new Set([...defaultOrigins, ...corsOrigins]));
 
     app.enableCors({
       origin: (origin, callback) => {
         if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) {
-          callback(null, true);
-        } else if (process.env.NODE_ENV === 'development') {
+        const normalized = origin.trim().replace(/\/+$/, '');
+        if (
+          allowedOrigins.includes(normalized) ||
+          normalized.endsWith('.vercel.app') ||
+          process.env.NODE_ENV === 'development'
+        ) {
           callback(null, true);
         } else {
           logger.warn(`CORS blocked: ${origin}`);
