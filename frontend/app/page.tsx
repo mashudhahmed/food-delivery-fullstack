@@ -128,6 +128,9 @@ function HomePageContent() {
     setSortBy('relevance');
     setShowAllCuisines(false);
     setCuisineSearchTerm('');
+    if (searchQuery) {
+      router.push('/');
+    }
   };
 
   const activeFilterCount = [
@@ -530,11 +533,22 @@ function HomePageContent() {
           <main className="flex-1">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">All Restaurants</h1>
+                <h1 className="text-2xl font-bold text-gray-800">
+                  {searchQuery ? `Search results for "${searchQuery}"` : 'All Restaurants'}
+                </h1>
                 <p className="text-sm text-gray-500 mt-1">
-                  {filteredRestaurants.length} restaurants found
+                  {filteredRestaurants.length} {filteredRestaurants.length === 1 ? 'restaurant' : 'restaurants'} found
                 </p>
               </div>
+              {searchQuery && (
+                <button
+                  onClick={() => router.push('/')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-600 hover:bg-orange-100 transition border border-orange-200"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Clear search
+                </button>
+              )}
             </div>
 
             {loading ? (
@@ -560,11 +574,13 @@ function HomePageContent() {
                   No restaurants found
                 </h2>
                 <p className="text-gray-500">
-                  Try adjusting your filters or change your location
+                  {searchQuery
+                    ? `No restaurants match "${searchQuery}". Try a different keyword or cuisine.`
+                    : 'Try adjusting your filters or change your location'}
                 </p>
                 <button
                   onClick={clearFilters}
-                  className="mt-4 text-orange-500 hover:underline"
+                  className="mt-4 text-orange-500 hover:underline font-medium"
                 >
                   Clear all filters
                 </button>

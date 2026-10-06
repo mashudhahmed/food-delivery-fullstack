@@ -1,9 +1,9 @@
 // components/Navbar.tsx
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import NotificationDropdown from './NotificationDropdown';
 import {
   Home,
@@ -27,8 +27,14 @@ import {
   Truck,
   Briefcase,
   TrendingUp,
+  Star,
+  ArrowRight,
+  Loader2,
+  Utensils,
 } from 'lucide-react';
 import { auth } from '@/lib/auth';
+import { api } from '@/lib/api';
+import { Restaurant } from '@/types';
 import { useCartStore } from '@/stores/cartStore';
 import { useAddressStore } from '@/stores/addressStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
@@ -38,6 +44,15 @@ import LocationModal from './LocationModal';
 import LogoutModal from './LogoutModal';
 import AuthModal from './AuthModal';
 import { BiCycling } from 'react-icons/bi';
+
+function SearchParamSync({ onQueryChange }: { onQueryChange: (q: string) => void }) {
+  const searchParams = useSearchParams();
+  const search = searchParams?.get('search') || '';
+  useEffect(() => {
+    onQueryChange(search);
+  }, [search, onQueryChange]);
+  return null;
+}
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -52,6 +67,9 @@ export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearchingData, setIsSearchingData] = useState(false);
   const [deliveryType, setDeliveryType] = useState('delivery');
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -118,20 +136,73 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isMobileMenuOpen, isProfileOpen]);
 
+  // Close search suggestions on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-search-container="true"]')) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Keyboard navigation & shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsMobileMenuOpen(false);
         setIsProfileOpen(false);
+        setShowSuggestions(false);
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         searchInputRef.current?.focus();
+        setShowSuggestions(true);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Sync searchTerm with URL query param on navigation
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get('search');
+      if (q) {
+        setSearchTerm(q);
+      } else if (pathname === '/') {
+        setSearchTerm('');
+      }
+    }
+  }, [pathname]);
+
+  // Load restaurants in background for instant live autocomplete
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSearchRestaurants() {
+      try {
+        setIsSearchingData(true);
+        const res = await api.get('/restaurants');
+        const data = res.data;
+        const list = Array.isArray(data) ? data : data?.data || data?.items || [];
+        if (!cancelled) {
+          setAllRestaurants(list);
+        }
+      } catch (err) {
+        console.error('Failed to load restaurants for global search:', err);
+      } finally {
+        if (!cancelled) {
+          setIsSearchingData(false);
+        }
+      }
+    }
+    loadSearchRestaurants();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Auth sync & custom events
@@ -194,12 +265,237 @@ export default function Navbar() {
     }
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchTerm.trim()) {
-      router.push(`/?search=${encodeURIComponent(searchTerm)}`);
-      setIsMobileMenuOpen(false);
+  // Filter restaurants and cuisines for live search
+  const searchResults = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return { restaurants: [], cuisines: [] };
+
+    const matchingRestaurants = allRestaurants
+      .filter(
+        (r) =>
+          r.name?.toLowerCase().includes(term) ||
+          r.cuisineType?.toLowerCase().includes(term) ||
+          r.description?.toLowerCase().includes(term)
+      )
+      .slice(0, 5);
+
+    const POPULAR_CUISINES = [
+      'Pizza',
+      'Burger',
+      'Biryani',
+      'Indian',
+      'Italian',
+      'Chinese',
+      'Thai',
+      'Japanese',
+      'American',
+      'Cafe',
+      'Desserts',
+    ];
+
+    const matchingCuisines = POPULAR_CUISINES.filter((c) =>
+      c.toLowerCase().includes(term)
+    ).slice(0, 4);
+
+    return { restaurants: matchingRestaurants, cuisines: matchingCuisines };
+  }, [searchTerm, allRestaurants]);
+
+  const handleSearch = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setShowSuggestions(false);
+    setIsMobileMenuOpen(false);
+    const clean = searchTerm.trim();
+    if (clean) {
+      router.push(`/?search=${encodeURIComponent(clean)}`);
+    } else if (pathname === '/') {
+      router.push('/');
     }
+  };
+
+  const handleClearSearch = () => {
+    setSearchTerm('');
+    setShowSuggestions(false);
+    if (pathname === '/' && typeof window !== 'undefined' && window.location.search.includes('search')) {
+      router.push('/');
+    }
+  };
+
+  const handleSelectCuisine = (cuisineName: string) => {
+    setSearchTerm(cuisineName);
+    setShowSuggestions(false);
+    setIsMobileMenuOpen(false);
+    router.push(`/?search=${encodeURIComponent(cuisineName)}`);
+  };
+
+  const handleSelectRestaurant = (restaurantId: string) => {
+    setShowSuggestions(false);
+    setIsMobileMenuOpen(false);
+    router.push(`/restaurants/${restaurantId}`);
+  };
+
+  const renderGlobalSearchBar = (
+    containerClass: string = 'relative flex-1 w-full',
+    isCompact: boolean = false
+  ) => {
+    return (
+      <div data-search-container="true" className={`relative ${containerClass}`}>
+        <form onSubmit={handleSearch} className="relative w-full">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            ref={(isHomePage && !isCompact) || (!isHomePage && isCompact) ? searchInputRef : undefined}
+            type="text"
+            placeholder={isCompact ? 'Search restaurants, cuisines...' : 'Search restaurants, cuisines... (⌘K)'}
+            value={searchTerm}
+            onFocus={() => setShowSuggestions(true)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setShowSuggestions(true);
+            }}
+            className={`w-full pl-11 pr-10 rounded-full border border-slate-200 bg-slate-50/80 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-400 focus:bg-white transition ${
+              isCompact ? 'py-2 text-xs' : 'py-2.5 text-sm'
+            }`}
+          />
+          {isSearchingData && searchTerm && (
+            <Loader2 className="absolute right-10 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-orange-500 pointer-events-none" />
+          )}
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={handleClearSearch}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/60 hover:bg-slate-300 flex items-center justify-center transition"
+              aria-label="Clear search"
+            >
+              <X className="w-3 h-3 text-slate-600" />
+            </button>
+          )}
+        </form>
+
+        {/* Live Search Suggestions Dropdown */}
+        {showSuggestions && (
+          <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 text-left animate-in fade-in-50 zoom-in-95 duration-150 max-h-[75vh] overflow-y-auto divide-y divide-slate-100">
+            {searchTerm.trim().length === 0 ? (
+              /* Quick Suggestions when empty */
+              <div className="p-4">
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2.5">
+                  Popular Searches
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {['Pizza', 'Burger', 'Biryani', 'Indian', 'Italian', 'Cafe'].map((cuisine) => (
+                    <button
+                      key={cuisine}
+                      type="button"
+                      onClick={() => handleSelectCuisine(cuisine)}
+                      className="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-xs font-medium text-slate-700 transition"
+                    >
+                      {cuisine}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Matching Cuisines */}
+                {searchResults.cuisines.length > 0 && (
+                  <div className="p-3 bg-slate-50/70">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1 flex items-center gap-1.5">
+                      <Utensils className="w-3 h-3 text-orange-500" />
+                      Cuisines
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {searchResults.cuisines.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => handleSelectCuisine(c)}
+                          className="px-3 py-1 rounded-full bg-white border border-slate-200 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-600 text-xs font-medium text-slate-700 transition shadow-2xs"
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Matching Restaurants */}
+                {searchResults.restaurants.length > 0 ? (
+                  <div className="p-2">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 px-2 pt-1 flex items-center gap-1.5">
+                      <Store className="w-3 h-3 text-orange-500" />
+                      Restaurants
+                    </p>
+                    <div className="space-y-0.5">
+                      {searchResults.restaurants.map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => handleSelectRestaurant(r.id)}
+                          className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-orange-50/60 text-left transition group"
+                        >
+                          <div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden relative shrink-0">
+                            {r.imageUrl ? (
+                              <Image
+                                src={r.imageUrl}
+                                alt={r.name}
+                                fill
+                                className="object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-orange-100 text-orange-600 font-bold text-sm">
+                                {r.name.charAt(0)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-slate-900 group-hover:text-orange-600 transition truncate">
+                              {r.name}
+                            </p>
+                            <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                              <span className="truncate">{r.cuisineType}</span>
+                              {Number(r.rating) > 0 && (
+                                <span className="flex items-center gap-0.5 text-amber-600 font-medium">
+                                  <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                  {Number(r.rating).toFixed(1)}
+                                </span>
+                              )}
+                              {!r.isOpen && (
+                                <span className="text-[10px] bg-slate-100 px-1.5 py-0.2 rounded text-slate-500">
+                                  Closed
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-orange-500 group-hover:translate-x-0.5 transition shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : searchResults.cuisines.length === 0 ? (
+                  <div className="p-6 text-center">
+                    <Search className="w-7 h-7 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm font-semibold text-slate-700">
+                      No matches found for &ldquo;{searchTerm}&rdquo;
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Press Enter to search all restaurants on the main page.
+                    </p>
+                  </div>
+                ) : null}
+
+                {/* Submit button */}
+                <button
+                  type="button"
+                  onClick={() => handleSearch()}
+                  className="w-full p-3 bg-slate-50 hover:bg-orange-50 hover:text-orange-600 text-xs font-semibold text-slate-600 flex items-center justify-center gap-2 transition"
+                >
+                  <span>See all results for &ldquo;{searchTerm}&rdquo;</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   const openLoginModal = () => {
@@ -489,6 +785,13 @@ export default function Navbar() {
         className={`md:hidden fixed inset-x-0 ${topOffsetClass} bottom-0 bg-white z-40 overflow-y-auto border-t border-slate-100 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200`}
       >
         <div className="p-4 space-y-2">
+          {/* Global search in mobile drawer for non-home customer pages */}
+          {!isHomePage && (
+            <div className="mb-3">
+              {renderGlobalSearchBar('w-full', false)}
+            </div>
+          )}
+
           {/* Address selector button */}
           <button
             onClick={() => {
@@ -851,6 +1154,9 @@ export default function Navbar() {
   if (isHomePage) {
     return (
       <>
+        <Suspense fallback={null}>
+          <SearchParamSync onQueryChange={setSearchTerm} />
+        </Suspense>
         <LocationModal
           isOpen={isLocationModalOpen}
           onClose={() => setIsLocationModalOpen(false)}
@@ -921,27 +1227,7 @@ export default function Navbar() {
                 ))}
               </div>
 
-              <form onSubmit={handleSearch} className="relative flex-1 w-full">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Search restaurants, cuisines... (⌘K)"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-11 pr-10 py-2.5 rounded-full border border-slate-200 bg-slate-50/80 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-400 focus:bg-white transition"
-                />
-                {searchTerm && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchTerm('')}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2"
-                    aria-label="Clear search"
-                  >
-                    <X className="w-4 h-4 text-slate-400 hover:text-slate-600" />
-                  </button>
-                )}
-              </form>
+              {renderGlobalSearchBar('relative flex-1 w-full')}
             </div>
           </div>
         </nav>
@@ -955,6 +1241,9 @@ export default function Navbar() {
   // ========== DEFAULT & RESTAURANT PAGES NAVBAR ==========
   return (
     <>
+      <Suspense fallback={null}>
+        <SearchParamSync onQueryChange={setSearchTerm} />
+      </Suspense>
       <LocationModal
         isOpen={isLocationModalOpen}
         onClose={() => setIsLocationModalOpen(false)}
@@ -985,6 +1274,11 @@ export default function Navbar() {
               />
               <span className="text-xl font-bold text-orange-500 tracking-tight">QuickBite</span>
             </Link>
+
+            {/* Desktop Global Search Bar on customer pages */}
+            <div className="hidden lg:block flex-1 max-w-md mx-6">
+              {renderGlobalSearchBar('w-full', true)}
+            </div>
 
             {/* Desktop Navigation Links for Customer */}
             <div className="hidden md:flex items-center gap-1">
