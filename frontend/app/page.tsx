@@ -153,12 +153,12 @@ function HomePageContent() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex gap-6 items-start">
           {/* Left Sidebar */}
-          <aside className="hidden lg:block w-64 shrink-0 sticky top-20 self-start">
+          <aside className="hidden lg:block w-64 shrink-0 sticky top-20 self-start" aria-label="Filters">
             <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
               <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-white z-10">
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal className="w-5 h-5 text-gray-600" />
-                  <h2 className="font-semibold text-gray-800">Filters</h2>
+                  <span className="font-semibold text-gray-800">Filters</span>
                   {activeFilterCount > 0 && (
                     <span className="bg-orange-500 text-white text-xs rounded-full px-2 py-0.5">
                       {activeFilterCount}
@@ -178,7 +178,7 @@ function HomePageContent() {
               <div className="max-h-[calc(100vh-160px)] overflow-y-auto overflow-x-hidden p-5 space-y-6">
                 {/* Sort By */}
                 <div>
-                  <h3 className="font-semibold text-gray-800 mb-3">Sort by</h3>
+                  <p className="font-semibold text-gray-800 mb-3">Sort by</p>
                   <div className="space-y-2">
                     {[
                       { value: 'relevance', label: 'Relevance' },
@@ -201,7 +201,7 @@ function HomePageContent() {
 
                 {/* Price Filter */}
                 <div>
-                  <h3 className="font-semibold text-gray-800 mb-3">Price</h3>
+                  <p className="font-semibold text-gray-800 mb-3">Price</p>
                   <div className="flex gap-2">
                     {['$', '$$', '$$$'].map((price) => (
                       <button
@@ -226,7 +226,7 @@ function HomePageContent() {
 
                 {/* Quick Filters */}
                 <div>
-                  <h3 className="font-semibold text-gray-800 mb-3">Quick filters</h3>
+                  <p className="font-semibold text-gray-800 mb-3">Quick filters</p>
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() =>
@@ -250,7 +250,7 @@ function HomePageContent() {
                 {/* Cuisines */}
                 <div>
                   <div className="flex justify-between items-center mb-3">
-                    <h3 className="font-semibold text-gray-800">Cuisines</h3>
+                    <p className="font-semibold text-gray-800">Cuisines</p>
                   </div>
 
                   <div className="relative mb-3">
@@ -312,7 +312,7 @@ function HomePageContent() {
 
                 {/* Rating Filter */}
                 <div>
-                  <h3 className="font-semibold text-gray-800 mb-3">Rating</h3>
+                  <p className="font-semibold text-gray-800 mb-3">Rating</p>
                   <div className="space-y-2">
                     {[
                       { value: '4.5', label: '4.5+ stars' },
@@ -378,7 +378,7 @@ function HomePageContent() {
                 <div className="p-4 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white">
                   <div className="flex items-center gap-2">
                     <SlidersHorizontal className="w-5 h-5 text-gray-600" />
-                    <h2 className="font-semibold text-gray-800">Filters</h2>
+                    <span className="font-semibold text-gray-800">Filters</span>
                   </div>
                   <button onClick={() => setIsFilterOpen(false)}>
                     <X className="w-5 h-5" />
@@ -387,7 +387,7 @@ function HomePageContent() {
                 <div className="p-4 space-y-6">
                   {/* Sort By */}
                   <div>
-                    <h3 className="font-semibold text-gray-800 mb-3">Sort by</h3>
+                    <p className="font-semibold text-gray-800 mb-3">Sort by</p>
                     <div className="space-y-2">
                       {[
                         { value: 'relevance', label: 'Relevance' },
@@ -410,7 +410,7 @@ function HomePageContent() {
 
                   {/* Price Filter */}
                   <div>
-                    <h3 className="font-semibold text-gray-800 mb-3">Price</h3>
+                    <p className="font-semibold text-gray-800 mb-3">Price</p>
                     <div className="flex gap-2">
                       {['$', '$$', '$$$'].map((price) => (
                         <button
@@ -435,7 +435,7 @@ function HomePageContent() {
 
                   {/* Quick Filters */}
                   <div>
-                    <h3 className="font-semibold text-gray-800 mb-3">Quick filters</h3>
+                    <p className="font-semibold text-gray-800 mb-3">Quick filters</p>
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() =>
@@ -458,7 +458,7 @@ function HomePageContent() {
 
                   {/* Cuisines */}
                   <div>
-                    <h3 className="font-semibold text-gray-800 mb-3">Cuisines</h3>
+                    <p className="font-semibold text-gray-800 mb-3">Cuisines</p>
                     <div className="space-y-2 max-h-64 overflow-y-auto">
                       {allCuisines.map((cuisine) => (
                         <label key={cuisine} className="flex items-center gap-3 cursor-pointer">
@@ -482,7 +482,7 @@ function HomePageContent() {
 
                   {/* Rating */}
                   <div>
-                    <h3 className="font-semibold text-gray-800 mb-3">Rating</h3>
+                    <p className="font-semibold text-gray-800 mb-3">Rating</p>
                     <div className="space-y-2">
                       {['4.5', '4.0', '3.5', '3.0'].map((rating) => (
                         <label key={rating} className="flex items-center gap-3 cursor-pointer">

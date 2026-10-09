@@ -100,9 +100,9 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
 
       {/* Content */}
       <div className="p-4">
-        <h3 className="font-semibold text-slate-900 group-hover:text-orange-600 transition line-clamp-1">
+        <h2 className="font-semibold text-slate-900 group-hover:text-orange-600 transition line-clamp-1">
           {restaurant.name}
-        </h3>
+        </h2>
 
         {restaurant.description && (
           <p className="text-sm text-slate-500 mt-1 line-clamp-1">
