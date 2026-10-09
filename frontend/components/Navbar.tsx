@@ -584,12 +584,12 @@ export default function Navbar() {
       {/* Notifications (Customer only) */}
       {isAuthenticated && user?.role === 'customer' && <NotificationDropdown />}
 
-      {/* Favorites (Customer & Guest) */}
+      {/* Favorites (Customer & Guest - Desktop/Tablet) */}
       {isCustomerOrGuest && (
         <Link
           href="/favorites"
           onClick={handleFavoritesClick}
-          className={iconBtn}
+          className={`hidden sm:flex ${iconBtn}`}
           aria-label="Favorites"
           title="Favorites"
         >
@@ -623,9 +623,9 @@ export default function Navbar() {
         </Link>
       )}
 
-      {/* Profile or Login/Signup */}
+      {/* Profile or Login/Signup (Desktop/Tablet - on mobile these are inside the hamburger ☰) */}
       {isAuthenticated ? (
-        <div className="relative" ref={profileMenuRef}>
+        <div className="hidden md:block relative" ref={profileMenuRef}>
           <button
             onClick={() => setIsProfileOpen(!isProfileOpen)}
             className="flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-full hover:bg-slate-100 transition focus:outline-none focus:ring-2 focus:ring-orange-500/40"
@@ -738,7 +738,7 @@ export default function Navbar() {
           )}
         </div>
       ) : (
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="hidden md:flex items-center gap-1.5 sm:gap-2">
           <button
             onClick={openLoginModal}
             className="text-sm font-medium text-slate-600 hover:text-orange-600 px-3 py-2 rounded-xl transition"
