@@ -12,6 +12,8 @@ import {
   Truck,
   ClipboardList,
   BarChart3,
+  History,
+  Settings,
   Menu,
   X,
 } from 'lucide-react';
@@ -29,6 +31,8 @@ const navItems = [
   { id: 'orders', label: 'Orders', icon: Package, path: '/admin/orders' },
   { id: 'delivery-agents', label: 'Delivery Agents', icon: Truck, path: '/admin/delivery-agents' },
   { id: 'analytics', label: 'Analytics', icon: BarChart3, path: '/admin/analytics' },
+  { id: 'activity', label: 'Activity Logs', icon: History, path: '/admin/activity' },
+  { id: 'settings', label: 'Settings', icon: Settings, path: '/admin/settings' },
 ];
 
 // Height of the global dashboard Navbar (Navbar.tsx uses h-16 = 4rem in its

@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
   Delete,
   Param,
@@ -271,5 +272,16 @@ export class AdminController {
   @Get('system/stats')
   async getSystemStats() {
     return this.adminService.getSystemStats();
+  }
+
+  // Settings
+  @Get('settings')
+  async getSettings() {
+    return this.adminService.getSettings();
+  }
+
+  @Put('settings')
+  async updateSettings(@Body() settings: any) {
+    return this.adminService.updateSettings(settings);
   }
 }

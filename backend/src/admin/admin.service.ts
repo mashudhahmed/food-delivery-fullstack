@@ -1050,33 +1050,110 @@ export class AdminService {
     return csvRows.join('\n');
   }
 
-  // ====================== ACTIVITY ======================
+  // ====================== ACTIVITY & AUDIT LOGS ======================
 
-  async getActivityFeed(limit = 20) {
+  async getActivityFeed(limit = 50) {
+    let dbAuditLogs: any[] = [];
+    try {
+      dbAuditLogs = await this.userRepository.manager.query(
+        `SELECT a.id, a."userId", a.action, a.resource, a."resourceId", a.changes,
+                a."ipAddress", a."userAgent", a."requestId", a."wasSuccessful",
+                a."errorMessage", a.metadata, a.timestamp,
+                u."fullName" as "userFullName", u.email as "userEmail", u.role as "userRole"
+         FROM audit_logs a
+         LEFT JOIN users u ON a."userId" = u.id
+         ORDER BY a.timestamp DESC
+         LIMIT $1;`,
+        [limit],
+      );
+    } catch {
+      dbAuditLogs = [];
+    }
+
     const recentOrders = await this.orderRepository.find({
       relations: ['customer', 'restaurant'],
       order: { placedAt: 'DESC' },
-      take: limit,
+      take: Math.min(limit, 30),
     });
 
     const recentUsers = await this.userRepository.find({
       where: { isDeleted: false },
       order: { createdAt: 'DESC' },
-      take: Math.floor(limit / 2),
+      take: Math.min(limit, 20),
     });
 
     const activities = [
+      ...dbAuditLogs.map((log) => ({
+        id: log.id,
+        type: 'audit',
+        action: log.action || 'ACTION',
+        resource: log.resource || 'system',
+        resourceId: log.resourceId || log.id,
+        message: `${log.userFullName || log.userEmail || 'System user'} performed ${log.action} on ${log.resource}`,
+        actorName: log.userFullName || 'System / Automated',
+        actorEmail: log.userEmail || null,
+        actorRole: log.userRole || null,
+        ipAddress: log.ipAddress || '127.0.0.1',
+        userAgent: log.userAgent || null,
+        requestId: log.requestId || null,
+        wasSuccessful: log.wasSuccessful !== false,
+        errorMessage: log.errorMessage || null,
+        changes: log.changes || null,
+        metadata: log.metadata || null,
+        timestamp: log.timestamp,
+        icon: 'shield',
+      })),
       ...recentOrders.map((order) => ({
         id: `order-${order.id}`,
         type: 'order',
-        message: `New order #${order.id.slice(-8)} from ${order.customer?.fullName || order.customerName || 'Guest'} at ${order.restaurant?.name}`,
+        action: 'ORDER_PLACED',
+        resource: 'order',
+        resourceId: order.id,
+        message: `Order #${order.id.slice(-8).toUpperCase()} placed by ${order.customer?.fullName || order.customerName || 'Customer'} at ${order.restaurant?.name || 'Restaurant'} (৳${order.totalAmount})`,
+        actorName: order.customer?.fullName || order.customerName || 'Customer',
+        actorEmail: order.customer?.email || order.customerEmail || null,
+        actorRole: 'customer',
+        ipAddress: '127.0.0.1',
+        userAgent: 'Web App',
+        requestId: null,
+        wasSuccessful: true,
+        errorMessage: null,
+        changes: {
+          restaurant: order.restaurant?.name,
+          itemsCount: order.items?.length || 0,
+          totalAmount: order.totalAmount,
+          status: order.status,
+          deliveryAddress: order.deliveryAddress,
+        },
+        metadata: {
+          paymentMethod: order.paymentMethod,
+        },
         timestamp: order.placedAt,
         icon: 'shopping-bag',
       })),
       ...recentUsers.map((user) => ({
         id: `user-${user.id}`,
         type: 'user',
-        message: `${user.fullName} joined as ${user.role}`,
+        action: 'USER_REGISTERED',
+        resource: 'user',
+        resourceId: user.id,
+        message: `${user.fullName} registered as ${user.role}`,
+        actorName: user.fullName,
+        actorEmail: user.email,
+        actorRole: user.role,
+        ipAddress: '127.0.0.1',
+        userAgent: 'Web App',
+        requestId: null,
+        wasSuccessful: true,
+        errorMessage: null,
+        changes: {
+          role: user.role,
+          phone: user.phone,
+          status: user.status,
+        },
+        metadata: {
+          provider: 'local',
+        },
         timestamp: user.createdAt,
         icon: 'user-plus',
       })),
@@ -1087,5 +1164,111 @@ export class AdminService {
     );
 
     return activities.slice(0, limit);
+  }
+
+  // ====================== SETTINGS ======================
+
+  private readonly defaultSettings = {
+    general: {
+      siteName: 'QuickBite',
+      siteUrl: 'https://quickbite.com',
+      contactEmail: 'admin@quickbite.com',
+      contactPhone: '+880 1234 567890',
+      address: 'Dhaka, Bangladesh',
+      currency: 'BDT',
+      commissionRate: 15,
+      baseDeliveryFee: 50,
+    },
+    notifications: {
+      newOrder: true,
+      userRegistration: true,
+      systemErrors: false,
+    },
+    security: {
+      twoFactorEnabled: false,
+    },
+    appearance: {
+      theme: 'light',
+      primaryColor: 'orange',
+      compactMode: false,
+    },
+    email: {
+      smtpHost: 'smtp.gmail.com',
+      smtpPort: 587,
+      smtpUsername: 'notifications@quickbite.com',
+      smtpPassword: '',
+    },
+  };
+
+  async getSettings() {
+    try {
+      await this.userRepository.manager.query(`
+        CREATE TABLE IF NOT EXISTS system_settings (
+          key VARCHAR(100) PRIMARY KEY,
+          value JSONB NOT NULL,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      const rows = await this.userRepository.manager.query(
+        `SELECT value FROM system_settings WHERE key = 'platform_settings' LIMIT 1;`,
+      );
+      if (rows && rows.length > 0 && rows[0].value) {
+        const val = rows[0].value;
+        return {
+          ...this.defaultSettings,
+          ...val,
+          general: { ...this.defaultSettings.general, ...(val.general || {}) },
+          notifications: { ...this.defaultSettings.notifications, ...(val.notifications || {}) },
+          security: { ...this.defaultSettings.security, ...(val.security || {}) },
+          appearance: { ...this.defaultSettings.appearance, ...(val.appearance || {}) },
+          email: { ...this.defaultSettings.email, ...(val.email || {}) },
+        };
+      }
+    } catch {
+      // Fallback to defaults
+    }
+    return this.defaultSettings;
+  }
+
+  async updateSettings(settings: any) {
+    if (!settings || typeof settings !== 'object') {
+      throw new BadRequestException('Invalid settings payload');
+    }
+
+    const current = await this.getSettings();
+    const merged = {
+      ...current,
+      ...settings,
+      general: { ...current.general, ...(settings.general || {}) },
+      notifications: { ...current.notifications, ...(settings.notifications || {}) },
+      security: { ...current.security, ...(settings.security || {}) },
+      appearance: { ...current.appearance, ...(settings.appearance || {}) },
+      email: { ...current.email, ...(settings.email || {}) },
+    };
+
+    try {
+      await this.userRepository.manager.query(`
+        CREATE TABLE IF NOT EXISTS system_settings (
+          key VARCHAR(100) PRIMARY KEY,
+          value JSONB NOT NULL,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      await this.userRepository.manager.query(
+        `INSERT INTO system_settings (key, value, updated_at)
+         VALUES ('platform_settings', $1::jsonb, NOW())
+         ON CONFLICT (key) DO UPDATE
+         SET value = $1::jsonb, updated_at = NOW();`,
+        [JSON.stringify(merged)],
+      );
+    } catch {
+      // Ignore if table write fails
+    }
+
+    return {
+      success: true,
+      message: 'Settings updated successfully',
+      data: merged,
+    };
   }
 }

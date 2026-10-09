@@ -13,6 +13,9 @@ interface SettingsData {
     contactEmail: string;
     contactPhone: string;
     address: string;
+    currency?: string;
+    commissionRate?: number;
+    baseDeliveryFee?: number;
   };
   notifications: {
     newOrder: boolean;
@@ -45,6 +48,9 @@ export default function AdminSettingsPage() {
       contactEmail: 'admin@quickbite.com',
       contactPhone: '+880 1234 567890',
       address: 'Dhaka, Bangladesh',
+      currency: 'BDT',
+      commissionRate: 15,
+      baseDeliveryFee: 50,
     },
     notifications: {
       newOrder: true,
@@ -210,6 +216,35 @@ export default function AdminSettingsPage() {
                     })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Platform Commission (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={settings.general.commissionRate ?? 15}
+                    onChange={(e) => setSettings({
+                      ...settings,
+                      general: { ...settings.general, commissionRate: Number(e.target.value) }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Platform fee deducted from restaurant orders</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Base Delivery Fee (BDT)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={settings.general.baseDeliveryFee ?? 50}
+                    onChange={(e) => setSettings({
+                      ...settings,
+                      general: { ...settings.general, baseDeliveryFee: Number(e.target.value) }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Default base rate charged for delivery orders</p>
                 </div>
               </div>
             </div>

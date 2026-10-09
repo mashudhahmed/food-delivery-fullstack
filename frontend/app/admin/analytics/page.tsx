@@ -172,6 +172,42 @@ export default function AnalyticsPage() {
         ))}
       </div>
 
+      {/* Financial Split & Settlements Breakdown */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-5 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 mb-4 gap-2">
+          <div>
+            <h3 className="font-semibold text-gray-900 text-sm">Financial Split & Commission Breakdown</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Platform revenue vs vendor and fleet liabilities</p>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100 w-fit">
+            15% Base Platform Fee
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-4 bg-gray-50/70 rounded-xl">
+            <p className="text-xs text-gray-500 font-medium">Gross Value (GMV)</p>
+            <p className="text-xl font-bold text-gray-900 mt-1 tabular-nums">৳{Math.round(totals.totalRevenue).toLocaleString()}</p>
+            <p className="text-[11px] text-gray-400 mt-1">100% of customer spend</p>
+          </div>
+          <div className="p-4 bg-orange-50/70 rounded-xl border border-orange-100">
+            <p className="text-xs text-orange-700 font-medium">Platform Net Take</p>
+            <p className="text-xl font-bold text-orange-600 mt-1 tabular-nums">৳{Math.round(totals.totalRevenue * 0.15).toLocaleString()}</p>
+            <p className="text-[11px] text-orange-600/80 mt-1">15% net commission</p>
+          </div>
+          <div className="p-4 bg-emerald-50/70 rounded-xl border border-emerald-100">
+            <p className="text-xs text-emerald-700 font-medium">Restaurant Share</p>
+            <p className="text-xl font-bold text-emerald-600 mt-1 tabular-nums">৳{Math.round(totals.totalRevenue * 0.75).toLocaleString()}</p>
+            <p className="text-[11px] text-emerald-600/80 mt-1">75% vendor payouts</p>
+          </div>
+          <div className="p-4 bg-blue-50/70 rounded-xl border border-blue-100">
+            <p className="text-xs text-blue-700 font-medium">Delivery Fleet Share</p>
+            <p className="text-xl font-bold text-blue-600 mt-1 tabular-nums">৳{Math.round(totals.totalRevenue * 0.10).toLocaleString()}</p>
+            <p className="text-[11px] text-blue-600/80 mt-1">10% driver fees pool</p>
+          </div>
+        </div>
+      </div>
+
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-6">
