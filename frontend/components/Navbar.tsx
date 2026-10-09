@@ -70,7 +70,6 @@ export default function Navbar() {
   const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isSearchingData, setIsSearchingData] = useState(false);
-  const [deliveryType, setDeliveryType] = useState('delivery');
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>('login');
@@ -342,7 +341,7 @@ export default function Navbar() {
         <form onSubmit={handleSearch} className="relative w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
-            ref={(isHomePage && !isCompact) || (!isHomePage && isCompact) ? searchInputRef : undefined}
+            ref={!isCompact ? searchInputRef : undefined}
             type="text"
             placeholder={isCompact ? 'Search restaurants, cuisines...' : 'Search restaurants, cuisines... (⌘K)'}
             value={searchTerm}
@@ -764,13 +763,18 @@ export default function Navbar() {
         <span className="text-xs font-semibold">EN</span>
       </button>
 
-      {/* Mobile Hamburger Toggle */}
+      {/* 3-line Mobile Hamburger Toggle */}
       <button
-        className="md:hidden p-2.5 rounded-xl hover:bg-slate-100 transition text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/40"
+        className="md:hidden p-2 sm:p-2.5 rounded-xl hover:bg-slate-100 active:bg-slate-200 transition text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/40 shrink-0"
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+        title="Menu"
       >
-        {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        {isMobileMenuOpen ? (
+          <X className="w-5 h-5 text-slate-800 transition-transform duration-200 rotate-90 animate-in spin-in-90" />
+        ) : (
+          <Menu className="w-5 h-5 text-slate-800 transition-transform duration-200" />
+        )}
       </button>
     </div>
   );
@@ -782,50 +786,60 @@ export default function Navbar() {
     return (
       <div
         ref={mobileMenuRef}
-        className={`md:hidden fixed inset-x-0 ${topOffsetClass} bottom-0 bg-white z-40 overflow-y-auto border-t border-slate-100 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200`}
+        className={`md:hidden fixed inset-x-0 ${topOffsetClass} bottom-0 bg-white/98 backdrop-blur-xl z-40 overflow-y-auto border-t border-slate-100 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200`}
       >
-        <div className="p-4 space-y-2">
-          {/* Global search in mobile drawer for non-home customer pages */}
-          {!isHomePage && (
-            <div className="mb-3">
-              {renderGlobalSearchBar('w-full', false)}
-            </div>
-          )}
-
-          {/* Address selector button */}
+        <div className="max-w-lg mx-auto p-4 space-y-3.5 pb-10">
+          {/* 1. Address selector card */}
           <button
             onClick={() => {
               setIsLocationModalOpen(true);
               setIsMobileMenuOpen(false);
             }}
-            className="flex items-center gap-3 w-full p-3.5 rounded-2xl bg-slate-50 hover:bg-slate-100 transition border border-slate-100 mb-2"
+            className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 hover:bg-orange-50/50 border border-slate-200/80 hover:border-orange-200 transition text-left group"
           >
-            <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
-              <MapPin className="w-5 h-5 text-orange-600" />
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <MapPin className="w-5 h-5 text-orange-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Delivering to
+                </p>
+                <p className="text-sm font-semibold text-slate-800 truncate group-hover:text-orange-600 transition">
+                  {selectedAddress ? selectedAddress.area || selectedAddress.name : 'Choose location'}
+                </p>
+                <p className="text-xs text-slate-500 truncate">
+                  {selectedAddress ? selectedAddress.city : 'Tap to set delivery address'}
+                </p>
+              </div>
             </div>
-            <div className="text-left flex-1 min-w-0">
-              <p className="text-sm font-semibold text-slate-800 truncate">
-                {selectedAddress ? selectedAddress.area || selectedAddress.name : 'Choose location'}
-              </p>
-              <p className="text-xs text-slate-400 truncate">
-                {selectedAddress ? selectedAddress.city : 'Tap to set delivery address'}
-              </p>
+            <div className="flex items-center gap-1.5 shrink-0 pl-2">
+              <span className="text-xs font-semibold text-orange-600 bg-white px-2.5 py-1 rounded-full border border-orange-100 shadow-2xs">
+                Change
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </div>
-            <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
           </button>
 
-          {/* Guest welcome & authentication buttons in mobile drawer */}
-          {!isAuthenticated && (
-            <div className="p-3 bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl border border-orange-100/80 mb-3">
-              <p className="text-xs font-semibold text-orange-900 mb-1">Welcome to QuickBite</p>
-              <p className="text-xs text-slate-500 mb-3">Sign in for saved addresses and fast checkout.</p>
+          {/* 2. User profile card or Guest auth card */}
+          {!isAuthenticated ? (
+            <div className="p-4 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 rounded-2xl border border-orange-100/90 shadow-2xs">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold text-xs">
+                  QB
+                </div>
+                <p className="text-sm font-bold text-slate-900">Welcome to QuickBite</p>
+              </div>
+              <p className="text-xs text-slate-500 mb-3.5">
+                Sign in for saved addresses, order tracking, and fast checkout.
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => {
                     setIsMobileMenuOpen(false);
                     openLoginModal();
                   }}
-                  className="w-full py-2 bg-white text-orange-600 text-xs font-semibold rounded-xl border border-orange-200 hover:bg-orange-50 transition text-center shadow-sm"
+                  className="w-full py-2.5 bg-white text-orange-600 text-xs font-bold rounded-xl border border-orange-200 hover:bg-orange-50 active:scale-98 transition text-center shadow-xs"
                 >
                   Log in
                 </button>
@@ -834,165 +848,243 @@ export default function Navbar() {
                     setIsMobileMenuOpen(false);
                     openSignupModal();
                   }}
-                  className="w-full py-2 bg-orange-500 text-white text-xs font-semibold rounded-xl hover:bg-orange-600 transition text-center shadow-sm shadow-orange-500/20"
+                  className="w-full py-2.5 bg-orange-500 hover:bg-orange-600 active:scale-98 text-white text-xs font-bold rounded-xl transition text-center shadow-sm shadow-orange-500/25"
                 >
                   Sign up
                 </button>
               </div>
             </div>
-          )}
-
-          {/* Authenticated user profile card in mobile drawer */}
-          {isAuthenticated && (
-            <div className="p-3 bg-gradient-to-r from-orange-50/80 to-amber-50/80 rounded-2xl border border-orange-100 flex items-center gap-3 mb-3">
-              <div className="w-11 h-11 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden ring-2 ring-orange-200 shrink-0">
-                {user?.profilePicture ? (
-                  <Image
-                    src={user.profilePicture}
-                    alt="Profile"
-                    width={44}
-                    height={44}
-                    unoptimized
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-base font-bold text-orange-600">
-                    {user?.fullName?.charAt(0).toUpperCase() || 'U'}
-                  </span>
-                )}
+          ) : (
+            <div className="p-3.5 bg-gradient-to-r from-orange-50/90 to-amber-50/90 rounded-2xl border border-orange-100 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden ring-2 ring-orange-200 shrink-0">
+                  {user?.profilePicture ? (
+                    <Image
+                      src={user.profilePicture}
+                      alt="Profile"
+                      width={44}
+                      height={44}
+                      unoptimized
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-base font-bold text-orange-600">
+                      {user?.fullName?.charAt(0).toUpperCase() || 'U'}
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-slate-900 truncate">
+                    {user?.fullName || 'User'}
+                  </p>
+                  <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+                  {user?.role && (
+                    <span className="inline-block mt-1 text-[10px] uppercase font-bold tracking-wider bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full border border-orange-200/50">
+                      {user.role}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-slate-900 truncate">{user?.fullName || 'User'}</p>
-                <p className="text-xs text-slate-500 truncate">{user?.email}</p>
-                {user?.role && (
-                  <span className="inline-block mt-1 text-[10px] uppercase font-bold tracking-wider bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full border border-orange-200/50">
-                    {user.role}
-                  </span>
-                )}
-              </div>
+              <Link
+                href="/profile"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="text-xs font-semibold text-orange-600 bg-white px-3 py-1.5 rounded-full border border-orange-200 hover:bg-orange-50 transition shrink-0 shadow-2xs"
+              >
+                Profile
+              </Link>
             </div>
           )}
 
-          {/* Cart item in mobile drawer (with live badge) */}
+          {/* 3. Quick Cart & Favorites 2-Col Grid */}
           {isCustomerOrGuest && (
-            <Link
-              href="/cart"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="flex items-center justify-between p-3.5 rounded-xl hover:bg-slate-50 text-slate-700 transition"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
-                  <ShoppingBag className="w-4 h-4 text-orange-600" />
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                href="/cart"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 hover:bg-orange-50/60 border border-slate-200/70 transition group"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-orange-100/80 flex items-center justify-center shrink-0">
+                    <ShoppingBag className="w-4 h-4 text-orange-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800 truncate">My Cart</p>
+                    <p className="text-[11px] text-slate-400">
+                      {isMounted && cartItemsCount > 0 ? `${cartItemsCount} item${cartItemsCount === 1 ? '' : 's'}` : 'Empty'}
+                    </p>
+                  </div>
                 </div>
-                <span className="text-sm font-semibold text-slate-800">My Cart</span>
-              </div>
-              {isMounted && cartItemsCount > 0 && (
-                <span className="min-w-5 h-5 px-1.5 bg-orange-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center shadow-sm shadow-orange-500/30">
-                  {cartItemsCount > 99 ? '99+' : cartItemsCount}
-                </span>
-              )}
-            </Link>
+                {isMounted && cartItemsCount > 0 && (
+                  <span className="min-w-5 h-5 px-1.5 bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs">
+                    {cartItemsCount > 99 ? '99+' : cartItemsCount}
+                  </span>
+                )}
+              </Link>
+
+              <Link
+                href="/favorites"
+                onClick={(e) => {
+                  setIsMobileMenuOpen(false);
+                  if (!isAuthenticated) {
+                    e.preventDefault();
+                    toast('Please log in to view your favorite restaurants', { icon: '❤️' });
+                    openLoginModal();
+                  }
+                }}
+                className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 hover:bg-red-50/60 border border-slate-200/70 transition group"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-red-100/80 flex items-center justify-center shrink-0">
+                    <Heart className="w-4 h-4 text-red-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800 truncate">Favorites</p>
+                    <p className="text-[11px] text-slate-400">
+                      {isMounted && isAuthenticated && favoritesCount > 0 ? `${favoritesCount} saved` : 'Saved'}
+                    </p>
+                  </div>
+                </div>
+                {isMounted && isAuthenticated && favoritesCount > 0 && (
+                  <span className="min-w-5 h-5 px-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs">
+                    {favoritesCount > 9 ? '9+' : favoritesCount}
+                  </span>
+                )}
+              </Link>
+            </div>
           )}
 
-          {/* Favorites item in mobile drawer (with live badge) */}
-          {isCustomerOrGuest && (
-            <Link
-              href="/favorites"
-              onClick={(e) => {
-                setIsMobileMenuOpen(false);
-                if (!isAuthenticated) {
-                  e.preventDefault();
-                  toast('Please log in to view your favorite restaurants', { icon: '❤️' });
-                  openLoginModal();
-                }
-              }}
-              className="flex items-center justify-between p-3.5 rounded-xl hover:bg-slate-50 text-slate-700 transition"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center">
-                  <Heart className="w-4 h-4 text-red-500" />
-                </div>
-                <span className="text-sm font-semibold text-slate-800">Favorites</span>
-              </div>
-              {isMounted && isAuthenticated && favoritesCount > 0 && (
-                <span className="min-w-5 h-5 px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center shadow-sm shadow-red-500/30">
-                  {favoritesCount > 9 ? '9+' : favoritesCount}
-                </span>
-              )}
-            </Link>
-          )}
-
-          {/* Role links or guest customer links */}
-          {isAuthenticated ? (
-            roleBasedLinks
-              .filter((link) => link.href !== '/favorites') // Avoid duplicating favorites
-              .map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center gap-3 p-3.5 rounded-xl hover:bg-slate-50 text-slate-700 transition"
-                >
-                  <link.icon className="w-5 h-5 text-slate-400" />
-                  <span className="text-sm font-medium">{link.label}</span>
-                </Link>
-              ))
-          ) : (
+          {/* 4. Discover & Orders Section */}
+          <div className="space-y-1 pt-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 pb-1">
+              Discover & Orders
+            </p>
             <Link
               href="/"
               onClick={() => setIsMobileMenuOpen(false)}
-              className="flex items-center gap-3 p-3.5 rounded-xl hover:bg-slate-50 text-slate-700 transition"
+              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+                pathname === '/'
+                  ? 'bg-orange-50 text-orange-600 font-semibold'
+                  : 'text-slate-700 hover:bg-slate-50 font-medium'
+              }`}
             >
-              <Home className="w-5 h-5 text-slate-400" />
-              <span className="text-sm font-medium">Home</span>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                  <Home className={`w-4 h-4 ${pathname === '/' ? 'text-orange-600' : 'text-slate-500'}`} />
+                </div>
+                <span className="text-sm">Home</span>
+              </div>
+              <ChevronDown className="w-4 h-4 -rotate-90 text-slate-300" />
             </Link>
-          )}
 
-          {/* Customer Profile Link */}
-          {isAuthenticated && user?.role === 'customer' && (
+            {isCustomerOrGuest && (
+              <Link
+                href="/orders"
+                onClick={(e) => {
+                  setIsMobileMenuOpen(false);
+                  if (!isAuthenticated) {
+                    e.preventDefault();
+                    toast('Please log in to view order history', { icon: '📦' });
+                    openLoginModal();
+                  }
+                }}
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+                  pathname === '/orders'
+                    ? 'bg-orange-50 text-orange-600 font-semibold'
+                    : 'text-slate-700 hover:bg-slate-50 font-medium'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                    <Package className={`w-4 h-4 ${pathname === '/orders' ? 'text-orange-600' : 'text-slate-500'}`} />
+                  </div>
+                  <span className="text-sm">Order History</span>
+                </div>
+                <ChevronDown className="w-4 h-4 -rotate-90 text-slate-300" />
+              </Link>
+            )}
+
+            {/* Staff portal shortcut if applicable */}
+            {isAuthenticated && user?.role && user.role !== 'customer' && (
+              <Link
+                href={`/${user.role}/dashboard`}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-orange-50 text-orange-700 font-semibold transition"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
+                    <LayoutDashboard className="w-4 h-4 text-orange-600" />
+                  </div>
+                  <span className="text-sm">Management Portal</span>
+                </div>
+                <ChevronDown className="w-4 h-4 -rotate-90 text-orange-400" />
+              </Link>
+            )}
+          </div>
+
+          {/* 5. Account & Settings Section */}
+          <div className="space-y-1 pt-1 border-t border-slate-100">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 pt-2 pb-1">
+              Account & Settings
+            </p>
+            {isAuthenticated && user?.role === 'customer' && (
+              <Link
+                href="/profile"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+                  pathname === '/profile'
+                    ? 'bg-orange-50 text-orange-600 font-semibold'
+                    : 'text-slate-700 hover:bg-slate-50 font-medium'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                    <User className={`w-4 h-4 ${pathname === '/profile' ? 'text-orange-600' : 'text-slate-500'}`} />
+                  </div>
+                  <span className="text-sm">My Profile</span>
+                </div>
+                <ChevronDown className="w-4 h-4 -rotate-90 text-slate-300" />
+              </Link>
+            )}
+
             <Link
-              href="/profile"
+              href="/settings"
               onClick={() => setIsMobileMenuOpen(false)}
-              className="flex items-center gap-3 p-3.5 rounded-xl hover:bg-slate-50 text-slate-700 transition"
+              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+                pathname === '/settings'
+                  ? 'bg-orange-50 text-orange-600 font-semibold'
+                  : 'text-slate-700 hover:bg-slate-50 font-medium'
+              }`}
             >
-              <User className="w-5 h-5 text-slate-400" />
-              <span className="text-sm font-medium">My Profile</span>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                  <Settings className={`w-4 h-4 ${pathname === '/settings' ? 'text-orange-600' : 'text-slate-500'}`} />
+                </div>
+                <span className="text-sm">Settings</span>
+              </div>
+              <ChevronDown className="w-4 h-4 -rotate-90 text-slate-300" />
             </Link>
-          )}
+          </div>
 
-          {/* Staff portal shortcut if staff browsing customer view */}
-          {isAuthenticated && user?.role && user.role !== 'customer' && (
-            <Link
-              href={`/${user.role}/dashboard`}
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="flex items-center gap-3 p-3.5 rounded-xl bg-orange-50 text-orange-700 transition font-medium"
-            >
-              <LayoutDashboard className="w-5 h-5 text-orange-500" />
-              <span className="text-sm">Back to Management Portal</span>
-            </Link>
-          )}
-
-          <Link
-            href="/settings"
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="flex items-center gap-3 p-3.5 rounded-xl hover:bg-slate-50 text-slate-700 transition"
-          >
-            <Settings className="w-5 h-5 text-slate-400" />
-            <span className="text-sm font-medium">Settings</span>
-          </Link>
-
+          {/* 6. Session & App Footer */}
           {isAuthenticated && (
-            <>
-              <div className="my-2 border-t border-slate-100" />
+            <div className="pt-2 border-t border-slate-100">
               <button
                 onClick={handleLogoutClick}
-                className="flex items-center gap-3 w-full p-3.5 rounded-xl text-red-600 hover:bg-red-50 transition font-medium"
+                className="flex items-center gap-3 w-full p-3.5 rounded-xl text-red-600 hover:bg-red-50 active:bg-red-100 transition font-semibold text-sm"
               >
-                <LogOut className="w-5 h-5" />
+                <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-red-600">
+                  <LogOut className="w-4 h-4" />
+                </div>
                 <span>Log out</span>
               </button>
-            </>
+            </div>
           )}
+
+          {/* App Footer */}
+          <div className="pt-3 pb-1 text-center text-xs text-slate-400">
+            <p className="font-semibold text-slate-600">QuickBite</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Fast delivery, great taste</p>
+          </div>
         </div>
       </div>
     );
@@ -1150,95 +1242,7 @@ export default function Navbar() {
     );
   }
 
-  // ========== HOME PAGE NAVBAR (WITH SEARCH & DELIVERY TOGGLE ROW) ==========
-  if (isHomePage) {
-    return (
-      <>
-        <Suspense fallback={null}>
-          <SearchParamSync onQueryChange={setSearchTerm} />
-        </Suspense>
-        <LocationModal
-          isOpen={isLocationModalOpen}
-          onClose={() => setIsLocationModalOpen(false)}
-        />
-        <LogoutModal
-          isOpen={isLogoutModalOpen}
-          onClose={() => setIsLogoutModalOpen(false)}
-          onConfirm={handleConfirmLogout}
-        />
-        <AuthModal
-          isOpen={isAuthModalOpen}
-          onClose={() => setIsAuthModalOpen(false)}
-          initialMode={authModalMode}
-        />
-
-        <nav className="bg-white/95 backdrop-blur-md border-b border-slate-100 sticky top-0 z-40">
-          <div className="max-w-7xl mx-auto px-4">
-            {/* Top row */}
-            <div className="flex items-center justify-between h-16">
-              {/* Logo */}
-              <Link href="/" className="flex items-center gap-2.5 shrink-0">
-                <Image
-                  src="/logo.png"
-                  alt="QuickBite"
-                  width={32}
-                  height={32}
-                  className="w-8 h-8 object-contain"
-                  priority
-                />
-                <span className="text-xl font-bold text-orange-500 tracking-tight">QuickBite</span>
-              </Link>
-
-              {/* Location button */}
-              <button
-                onClick={() => setIsLocationModalOpen(true)}
-                className="hidden lg:flex items-center gap-2 bg-slate-50 hover:bg-slate-100 px-4 py-2 rounded-full border border-slate-200 transition text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-                aria-label="Select delivery address"
-              >
-                <MapPin className="w-4 h-4 text-orange-500" />
-                <span className="font-medium text-slate-700 max-w-30 truncate">
-                  {selectedAddress ? selectedAddress.area || selectedAddress.name : 'New address'}
-                </span>
-                <span className="text-slate-400 max-w-25 truncate">
-                  {selectedAddress ? selectedAddress.city : 'Select'}
-                </span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-              </button>
-
-              {/* Right actions */}
-              {renderRightActions()}
-            </div>
-
-            {/* Search row */}
-            <div className="flex flex-col sm:flex-row items-center gap-3 pb-3">
-              <div className="flex p-1 bg-slate-100 rounded-full shrink-0">
-                {(['delivery', 'pickup'] as const).map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => setDeliveryType(type)}
-                    className={`px-5 py-1.5 rounded-full text-sm font-medium capitalize transition ${
-                      deliveryType === type
-                        ? 'bg-white text-orange-600 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    {type === 'pickup' ? 'Pick-up' : 'Delivery'}
-                  </button>
-                ))}
-              </div>
-
-              {renderGlobalSearchBar('relative flex-1 w-full')}
-            </div>
-          </div>
-        </nav>
-
-        {/* Mobile menu for home page */}
-        {renderMobileDrawer('top-[116px] sm:top-[120px]')}
-      </>
-    );
-  }
-
-  // ========== DEFAULT & RESTAURANT PAGES NAVBAR ==========
+  // ========== UNIFIED CUSTOMER NAVBAR (ALL STOREFRONT & RESTAURANT PAGES) ==========
   return (
     <>
       <Suspense fallback={null}>
@@ -1261,33 +1265,52 @@ export default function Navbar() {
 
       <nav className="bg-white/95 backdrop-blur-md border-b border-slate-100 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-2.5 shrink-0">
-              <Image
-                src="/logo.png"
-                alt="QuickBite"
-                width={32}
-                height={32}
-                className="w-8 h-8 object-contain"
-                priority
-              />
-              <span className="text-xl font-bold text-orange-500 tracking-tight">QuickBite</span>
-            </Link>
+          {/* Main header row (64px) */}
+          <div className="flex items-center justify-between h-16 gap-2 sm:gap-4">
+            {/* Left: Brand Logo & Location Pill */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <Link href="/" className="flex items-center gap-2.5 shrink-0">
+                <Image
+                  src="/logo.png"
+                  alt="QuickBite"
+                  width={32}
+                  height={32}
+                  className="w-8 h-8 object-contain"
+                  priority
+                />
+                <span className="text-xl font-bold text-orange-500 tracking-tight">QuickBite</span>
+              </Link>
 
-            {/* Desktop Global Search Bar on customer pages */}
-            <div className="hidden lg:block flex-1 max-w-md mx-6">
-              {renderGlobalSearchBar('w-full', true)}
+              {/* Location button */}
+              <button
+                onClick={() => setIsLocationModalOpen(true)}
+                className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full border border-slate-200 transition text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 max-w-36 sm:max-w-none shrink-0"
+                aria-label="Select delivery address"
+              >
+                <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-500 shrink-0" />
+                <span className="font-medium text-slate-700 truncate max-w-20 sm:max-w-28 md:max-w-36">
+                  {selectedAddress ? selectedAddress.area || selectedAddress.name : 'Location'}
+                </span>
+                <span className="text-slate-400 max-w-24 truncate hidden xl:inline">
+                  {selectedAddress ? selectedAddress.city : 'Select'}
+                </span>
+                <ChevronDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 shrink-0" />
+              </button>
             </div>
 
-            {/* Desktop Navigation Links for Customer */}
-            <div className="hidden md:flex items-center gap-1">
+            {/* Center: Global Search Bar (Tablet & Desktop: sm+) */}
+            <div className="hidden sm:block flex-1 max-w-xs md:max-w-md lg:max-w-xl mx-2 md:mx-4">
+              {renderGlobalSearchBar('w-full', false)}
+            </div>
+
+            {/* Desktop Navigation Links (Visible on extra-wide screens) */}
+            <div className="hidden 2xl:flex items-center gap-1">
               {!isRestaurantPage &&
                 roleBasedLinks.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
-                    className={`px-3.5 py-2 rounded-xl text-sm font-medium transition ${
+                    className={`px-3 py-1.5 rounded-xl text-sm font-medium transition ${
                       pathname === link.href
                         ? 'text-orange-600 bg-orange-50'
                         : 'text-slate-600 hover:text-orange-600 hover:bg-slate-50'
@@ -1298,14 +1321,19 @@ export default function Navbar() {
                 ))}
             </div>
 
-            {/* Right actions (Consistent across all pages) */}
+            {/* Right: Actions (Favorites, Cart, Account, Hamburger) */}
             {renderRightActions()}
+          </div>
+
+          {/* Mobile Search Row (< sm screens only) */}
+          <div className="sm:hidden pb-2.5 pt-0.5">
+            {renderGlobalSearchBar('w-full', true)}
           </div>
         </div>
       </nav>
 
-      {/* Mobile drawer for restaurant and default customer pages */}
-      {renderMobileDrawer('top-16')}
+      {/* Mobile drawer */}
+      {renderMobileDrawer('top-[106px] sm:top-16')}
     </>
   );
 }

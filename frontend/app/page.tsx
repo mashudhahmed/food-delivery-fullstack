@@ -153,7 +153,7 @@ function HomePageContent() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex gap-6 items-start">
           {/* Left Sidebar */}
-          <aside className="hidden lg:block w-64 shrink-0 sticky top-40 self-start">
+          <aside className="hidden lg:block w-64 shrink-0 sticky top-20 self-start">
             <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
               <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-white z-10">
                 <div className="flex items-center gap-2">
@@ -175,7 +175,7 @@ function HomePageContent() {
                 )}
               </div>
 
-              <div className="max-h-[calc(100vh-240px)] overflow-y-auto overflow-x-hidden p-5 space-y-6">
+              <div className="max-h-[calc(100vh-160px)] overflow-y-auto overflow-x-hidden p-5 space-y-6">
                 {/* Sort By */}
                 <div>
                   <h3 className="font-semibold text-gray-800 mb-3">Sort by</h3>
