@@ -85,7 +85,20 @@ export default function Navbar() {
 
   // Mount safety for SSR hydration & check pending auth modal
   useEffect(() => {
+    // Synchronously resolve auth immediately on mount (Frame 1)
+    const authenticated = auth.isAuthenticated();
+    setIsAuthenticated(authenticated);
+    if (authenticated) {
+      const currentUser = auth.getCurrentUser();
+      setUser(currentUser);
+      if (currentUser?.role === 'customer') {
+        useFavoritesStore.getState().loadFavorites();
+      }
+    } else {
+      setUser(null);
+    }
     setIsMounted(true);
+
     const storedModal = localStorage.getItem('openAuthModal');
     if (storedModal) {
       localStorage.removeItem('openAuthModal');
@@ -219,8 +232,6 @@ export default function Navbar() {
         setUser(null);
       }
     };
-
-    queueMicrotask(handleAuthChange);
 
     const handleOpenAuthModal = (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -582,7 +593,7 @@ export default function Navbar() {
   const renderRightActions = () => (
     <div className="flex items-center gap-1 sm:gap-1.5">
       {/* Notifications (Customer only) */}
-      {isAuthenticated && user?.role === 'customer' && <NotificationDropdown />}
+      {isMounted && isAuthenticated && user?.role === 'customer' && <NotificationDropdown />}
 
       {/* Favorites (Customer & Guest - Desktop/Tablet) */}
       {isCustomerOrGuest && (
@@ -624,7 +635,15 @@ export default function Navbar() {
       )}
 
       {/* Profile or Login/Signup (Desktop/Tablet - on mobile these are inside the hamburger ☰) */}
-      {isAuthenticated ? (
+      {!isMounted ? (
+        <div
+          className="hidden md:flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-full bg-slate-100/80 animate-pulse border border-slate-200/50"
+          aria-hidden="true"
+        >
+          <div className="w-8 h-8 rounded-full bg-slate-200/80 shrink-0" />
+          <div className="hidden sm:block w-14 h-3.5 bg-slate-200/80 rounded-md" />
+        </div>
+      ) : isAuthenticated ? (
         <div className="hidden md:block relative" ref={profileMenuRef}>
           <button
             onClick={() => setIsProfileOpen(!isProfileOpen)}
@@ -822,7 +841,15 @@ export default function Navbar() {
           </button>
 
           {/* 2. User profile card or Guest auth card */}
-          {!isAuthenticated ? (
+          {!isMounted ? (
+            <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-100 animate-pulse flex items-center gap-3">
+              <div className="w-11 h-11 rounded-full bg-slate-200/80 shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="w-24 h-4 bg-slate-200/80 rounded" />
+                <div className="w-36 h-3 bg-slate-200/80 rounded" />
+              </div>
+            </div>
+          ) : !isAuthenticated ? (
             <div className="p-4 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 rounded-2xl border border-orange-100/90 shadow-2xs">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-6 h-6 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold text-xs">
@@ -1004,7 +1031,7 @@ export default function Navbar() {
             )}
 
             {/* Staff portal shortcut if applicable */}
-            {isAuthenticated && user?.role && user.role !== 'customer' && (
+            {isMounted && isAuthenticated && user?.role && user.role !== 'customer' && (
               <Link
                 href={`/${user.role}/dashboard`}
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -1026,7 +1053,7 @@ export default function Navbar() {
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 pt-2 pb-1">
               Account & Settings
             </p>
-            {isAuthenticated && user?.role === 'customer' && (
+            {isMounted && isAuthenticated && user?.role === 'customer' && (
               <Link
                 href="/profile"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -1066,7 +1093,7 @@ export default function Navbar() {
           </div>
 
           {/* 6. Session & App Footer */}
-          {isAuthenticated && (
+          {isMounted && isAuthenticated && (
             <div className="pt-2 border-t border-slate-100">
               <button
                 onClick={handleLogoutClick}
