@@ -59,14 +59,15 @@ export default function Footer() {
             </p>
             <div className="flex gap-2.5">
               {[
-                { Icon: FaFacebook, href: '#' },
-                { Icon: FaTwitter, href: '#' },
-                { Icon: FaInstagram, href: '#' },
-                { Icon: FaYoutube, href: '#' },
-              ].map(({ Icon, href }, i) => (
+                { Icon: FaFacebook, href: '#', label: 'Follow QuickBite on Facebook' },
+                { Icon: FaTwitter, href: '#', label: 'Follow QuickBite on Twitter' },
+                { Icon: FaInstagram, href: '#', label: 'Follow QuickBite on Instagram' },
+                { Icon: FaYoutube, href: '#', label: 'Follow QuickBite on YouTube' },
+              ].map(({ Icon, href, label }, i) => (
                 <a
                   key={i}
                   href={href}
+                  aria-label={label}
                   className="w-9 h-9 rounded-xl bg-white/5 hover:bg-orange-500 flex items-center justify-center transition-colors"
                 >
                   <Icon className="w-4 h-4" />
@@ -187,7 +188,10 @@ export default function Footer() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Globe className="w-3.5 h-3.5 text-slate-500" />
-            <select className="bg-transparent text-sm text-slate-400 border-none focus:outline-none cursor-pointer">
+            <select
+              aria-label="Select language"
+              className="bg-transparent text-sm text-slate-400 border-none focus:outline-none cursor-pointer"
+            >
               <option className="bg-slate-900">English (EN)</option>
               <option className="bg-slate-900">বাংলা (BN)</option>
             </select>
