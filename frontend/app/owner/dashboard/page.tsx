@@ -1,7 +1,7 @@
 // app/owner/dashboard/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { api } from '@/lib/api';
@@ -14,9 +14,35 @@ import {
   Star,
   Package,
   Eye,
+  Store,
+  Phone,
+  MapPin,
+  Clock,
+  X,
+  ExternalLink,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  RefreshCw,
+  ArrowRight,
+  Bike,
 } from 'lucide-react';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
+import { wsService } from '@/lib/websocket';
+import { playKitchenAlertSound } from '@/lib/sound';
 
 interface OwnerStats {
   totalRestaurants: number;
@@ -136,6 +162,12 @@ export default function OwnerDashboardPage() {
   const [restaurants, setRestaurants] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [togglingStore, setTogglingStore] = useState(false);
+  const [selectedDrawerOrder, setSelectedDrawerOrder] = useState<any | null>(null);
+  const [loadingDrawerDetails, setLoadingDrawerDetails] = useState(false);
+  const [updatingDrawerStatus, setUpdatingDrawerStatus] = useState(false);
+
   const [stats, setStats] = useState<OwnerStats>({
     totalRestaurants: 0,
     totalOrders: 0,
@@ -171,23 +203,14 @@ export default function OwnerDashboardPage() {
     { month: 'Jun', pending: 0, preparing: 0, delivered: 0 },
   ]);
 
-  useEffect(() => {
-    const currentUser = auth.getCurrentUser();
-    if (!currentUser || currentUser.role !== 'owner') {
-      router.push('/');
-      return;
-    }
-    setUser(currentUser);
-    fetchOwnerData();
-  }, []);
-
-  const fetchOwnerData = async () => {
-    setLoading(true);
+  const fetchOwnerData = useCallback(async (isManual = false) => {
+    if (isManual) setRefreshing(true);
     try {
       const currentUser = auth.getCurrentUser();
+      if (!currentUser) return;
 
       // Fetch restaurants owned by this owner
-      const restaurantsRes = await api.get(`/restaurants?ownerId=${currentUser?.id}`);
+      const restaurantsRes = await api.get(`/restaurants?ownerId=${currentUser.id}`);
       const ownerRestaurants = ensureArray(restaurantsRes.data);
       setRestaurants(ownerRestaurants);
 
@@ -312,9 +335,90 @@ export default function OwnerDashboardPage() {
       });
     } catch (error) {
       console.error('Failed to fetch owner data:', error);
-      toast.error('Failed to load dashboard data');
+      if (isManual) toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
+      if (isManual) setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const currentUser = auth.getCurrentUser();
+    if (!currentUser || currentUser.role !== 'owner') {
+      router.push('/');
+      return;
+    }
+    setUser(currentUser);
+    void fetchOwnerData();
+
+    wsService.connect();
+    const handleUpdate = () => {
+      void fetchOwnerData();
+    };
+
+    const handleNotification = (payload: any) => {
+      const type = payload?.type;
+      if (
+        type === 'new_order' ||
+        type === 'order_created' ||
+        payload?.title?.toLowerCase().includes('order')
+      ) {
+        playKitchenAlertSound();
+        toast.success(payload?.message || '🔔 New kitchen order received!', { duration: 6000 });
+        void fetchOwnerData();
+      }
+    };
+
+    wsService.on('notification', handleNotification);
+    wsService.on('order-status-update', handleUpdate);
+
+    // Live auto-refresh polling every 15s
+    const pollTimer = setInterval(() => {
+      void fetchOwnerData();
+    }, 15000);
+
+    return () => {
+      clearInterval(pollTimer);
+      wsService.off('notification', handleNotification);
+      wsService.off('order-status-update', handleUpdate);
+    };
+  }, [fetchOwnerData, router]);
+
+  const toggleStoreStatus = async () => {
+    if (!restaurants || restaurants.length === 0) return;
+    const currentRestaurant = restaurants[0];
+    const newStatus = currentRestaurant.isOpen === false ? true : false;
+    try {
+      setTogglingStore(true);
+      await api.patch(`/restaurants/${currentRestaurant.id}`, { isOpen: newStatus });
+      setRestaurants((prev) =>
+        prev.map((r, i) => (i === 0 ? { ...r, isOpen: newStatus } : r)),
+      );
+      toast.success(
+        newStatus
+          ? `"${currentRestaurant.name}" is now OPEN for orders`
+          : `"${currentRestaurant.name}" is now PAUSED / CLOSED`,
+      );
+    } catch (err) {
+      toast.error('Failed to update restaurant status');
+    } finally {
+      setTogglingStore(false);
+    }
+  };
+
+  const openOrderDrawer = async (order: any) => {
+    setSelectedDrawerOrder(order);
+    try {
+      setLoadingDrawerDetails(true);
+      const res = await api.get(`/orders/${order.id}`);
+      const details = res.data?.data || res.data;
+      if (details) {
+        setSelectedDrawerOrder(details);
+      }
+    } catch (err) {
+      // Keep basic order
+    } finally {
+      setLoadingDrawerDetails(false);
     }
   };
 
@@ -322,11 +426,17 @@ export default function OwnerDashboardPage() {
 
   const updateOrderStatus = async (orderId: string, status: string) => {
     try {
+      setUpdatingDrawerStatus(true);
       await api.patch(`/orders/${orderId}/status`, { status });
       toast.success(`Order status updated to ${status}`);
+      if (selectedDrawerOrder?.id === orderId) {
+        setSelectedDrawerOrder((prev: any) => ({ ...prev, status }));
+      }
       fetchOwnerData();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to update status');
+    } finally {
+      setUpdatingDrawerStatus(false);
     }
   };
 
@@ -362,14 +472,95 @@ export default function OwnerDashboardPage() {
   ];
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
-        <p className="text-sm text-gray-500 mt-1">Welcome back, {user?.fullName?.split(' ')[0] || 'Owner'}</p>
+    <div className="space-y-6">
+      {/* Dashboard Top Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Welcome back, {user?.fullName?.split(' ')[0] || 'Owner'} • Kitchen Operations Center
+          </p>
+        </div>
+
+        <div className="flex items-center flex-wrap gap-2.5">
+          {/* Store Open / Paused status button */}
+          {restaurants.length > 0 && (
+            <button
+              type="button"
+              onClick={toggleStoreStatus}
+              disabled={togglingStore}
+              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition shadow-xs ${
+                restaurants[0].isOpen !== false
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                  : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+              }`}
+            >
+              {togglingStore ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    restaurants[0].isOpen !== false
+                      ? 'bg-emerald-500 animate-pulse'
+                      : 'bg-rose-500'
+                  }`}
+                />
+              )}
+              <span>
+                {restaurants[0].isOpen !== false
+                  ? 'Store Open (Accepting Orders)'
+                  : 'Store Paused / Closed'}
+              </span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => fetchOwnerData(true)}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 transition shadow-xs"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+
+          <Link
+            href="/owner/orders"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-bold transition shadow-xs"
+          >
+            <span>Kitchen Console</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
       </div>
 
+      {/* Pending Orders Triage Alert Banner */}
+      {stats.pendingOrders > 0 && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-amber-100 text-amber-700 rounded-xl shrink-0">
+              <AlertCircle className="w-5 h-5 animate-bounce" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-amber-900">
+                {stats.pendingOrders} New Order{stats.pendingOrders > 1 ? 's' : ''} Awaiting Kitchen Confirmation!
+              </p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Customers are waiting for confirmation. Accept promptly to maintain fast preparation times.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/owner/orders"
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition whitespace-nowrap shadow-xs text-center"
+          >
+            Review Pending Orders
+          </Link>
+        </div>
+      )}
+
       {/* Main Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Total Revenue" value={stats.totalRevenue} icon={DollarSign} trend={stats.revenueGrowth} tint="bg-emerald-50 text-emerald-600" />
         <StatCard title="Total Orders" value={stats.totalOrders} icon={ShoppingBag} trend={stats.orderGrowth} tint="bg-blue-50 text-blue-600" />
         <StatCard title="Completion Rate" value={`${stats.completionRate}%`} icon={CheckCircle} tint="bg-orange-50 text-orange-600" />
@@ -377,7 +568,7 @@ export default function OwnerDashboardPage() {
       </div>
 
       {/* Secondary Stats - Order Status Breakdown */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         {statusTiles.map((tile) => (
           <div key={tile.key} className="bg-white rounded-xl border border-gray-100 shadow-sm shadow-black/2 p-3 text-center">
             <div className="flex items-center justify-center gap-1.5 mb-1">
@@ -390,7 +581,7 @@ export default function OwnerDashboardPage() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 p-6">
           <h3 className="font-semibold text-gray-800 mb-4">Revenue & Orders Trend</h3>
           <ResponsiveContainer width="100%" height={300}>
@@ -426,9 +617,18 @@ export default function OwnerDashboardPage() {
 
       {/* Recent Orders Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-black/2 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-800">Recent Orders</h3>
-          <p className="text-sm text-gray-500 mt-1">Track and manage incoming orders</p>
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-gray-800">Recent Orders</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Track and manage incoming kitchen orders</p>
+          </div>
+          <Link
+            href="/owner/orders"
+            className="text-xs font-semibold text-orange-600 hover:text-orange-700 flex items-center gap-1"
+          >
+            <span>Open Kitchen Console</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -480,7 +680,7 @@ export default function OwnerDashboardPage() {
                           {order.status === 'pending' && (
                             <button
                               onClick={() => updateOrderStatus(order.id, 'preparing')}
-                              className="text-xs font-medium bg-blue-500 text-white px-3 py-1.5 rounded-lg hover:bg-blue-600 transition"
+                              className="text-xs font-semibold bg-blue-500 text-white px-3 py-1.5 rounded-lg hover:bg-blue-600 transition"
                             >
                               Accept
                             </button>
@@ -488,14 +688,14 @@ export default function OwnerDashboardPage() {
                           {order.status === 'preparing' && (
                             <button
                               onClick={() => updateOrderStatus(order.id, 'ready')}
-                              className="text-xs font-medium bg-emerald-500 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-600 transition"
+                              className="text-xs font-semibold bg-emerald-500 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-600 transition"
                             >
                               Mark Ready
                             </button>
                           )}
                           <button
-                            onClick={() => router.push(`/orders/${order.id}`)}
-                            className="text-xs font-medium text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 hover:text-gray-800 flex items-center gap-1.5 transition"
+                            onClick={() => openOrderDrawer(order)}
+                            className="text-xs font-semibold text-orange-600 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             View
@@ -510,6 +710,212 @@ export default function OwnerDashboardPage() {
           </table>
         </div>
       </div>
+
+      {/* ============================================================== */}
+      {/* IN-DASHBOARD KITCHEN ORDER DRAWER MODAL                        */}
+      {/* ============================================================== */}
+      {selectedDrawerOrder && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !updatingDrawerStatus) {
+              setSelectedDrawerOrder(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <span className="font-mono font-bold text-base text-gray-900">
+                  #{selectedDrawerOrder.id?.slice(0, 8).toUpperCase()}
+                </span>
+                <span
+                  className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ring-1 ring-inset ${
+                    getStatusBadge(selectedDrawerOrder.status).color
+                  } ${getStatusBadge(selectedDrawerOrder.status).ring}`}
+                >
+                  {getStatusBadge(selectedDrawerOrder.status).text}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDrawerOrder(null)}
+                disabled={updatingDrawerStatus}
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Drawer Body */}
+            <div className="overflow-y-auto p-6 space-y-5">
+              {loadingDrawerDetails ? (
+                <div className="py-12 flex flex-col items-center justify-center text-gray-400 gap-2">
+                  <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+                  <p className="text-xs">Loading order details...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Restaurant & Placed Time */}
+                  <div className="flex items-center justify-between text-xs text-gray-500 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <span className="flex items-center gap-1.5 font-medium text-gray-800">
+                      <Store className="w-4 h-4 text-orange-500" />
+                      {selectedDrawerOrder.restaurant?.name || 'Restaurant'}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" />
+                      {selectedDrawerOrder.placedAt
+                        ? new Date(selectedDrawerOrder.placedAt).toLocaleString()
+                        : '—'}
+                    </span>
+                  </div>
+
+                  {/* Customer Information */}
+                  <div className="p-4 rounded-xl border border-gray-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        Customer Details
+                      </p>
+                      {(selectedDrawerOrder.customerPhone || selectedDrawerOrder.customer?.phone) && (
+                        <a
+                          href={`tel:${
+                            selectedDrawerOrder.customerPhone || selectedDrawerOrder.customer?.phone
+                          }`}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition"
+                        >
+                          <Phone className="w-3 h-3" />
+                          Call Customer
+                        </a>
+                      )}
+                    </div>
+                    <p className="text-sm font-bold text-gray-900">
+                      {selectedDrawerOrder.customerName ||
+                        selectedDrawerOrder.customer?.fullName ||
+                        'Customer'}
+                    </p>
+                    <p className="text-xs text-gray-600 flex items-start gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />
+                      <span>{selectedDrawerOrder.deliveryAddress || 'No address provided'}</span>
+                    </p>
+                    {selectedDrawerOrder.deliveryInstructions && (
+                      <p className="text-xs text-amber-800 bg-amber-50 p-2 rounded-lg border border-amber-200">
+                        <strong>Kitchen Note:</strong> {selectedDrawerOrder.deliveryInstructions}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Food Prep Ticket Items */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Ordered Dishes ({selectedDrawerOrder.items?.length || 0})
+                    </p>
+                    <div className="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
+                      {selectedDrawerOrder.items && selectedDrawerOrder.items.length > 0 ? (
+                        selectedDrawerOrder.items.map((it: any, idx: number) => (
+                          <div
+                            key={it.id || idx}
+                            className="p-3 flex items-center justify-between text-xs hover:bg-gray-50/50"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-6 h-6 rounded-lg bg-orange-100 text-orange-800 font-bold flex items-center justify-center text-xs">
+                                {it.quantity}x
+                              </span>
+                              <span className="font-semibold text-gray-800">
+                                {it.menuItem?.name || it.name || 'Dish Item'}
+                              </span>
+                            </div>
+                            <span className="font-bold text-gray-900">
+                              ৳{(it.unitPrice || it.price || 0) * (it.quantity || 1)}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-4 text-center text-xs text-gray-400">
+                          Items not loaded
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Courier Handoff Card if Assigned */}
+                  {selectedDrawerOrder.agent && (
+                    <div className="p-3 bg-purple-50/60 border border-purple-200 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Bike className="w-4 h-4 text-purple-600" />
+                        <div>
+                          <p className="text-xs font-bold text-purple-900">
+                            Assigned Courier: {selectedDrawerOrder.agent.fullName || 'Courier'}
+                          </p>
+                          <p className="text-[11px] text-purple-700">
+                            {selectedDrawerOrder.agent.phone || 'Phone available on assignment'}
+                          </p>
+                        </div>
+                      </div>
+                      {selectedDrawerOrder.agent.phone && (
+                        <a
+                          href={`tel:${selectedDrawerOrder.agent.phone}`}
+                          className="px-2.5 py-1 bg-white text-purple-700 border border-purple-200 rounded-lg text-xs font-semibold"
+                        >
+                          Call
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Bill Summary */}
+                  <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
+                    <span className="text-xs text-gray-500 font-medium">Total Bill Amount</span>
+                    <span className="text-lg font-black text-gray-900">
+                      ৳{Number(selectedDrawerOrder.totalAmount || selectedDrawerOrder.total || 0).toLocaleString()}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Drawer Footer Actions */}
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center gap-3">
+              <Link
+                href="/owner/orders"
+                className="flex-1 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl text-xs font-semibold text-center hover:bg-gray-100 transition"
+              >
+                Full Kitchen Console
+              </Link>
+
+              {selectedDrawerOrder.status === 'pending' && (
+                <button
+                  type="button"
+                  onClick={() => updateOrderStatus(selectedDrawerOrder.id, 'preparing')}
+                  disabled={updatingDrawerStatus}
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+                >
+                  {updatingDrawerStatus ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <span>Accept Order</span>
+                  )}
+                </button>
+              )}
+
+              {selectedDrawerOrder.status === 'preparing' && (
+                <button
+                  type="button"
+                  onClick={() => updateOrderStatus(selectedDrawerOrder.id, 'ready')}
+                  disabled={updatingDrawerStatus}
+                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+                >
+                  {updatingDrawerStatus ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <span>Mark Ready for Pickup</span>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+}

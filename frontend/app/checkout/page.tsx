@@ -77,8 +77,10 @@ export default function CheckoutPage() {
     }
 
     const customerInfo = {
-      fullName: currentUser.fullName || currentUser.name || '',
-      email: currentUser.email,
+      fullName:
+        (currentUser.fullName || currentUser.name || currentUser.email?.split('@')[0] || 'Valued Customer').trim() ||
+        'Valued Customer',
+      email: currentUser.email || undefined,
       phone: cleanPhone,
     };
 

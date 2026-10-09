@@ -25,7 +25,11 @@ export class HealthController {
       () => this.db.pingCheck('database', { timeout: 3000 }),
       () => this.dbPool.checkPoolHealth('database_pool'),
       () => this.dbPool.checkConnectionTimeout('database_timeout'),
-      () => this.disk.checkStorage('storage', { thresholdPercent: 0.9, path: '/' }),
+      () =>
+        this.disk.checkStorage('storage', {
+          thresholdPercent: 0.9,
+          path: process.platform === 'win32' ? 'C:\\' : '/',
+        }),
       () => this.memory.checkHeap('memory_heap', 300 * 1024 * 1024),
     ]);
   }

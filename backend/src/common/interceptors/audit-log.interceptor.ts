@@ -31,32 +31,42 @@ export class AuditLogInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap(async (data) => {
-        const duration = Date.now() - startTime;
-        await this.auditLogService.log(
-          user?.id || null,
-          method,
-          resource,
-          resourceId || this.extractIdFromData(data),
-          this.getChanges(method, body, data),
-          request,
-          true,
-          undefined,
-          { duration, responseStatus: context.switchToHttp().getResponse().statusCode },
-        );
+        try {
+          const duration = Date.now() - startTime;
+          const resolvedId = resourceId || this.extractIdFromData(data) || 'unknown';
+          await this.auditLogService.log(
+            user?.id || null,
+            method,
+            resource,
+            resolvedId,
+            this.getChanges(method, body, data),
+            request,
+            true,
+            undefined,
+            { duration, responseStatus: context.switchToHttp().getResponse()?.statusCode || 200 },
+          );
+        } catch (err) {
+          this.logger.warn(`AuditLogInterceptor tap error: ${err.message}`);
+        }
       }),
       catchError(async (error) => {
-        const duration = Date.now() - startTime;
-        await this.auditLogService.log(
-          user?.id || null,
-          method,
-          resource,
-          resourceId || this.extractIdFromData(error),
-          this.getChanges(method, body, null),
-          request,
-          false,
-          error.message,
-          { duration, responseStatus: error.status ?? context.switchToHttp().getResponse().statusCode },
-        );
+        try {
+          const duration = Date.now() - startTime;
+          const resolvedId = resourceId || this.extractIdFromData(error) || 'unknown';
+          await this.auditLogService.log(
+            user?.id || null,
+            method,
+            resource,
+            resolvedId,
+            this.getChanges(method, body, null),
+            request,
+            false,
+            error?.message || 'Error occurred',
+            { duration, responseStatus: error?.status ?? context.switchToHttp().getResponse()?.statusCode ?? 500 },
+          );
+        } catch (err) {
+          this.logger.warn(`AuditLogInterceptor catchError error: ${err.message}`);
+        }
         throw error;
       }),
     );
@@ -71,10 +81,11 @@ export class AuditLogInterceptor implements NestInterceptor {
   }
 
   private getResourceId(url: string, params: any): string | null {
+    if (!params) params = {};
     const idFields = ['id', 'userId', 'restaurantId', 'orderId', 'productId'];
     for (const field of idFields) {
       if (params[field]) {
-        return params[field];
+        return String(params[field]);
       }
     }
 
@@ -94,8 +105,18 @@ export class AuditLogInterceptor implements NestInterceptor {
   }
 
   private extractIdFromData(data: any): string | null {
-    if (data?.id) return data.id;
-    if (data?.data?.id) return data.data.id;
+    if (!data) return null;
+    if (typeof data === 'string' && this.isUUID(data)) return data;
+    if (data.id) return String(data.id);
+    if (data.orderId) return String(data.orderId);
+    if (data.data?.id) return String(data.data.id);
+    if (Array.isArray(data) && data.length > 0 && data[0]?.id) return String(data[0].id);
+    if (Array.isArray(data?.orders) && data.orders.length > 0 && data.orders[0]?.id) {
+      return String(data.orders[0].id);
+    }
+    if (Array.isArray(data?.results) && data.results.length > 0 && data.results[0]?.orderId) {
+      return String(data.results[0].orderId);
+    }
     return null;
   }
 

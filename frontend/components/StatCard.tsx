@@ -10,6 +10,7 @@ interface StatCardProps {
   trend?: number;
   color?: string;
   format?: 'currency' | 'percentage' | 'rating' | 'number';
+  className?: string;
 }
 
 export function StatCard({
@@ -19,6 +20,7 @@ export function StatCard({
   trend,
   color = 'bg-gradient-to-r from-orange-500 to-orange-600',
   format,
+  className = '',
 }: StatCardProps) {
   const getFormatType = (): string => {
     if (format) return format;
@@ -54,7 +56,7 @@ export function StatCard({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-200">
+    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-200 ${className}`}>
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-500 font-medium">{title}</p>

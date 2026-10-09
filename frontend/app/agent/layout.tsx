@@ -27,10 +27,10 @@ const navItems = [
   { id: 'schedule', label: 'Schedule', icon: Calendar, path: '/agent/schedule' },
 ];
 
-// Height of the global dashboard Navbar (Navbar.tsx uses h-20 = 5rem in its
+// Height of the global dashboard Navbar (Navbar.tsx uses h-16 = 4rem in its
 // isDashboardPage branch). The sidebar and its mobile toggle are offset by
-// this so they sit below it instead of overlapping it.
-const NAVBAR_HEIGHT = '5rem';
+// this so they sit seamlessly below it without any gap.
+const NAVBAR_HEIGHT = '4rem';
 
 export default function AgentLayout({
   children,

@@ -80,6 +80,8 @@ export function playNewOrderAlertSound() {
   playTone(1046.5, now + 0.36, 0.55, 'sine', 0.22);
 }
 
+export const playKitchenAlertSound = playNewOrderAlertSound;
+
 /**
  * Alert chime for delivery agents when an order becomes ready for pickup
  */

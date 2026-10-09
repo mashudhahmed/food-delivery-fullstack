@@ -46,7 +46,11 @@ export class CreateOrderDto {
   @ValidateStringLength(5, 500)
   deliveryAddress: string;
 
-  @ValidateNestedArray(() => OrderItemDto, 1, 50)
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => OrderItemDto)
+  @ArrayMinSize(1, { message: 'Order must have at least one item' })
+  @ArrayMaxSize(50, { message: 'Order cannot have more than 50 items' })
   items: OrderItemDto[];
 
   @IsOptional()
