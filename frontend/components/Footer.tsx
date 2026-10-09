@@ -2,6 +2,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Mail, Phone, MapPin, Globe, Apple, Smartphone } from 'lucide-react';
 import { FaFacebook, FaTwitter, FaInstagram, FaYoutube } from 'react-icons/fa';
@@ -43,9 +44,11 @@ export default function Footer() {
           <div className="sm:col-span-2 lg:col-span-1">
             <div className="flex items-center gap-2.5 mb-5">
               <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center p-1.5">
-                <img
+                <Image
                   src="/logo.png"
                   alt="QuickBite"
+                  width={36}
+                  height={36}
                   className="w-full h-full object-contain"
                 />
               </div>

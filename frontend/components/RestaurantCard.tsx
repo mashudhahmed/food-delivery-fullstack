@@ -21,9 +21,10 @@ interface RestaurantCardProps {
     deliveryFee?: number;
     deliveryTime?: string;
   };
+  priority?: boolean;
 }
 
-export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
+export default function RestaurantCard({ restaurant, priority = false }: RestaurantCardProps) {
   const { items, toggleFavorite } = useFavoritesStore();
   const isFavorite = items.some((i) => i.id === restaurant.id);
   const isClosed = restaurant.isOpen === false;
@@ -64,6 +65,7 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
             src={imageSrc}
             alt={restaurant.name}
             fill
+            priority={priority}
             className="object-cover group-hover:scale-105 transition duration-500"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />

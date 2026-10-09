@@ -72,6 +72,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="scroll-smooth">
+      <head>
+        <link rel="preconnect" href="https://images.unsplash.com" />
+        <link rel="dns-prefetch" href="https://images.unsplash.com" />
+        <link rel="preconnect" href="https://quickbite-backend-mzon.onrender.com" />
+        <link rel="dns-prefetch" href="https://quickbite-backend-mzon.onrender.com" />
+      </head>
       <body className={`${inter.className} antialiased`}>
         {/* ✅ ErrorBoundary properly wraps everything */}
         <ErrorBoundary>
